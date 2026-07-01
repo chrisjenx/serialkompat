@@ -2,6 +2,7 @@ package io.github.chrisjenx.serialkompat.gradle
 
 import io.github.chrisjenx.serialkompat.core.CompatibilityDirection
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 
 /**
@@ -30,4 +31,18 @@ public abstract class SerialkompatExtension {
 
     /** Serial-name prefixes to exclude from the check. */
     public abstract val exclude: ListProperty<String>
+
+    /**
+     * Breaks the team has explicitly sanctioned — each downgraded from failing to
+     * *acknowledged*. Each entry is `"<serialName> <RULE> [DIRECTION]"`, e.g.
+     * `"com.example.Order PROPERTY_REMOVED"` or
+     * `"com.example.Order PROPERTY_REMOVED FORWARD"` (omit the direction to accept both).
+     */
+    public abstract val acceptedBreaks: ListProperty<String>
+
+    /**
+     * Declared serial-name moves, old → new, so a rename is diffed as a moved
+     * contract (its contents compared) rather than a spurious remove + add.
+     */
+    public abstract val renames: MapProperty<String, String>
 }

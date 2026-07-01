@@ -1,9 +1,11 @@
 package io.github.chrisjenx.serialkompat.gradle
 
+import io.github.chrisjenx.serialkompat.core.AcceptedBreak
 import io.github.chrisjenx.serialkompat.core.CompatibilityDirection
 import io.github.chrisjenx.serialkompat.core.Contract
 import io.github.chrisjenx.serialkompat.core.ContractKind
 import io.github.chrisjenx.serialkompat.core.Element
+import io.github.chrisjenx.serialkompat.core.Rules
 import io.github.chrisjenx.serialkompat.core.Snapshot
 import io.github.chrisjenx.serialkompat.core.SnapshotFormat
 import kotlin.test.Test
@@ -60,5 +62,53 @@ class CheckExecutorTest {
     fun `the outcome carries a machine-readable json report`() {
         val outcome = execute(snapshot(Element("id", "kotlin.String")), snapshot())
         assertTrue(outcome.json.contains("\"breaking\""))
+    }
+
+    @Test
+    fun `an accepted break is acknowledged and does not fail the check`() {
+        val outcome =
+            CheckExecutor.execute(
+                baselineText = snapshot(Element("id", "kotlin.String")),
+                currentText = snapshot(), // removed required 'id' -> would break
+                direction = CompatibilityDirection.FULL,
+                include = listOf(""),
+                exclude = emptyList(),
+                failOnBreaking = true,
+                accepted = listOf(AcceptedBreak("com.example.Order", Rules.PROPERTY_REMOVED)),
+            )
+        assertFalse(outcome.failed, "the sanctioned break must not fail the gate")
+        assertTrue(outcome.report.acknowledged.isNotEmpty())
+        assertTrue(outcome.report.active.isEmpty())
+    }
+
+    private fun named(
+        serialName: String,
+        vararg elements: Element,
+    ) = SnapshotFormat.serialize(
+        Snapshot(listOf(Contract(serialName, ContractKind.CLASS, elements = elements.toList()))),
+    )
+
+    @Test
+    fun `a declared rename is diffed as a move, not a spurious break`() {
+        val baseline = named("com.example.Old", Element("id", "kotlin.String"))
+        val current = named("com.example.New", Element("id", "kotlin.String"))
+
+        // Without a declared rename this is remove(Old) + add(New) -> a breaking contract removal.
+        val withoutRename =
+            CheckExecutor.execute(baseline, current, CompatibilityDirection.FULL, listOf(""), emptyList(), true)
+        assertTrue(withoutRename.failed)
+
+        // Declaring the move makes it a plain (wire-neutral) contract move -> no break.
+        val withRename =
+            CheckExecutor.execute(
+                baseline,
+                current,
+                CompatibilityDirection.FULL,
+                listOf(""),
+                emptyList(),
+                failOnBreaking = true,
+                renames = mapOf("com.example.Old" to "com.example.New"),
+            )
+        assertFalse(withRename.failed, "a declared rename must not be a break")
     }
 }
