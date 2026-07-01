@@ -103,11 +103,13 @@ public object SnapshotFormat {
             append(CONFIG_HEADER)
             // Emitted in a fixed (alphabetical) order for byte-stability.
             appendLineItem("classDiscriminator=" + config.classDiscriminator)
+            appendLineItem("classDiscriminatorMode=" + config.classDiscriminatorMode)
             appendLineItem("coerceInputValues=" + config.coerceInputValues)
             appendLineItem("encodeDefaults=" + config.encodeDefaults)
             appendLineItem("explicitNulls=" + config.explicitNulls)
             appendLineItem("ignoreUnknownKeys=" + config.ignoreUnknownKeys)
             appendLineItem("namingStrategy=" + config.namingStrategy)
+            appendLineItem("useAlternativeNames=" + config.useAlternativeNames)
         }
 
     // --- parse -----------------------------------------------------------------
@@ -182,10 +184,12 @@ public object SnapshotFormat {
         return SnapshotConfig(
             namingStrategy = values["namingStrategy"] ?: defaults.namingStrategy,
             classDiscriminator = values["classDiscriminator"] ?: defaults.classDiscriminator,
+            classDiscriminatorMode = values["classDiscriminatorMode"] ?: defaults.classDiscriminatorMode,
             ignoreUnknownKeys = values["ignoreUnknownKeys"]?.toBooleanStrict() ?: defaults.ignoreUnknownKeys,
             encodeDefaults = values["encodeDefaults"]?.toBooleanStrict() ?: defaults.encodeDefaults,
             explicitNulls = values["explicitNulls"]?.toBooleanStrict() ?: defaults.explicitNulls,
             coerceInputValues = values["coerceInputValues"]?.toBooleanStrict() ?: defaults.coerceInputValues,
+            useAlternativeNames = values["useAlternativeNames"]?.toBooleanStrict() ?: defaults.useAlternativeNames,
         )
     }
 

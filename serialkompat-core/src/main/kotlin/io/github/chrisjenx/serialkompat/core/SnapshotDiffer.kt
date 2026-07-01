@@ -43,11 +43,13 @@ public object SnapshotDiffer {
         val fields =
             listOf<Triple<String, Any, Any>>(
                 Triple("classDiscriminator", old.classDiscriminator, new.classDiscriminator),
+                Triple("classDiscriminatorMode", old.classDiscriminatorMode, new.classDiscriminatorMode),
                 Triple("coerceInputValues", old.coerceInputValues, new.coerceInputValues),
                 Triple("encodeDefaults", old.encodeDefaults, new.encodeDefaults),
                 Triple("explicitNulls", old.explicitNulls, new.explicitNulls),
                 Triple("ignoreUnknownKeys", old.ignoreUnknownKeys, new.ignoreUnknownKeys),
                 Triple("namingStrategy", old.namingStrategy, new.namingStrategy),
+                Triple("useAlternativeNames", old.useAlternativeNames, new.useAlternativeNames),
             )
         return fields
             .filter { (_, before, after) -> before != after }

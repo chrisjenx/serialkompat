@@ -13,6 +13,12 @@ public data class SnapshotConfig(
     public val namingStrategy: String = "none",
     /** Discriminator key for polymorphic types. */
     public val classDiscriminator: String = "type",
+    /**
+     * Whether/where the class discriminator is emitted (`POLYMORPHIC`, `NONE`,
+     * `ALL_JSON_OBJECTS`). Setting it to `NONE` drops the discriminator entirely,
+     * which is a breaking change for polymorphic decoding.
+     */
+    public val classDiscriminatorMode: String = "POLYMORPHIC",
     /** Whether the reader silently drops unknown keys. */
     public val ignoreUnknownKeys: Boolean = false,
     /** Whether default values are written to the wire. */
@@ -21,4 +27,6 @@ public data class SnapshotConfig(
     public val explicitNulls: Boolean = true,
     /** Whether invalid/absent values are coerced to defaults on read. */
     public val coerceInputValues: Boolean = false,
+    /** Whether `@JsonNames` alternative keys are honored on decode. */
+    public val useAlternativeNames: Boolean = true,
 )
