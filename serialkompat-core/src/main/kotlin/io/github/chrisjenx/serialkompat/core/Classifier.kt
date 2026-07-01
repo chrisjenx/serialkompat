@@ -84,12 +84,17 @@ public class Classifier(
                     Rules.PROPERTY_REMOVED,
                     change.contract,
                     "field '${change.element.name}'",
-                    // backward: new reader meets the now-unknown old key.
-                    backward = if (readerTolerant(newConfig)) Severity.SAFE else Severity.BREAK,
+                    // backward: new reader meets the now-unknown old key. A strict reader throws (BREAK);
+                    // a tolerant reader decodes but SILENTLY DROPS the field's value — a silent-data-loss
+                    // WARN, never SAFE (design §7: "silent data-loss = WARN"). This is also what surfaces a
+                    // field rename, which the differ decomposes into remove + add.
+                    backward = if (readerTolerant(newConfig)) Severity.WARN else Severity.BREAK,
                     // forward: old reader misses the field - fine only if it was optional for it.
                     forward = if (change.element.optional) Severity.SAFE else Severity.BREAK,
                     message = "field '${change.element.name}' was removed from ${change.contract}",
-                    fixHint = "Set ignoreUnknownKeys, or keep the field until nothing uses it; else bump major.",
+                    fixHint =
+                        "Removing a field drops its data for tolerant readers; keep it (or bridge a " +
+                            "rename with @JsonNames) until nothing uses it; else bump major.",
                 )
 
             is Change.ElementOptionalityChanged ->

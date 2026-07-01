@@ -63,9 +63,19 @@ class ClassifierTest {
     }
 
     @Test
-    fun `remove optional field — a lenient new reader tolerates it backward`() {
+    fun `remove optional field — a lenient new reader still warns (silent data-loss)`() {
+        // A tolerant reader decodes without error but silently DROPS the removed field's value,
+        // so this is a silent-data-loss WARN, never SAFE (design §7: "silent data-loss = WARN").
+        // It is also what surfaces a field rename, which the differ decomposes into remove + add.
         val f = classify(Change.ElementRemoved("T", element("x", optional = true)), new = lenient)
-        assertNull(f.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.WARN, f.severity(CompatibilityDirection.BACKWARD))
+    }
+
+    @Test
+    fun `remove required field — a lenient new reader warns, never safe`() {
+        // Even a tolerant reader silently drops a removed required field's value → WARN, never SAFE.
+        val f = classify(Change.ElementRemoved("T", element("x", optional = false)), new = lenient)
+        assertEquals(Severity.WARN, f.severity(CompatibilityDirection.BACKWARD))
     }
 
     @Test

@@ -199,6 +199,18 @@ class RoundTripOracleTest {
     )
 
     @Serializable
+    @SerialName("Rename")
+    private data class RenameV1(
+        val note: String = "",
+    )
+
+    @Serializable
+    @SerialName("Rename")
+    private data class RenameV2(
+        val remark: String = "",
+    )
+
+    @Serializable
     @SerialName("Nullability")
     private data class NullabilityV1(
         val id: String?,
@@ -312,6 +324,39 @@ class RoundTripOracleTest {
             RemoveFieldV1("x", note = "present"),
             serializer<RemoveFieldV2>(),
             RemoveFieldV2("x"),
+        )
+    }
+
+    @Test
+    fun `a field rename silently loses data under a lenient reader — flagged at least WARN`() {
+        // The differ decomposes a rename into remove(note) + add(remark). Under a lenient reader the
+        // old payload decodes WITHOUT throwing — remark defaults, note is silently dropped — so
+        // soundness alone (realThrew ⇒ break) cannot catch it. Prove the loss is real, then assert
+        // the gate surfaces it as a backward WARN (silent data-loss), never leaving it silently SAFE.
+        val json = Json { ignoreUnknownKeys = true }
+        val decoded =
+            json.decodeFromString(
+                RenameV2.serializer(),
+                json.encodeToString(RenameV1.serializer(), RenameV1(note = "keep me")),
+            )
+        assertEquals("", decoded.remark) // data silently lost, no exception thrown
+
+        val oldConfig = JsonConfigReader.read(json)
+        val newConfig = JsonConfigReader.read(json)
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(RenameV1.serializer().descriptor), config = oldConfig),
+                    DescriptorSnapshotExtractor.extract(listOf(RenameV2.serializer().descriptor), config = newConfig),
+                ),
+                oldConfig,
+                newConfig,
+            )
+        val backward = findings.filter { it.direction == CompatibilityDirection.BACKWARD }
+        assertEquals(
+            Severity.WARN,
+            backward.singleOrNull()?.severity,
+            "a rename that silently drops data must surface as a backward WARN; got $findings",
         )
     }
 
