@@ -42,7 +42,7 @@ runs:
 
     - name: Post sticky PR comment
       if: github.event_name == 'pull_request' && always()
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       with:
         script: |
           const fs = require('fs');
