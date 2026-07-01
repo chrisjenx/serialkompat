@@ -31,7 +31,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Generate API docs
         run: ./gradlew dokkaGenerate --stacktrace
+      # enablement:true lets the workflow turn on GitHub Pages (Actions source) itself,
+      # so the first run doesn't fail with "Get Pages site failed" before Pages is set up.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/dokka/html
