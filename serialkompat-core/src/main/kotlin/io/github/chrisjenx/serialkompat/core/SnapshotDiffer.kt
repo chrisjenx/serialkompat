@@ -97,6 +97,9 @@ public object SnapshotDiffer {
                         if (old.nullable != new.nullable) {
                             add(Change.ElementNullabilityChanged(contract, name, old.nullable, new.nullable))
                         }
+                        if (old.jsonNames != new.jsonNames) {
+                            add(Change.ElementJsonNamesChanged(contract, name, old.jsonNames, new.jsonNames))
+                        }
                     }
                 }
             }

@@ -96,6 +96,23 @@ class SnapshotDifferTest {
     }
 
     @Test
+    fun `element jsonNames changed`() {
+        val old = snapshot(clazz("T", Element("id", "String", jsonNames = listOf("ident"))))
+        val new = snapshot(clazz("T", Element("id", "String", jsonNames = listOf("ident", "identifier"))))
+        assertEquals(
+            listOf(Change.ElementJsonNamesChanged("T", "id", listOf("ident"), listOf("ident", "identifier"))),
+            diff(old, new),
+        )
+    }
+
+    @Test
+    fun `reordered contracts produce no changes`() {
+        val a = clazz("com.example.A", Element("x", "String"))
+        val b = clazz("com.example.B", Element("y", "Int"))
+        assertEquals(emptyList(), diff(snapshot(a, b), snapshot(b, a)))
+    }
+
+    @Test
     fun `enum value added`() {
         val old = snapshot(Contract("E", ContractKind.ENUM, enumValues = listOf("A", "B")))
         val new = snapshot(Contract("E", ContractKind.ENUM, enumValues = listOf("A", "B", "C")))

@@ -56,6 +56,18 @@ public sealed interface Change {
         val nowNullable: Boolean,
     ) : Change
 
+    /**
+     * An existing element's `@JsonNames` alias set changed. Aliases are a wire
+     * fact (they widen what keys a reader accepts) and are §7's mitigation for a
+     * key rename, so adding/removing one must not be silently dropped.
+     */
+    public data class ElementJsonNamesChanged(
+        val contract: String,
+        val element: String,
+        val oldAliases: List<String>,
+        val newAliases: List<String>,
+    ) : Change
+
     /** An enum value added to an existing enum contract. */
     public data class EnumValueAdded(
         val contract: String,
