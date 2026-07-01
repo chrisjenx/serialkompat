@@ -8,24 +8,49 @@ package io.github.chrisjenx.serialkompat.core
  *
  * Identity is by serial name for contracts and by key for elements, so field
  * reordering yields no change (the [Snapshot] model already normalizes order).
- * A key or type-identity rename surfaces here as remove + add; collapsing those
- * into a rename with the aid of `@JsonNames`/rename hints is issue #12.
+ * A declared [renames] mapping lets a moved type be followed as a [Change.ContractMoved]
+ * rather than a spurious remove + add (design §8).
  *
  * Output order is deterministic: config changes first, then contracts in serial
  * name order, then each contract's member deltas in a fixed order.
  */
 public object SnapshotDiffer {
-    /** Diffs [old] (baseline) against [new] (current), oldest→newest. */
+    /**
+     * Diffs [old] (baseline) against [new] (current), oldest→newest.
+     *
+     * [renames] declares intentional serial-name changes (old → new) so a moved
+     * type is followed and its contents diffed, rather than reported as a
+     * spurious remove + add (design §8). Only renames whose both endpoints are
+     * present are honored, so a stale entry can never silently drop a contract.
+     */
     public fun diff(
         old: Snapshot,
         new: Snapshot,
+        renames: Map<String, String> = emptyMap(),
     ): List<Change> =
         buildList {
             addAll(diffConfig(old.config, new.config))
 
             val oldByName = old.contracts.associateBy { it.serialName }
             val newByName = new.contracts.associateBy { it.serialName }
+
+            // Honour a rename only for a genuine move: the source must be gone from `new` and
+            // the target new to `old`. Otherwise both endpoints are still present, and treating
+            // it as a move would silently drop the diff of a contract that is still on the wire.
+            val activeRenames =
+                renames
+                    .filterKeys { it in oldByName && it !in newByName }
+                    .filterValues { it in newByName && it !in oldByName }
+            for ((oldName, newName) in activeRenames.entries.sortedBy { it.key }) {
+                val before = oldByName.getValue(oldName)
+                val after = newByName.getValue(newName)
+                add(Change.ContractMoved(oldName, newName, after.kind))
+                addAll(diffContract(before, after))
+            }
+
+            val moved = activeRenames.keys + activeRenames.values
             for (serialName in (oldByName.keys + newByName.keys).sorted()) {
+                if (serialName in moved) continue
                 val before = oldByName[serialName]
                 val after = newByName[serialName]
                 when {

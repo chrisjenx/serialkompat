@@ -18,6 +18,7 @@ public object Rules {
     public const val SUBTYPE_ADDED: String = "SUBTYPE_ADDED"
     public const val SUBTYPE_REMOVED: String = "SUBTYPE_REMOVED"
     public const val DISCRIMINATOR_CHANGED: String = "DISCRIMINATOR_CHANGED"
+    public const val DISCRIMINATOR_VALUE_CHANGED: String = "DISCRIMINATOR_VALUE_CHANGED"
     public const val CONFIG_CHANGED: String = "CONFIG_CHANGED"
     public const val CONFIG_NAMING_STRATEGY: String = "CONFIG_NAMING_STRATEGY"
     public const val CONFIG_DISCRIMINATOR: String = "CONFIG_DISCRIMINATOR"
