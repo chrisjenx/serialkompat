@@ -33,21 +33,38 @@ runs:
     - name: Run serialkompat
       id: check
       shell: bash
+      # Inputs are passed via env, NOT interpolated into the script body: GitHub sets these as
+      # environment variables whose VALUES bash never re-parses, so a ref/task/args containing
+      # shell metacharacters is treated as data, not code (no injection, no silent gate bypass).
+      env:
+        SK_REF: ${{ inputs.ref }}
+        SK_TASK: ${{ inputs.task }}
+        SK_GRADLE_ARGS: ${{ inputs.gradle-args }}
       run: |
         set +e
-        REF_ARG=""
-        if [ -n "${{ inputs.ref }}" ]; then REF_ARG="-Pserialkompat.ref=${{ inputs.ref }}"; fi
-        ./gradlew ${{ inputs.task }} $REF_ARG ${{ inputs.gradle-args }} --console=plain
-        echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        REF_ARG=()
+        if [ -n "$SK_REF" ]; then REF_ARG=(-Pserialkompat.ref="$SK_REF"); fi
+        # SK_GRADLE_ARGS is intentionally word-split into multiple args; a variable's value is not
+        # re-parsed for ';'/'|'/'$()', so this splits into args without executing anything.
+        # shellcheck disable=SC2086
+        ./gradlew "$SK_TASK" "${REF_ARG[@]}" $SK_GRADLE_ARGS --console=plain
+        code=$?
+        echo "exit_code=$code" >> "$GITHUB_OUTPUT"
 
+    # Requires the CALLER workflow to grant `permissions: pull-requests: write` (or `issues: write`);
+    # without it the GitHub API returns 403 and this step fails for a reason unrelated to compatibility.
     - name: Post sticky PR comment
       if: github.event_name == 'pull_request' && always()
       uses: actions/github-script@v9
+      # report-path via env (read as process.env), not interpolated into the JS source — a value
+      # containing a quote would otherwise inject arbitrary JavaScript into this token-privileged step.
+      env:
+        SK_REPORT_PATH: ${{ inputs.report-path }}
       with:
         script: |
           const fs = require('fs');
           const marker = '<!-- serialkompat -->';
-          const path = '${{ inputs.report-path }}';
+          const path = process.env.SK_REPORT_PATH;
           let body;
           if (fs.existsSync(path)) {
             const report = JSON.parse(fs.readFileSync(path, 'utf8'));
