@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `Scope` + `Coverage` + `Snapshot.applyScope`: restrict checking by serial-name prefix (include/exclude, exclude wins) so a module that never crosses the wire can be left out — with the excluded set enumerable, keeping the no-silent-exclusions invariant honest.
 - Graceful degradation: `ContractKind.OPAQUE` + a crash-proof extractor — an unknown `SerialKind`, unresolved contextual/custom serializer, or extraction failure becomes an explicit opaque coverage gap (recorded, round-trippable, diffable), never an exception or a silent omission (design §10).
 - Rename/move tracking: the differ takes a `renames` map (old→new serial name) and follows a declared move as a `ContractMoved` — diffing contents instead of a spurious remove+add. The classifier scores a plain move safe and a polymorphic move a discriminator BREAK. Stale renames can't silently drop a contract.
 - Round-trip oracle test harness: cross-checks the rule matrix against real kotlinx-serialization by encoding with one schema version and decoding with the other, asserting the classifier is **sound** (never misses a real break). Corpus covers add/remove field, nullability narrowing, type change, numeric widening, and enum-value add.
