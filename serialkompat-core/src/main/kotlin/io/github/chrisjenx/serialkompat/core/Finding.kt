@@ -26,6 +26,7 @@ public object Rules {
     public const val CONFIG_ENCODE_DEFAULTS: String = "CONFIG_ENCODE_DEFAULTS"
     public const val CONFIG_EXPLICIT_NULLS: String = "CONFIG_EXPLICIT_NULLS"
     public const val CONFIG_COERCE_INPUT: String = "CONFIG_COERCE_INPUT"
+    public const val COVERAGE_GAP: String = "COVERAGE_GAP"
 }
 
 /**

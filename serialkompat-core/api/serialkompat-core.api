@@ -81,6 +81,17 @@ public final class io/github/chrisjenx/serialkompat/core/Change$ContractRemoved 
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class io/github/chrisjenx/serialkompat/core/Change$CoverageGap : io/github/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Change$CoverageGap;
+	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$CoverageGap;Ljava/lang/String;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$CoverageGap;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getSerialName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class io/github/chrisjenx/serialkompat/core/Change$DiscriminatorChanged : io/github/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
@@ -299,6 +310,7 @@ public final class io/github/chrisjenx/serialkompat/core/ContractKind : java/lan
 	public static final field CLASS Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static final field ENUM Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static final field OBJECT Lio/github/chrisjenx/serialkompat/core/ContractKind;
+	public static final field OPAQUE Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static final field POLYMORPHIC Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static final field SEALED Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
@@ -392,6 +404,7 @@ public final class io/github/chrisjenx/serialkompat/core/Rules {
 	public static final field CONFIG_NAMING_STRATEGY Ljava/lang/String;
 	public static final field CONFIG_READER_STRICTNESS Ljava/lang/String;
 	public static final field CONTRACT_REMOVED Ljava/lang/String;
+	public static final field COVERAGE_GAP Ljava/lang/String;
 	public static final field DISCRIMINATOR_CHANGED Ljava/lang/String;
 	public static final field DISCRIMINATOR_VALUE_CHANGED Ljava/lang/String;
 	public static final field ENUM_VALUE_ADDED Ljava/lang/String;
