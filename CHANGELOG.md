@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `@JvmInline value class`es are now unwrapped to their underlying wire type during extraction. A serializable inline class serializes as its single underlying value, so a field typed `UserId(val raw: Int)` is recorded as `kotlin.Int`. Previously the wrapper's serial name was recorded, so swapping a raw primitive for a wire-identical value class (or back) produced a spurious `ElementTypeChanged` and a **false `BREAK`**. Value classes are transparent — never emitted as their own contracts — but a value class wrapping a `@Serializable` type still walks that type.
+
 ### Added
 - Producer-agnostic `@Serializable` discovery: when no `types` are configured, the extractor reads FQNs from a classpath manifest (`META-INF/serialkompat/serializable-types.txt`, one per line, `#` comments and blanks ignored). The manifest may be authored by hand or emitted by a build-time step. An automated producer, if built, is a Kotlin compiler plugin — **not KSP** (issue #22).
 - Persisted-data horizon: `TransitiveCompatibility.checkAgainstHistory` verifies the current schema against *every* published version (Confluent `*_TRANSITIVE` semantics), catching a break vs an old version even when the latest looks fine; `PublishedHistory` is an append-only per-version snapshot store (refuses overwrites).

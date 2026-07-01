@@ -145,8 +145,13 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
 
     /** A canonical, whitespace-free type reference. Nullability of the top-level
      * element is recorded separately on [Element]; nested nullability is kept. */
-    private fun typeRef(descriptor: SerialDescriptor): String =
-        when (descriptor.kind) {
+    private fun typeRef(descriptor: SerialDescriptor): String {
+        // A @JvmInline value class is transparent on the wire: it serializes as its single
+        // underlying value, never as a wrapper object. Its type ref is therefore the underlying
+        // type, so that swapping a raw primitive for a wire-identical value class (or back) is
+        // not misread as a breaking type change (design §14).
+        if (descriptor.isInline) return typeRef(descriptor.getElementDescriptor(0))
+        return when (descriptor.kind) {
             StructureKind.LIST ->
                 "List<${typeRefNullable(descriptor.getElementDescriptor(0))}>"
             StructureKind.MAP ->
@@ -155,13 +160,17 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
                 )},${typeRefNullable(descriptor.getElementDescriptor(1))}>"
             else -> contractName(descriptor)
         }
+    }
 
     private fun typeRefNullable(descriptor: SerialDescriptor): String =
         typeRef(descriptor) + if (descriptor.isNullable) "?" else ""
 
     /** Descriptors reachable from an element that are themselves named contracts. */
-    private fun referencedContracts(descriptor: SerialDescriptor): List<SerialDescriptor> =
-        when (descriptor.kind) {
+    private fun referencedContracts(descriptor: SerialDescriptor): List<SerialDescriptor> {
+        // Unwrap value classes to their underlying type's references — a value class wrapping a
+        // @Serializable object still needs that object walked; one wrapping a primitive walks nothing.
+        if (descriptor.isInline) return referencedContracts(descriptor.getElementDescriptor(0))
+        return when (descriptor.kind) {
             StructureKind.LIST -> referencedContracts(descriptor.getElementDescriptor(0))
             StructureKind.MAP ->
                 referencedContracts(descriptor.getElementDescriptor(0)) +
@@ -171,6 +180,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             -> listOf(descriptor)
             else -> emptyList()
         }
+    }
 
     private fun discriminatorOf(
         descriptor: SerialDescriptor,
