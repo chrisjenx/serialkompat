@@ -191,4 +191,19 @@ class SnapshotDifferTest {
             )
         assertEquals(diff(old, new), diff(old, new))
     }
+
+    @Test
+    fun `multiple simultaneous mutations on one element each surface as their own change`() {
+        val old = snapshot(clazz("T", Element("id", "kotlin.String", optional = false, nullable = false)))
+        val new = snapshot(clazz("T", Element("id", "kotlin.Long", optional = true, nullable = true)))
+        val changes = diff(old, new)
+        assertTrue(Change.ElementTypeChanged("T", "id", "kotlin.String", "kotlin.Long") in changes)
+        assertTrue(
+            Change.ElementOptionalityChanged("T", "id", wasOptional = false, nowOptional = true) in changes,
+        )
+        assertTrue(
+            Change.ElementNullabilityChanged("T", "id", wasNullable = false, nowNullable = true) in changes,
+        )
+        assertEquals(3, changes.size, "expected exactly the three independent mutations; got $changes")
+    }
 }

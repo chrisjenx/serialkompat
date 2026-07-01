@@ -266,4 +266,53 @@ class ClassifierTest {
         assertTrue(finding.rule.isNotBlank())
         assertTrue(finding.fixHint?.isNotBlank() == true)
     }
+
+    // --- Numeric type changes --------------------------------------------------
+
+    @Test
+    fun `a numeric widening reads old data (backward safe) but breaks a strict old reader (forward)`() {
+        val f = classify(Change.ElementTypeChanged("T", "n", "kotlin.Byte", "kotlin.Int"))
+        assertNull(f.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `a numeric narrowing breaks both directions`() {
+        val f = classify(Change.ElementTypeChanged("T", "n", "kotlin.Long", "kotlin.Int"))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    // --- Coverage gaps (OPAQUE) ------------------------------------------------
+    // Unanalysable != safe: an opaque type the gate can't verify must surface as a
+    // WARN in every checked direction, never be silently assumed compatible (§10).
+
+    @Test
+    fun `a coverage gap warns in both directions`() {
+        val f = classify(Change.CoverageGap("com.example.Blob"))
+        assertEquals(Severity.WARN, f.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.WARN, f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `a coverage gap under a backward-only profile warns backward only`() {
+        val f =
+            classify(
+                Change.CoverageGap("com.example.Blob"),
+                profile = CompatibilityProfile(direction = CompatibilityDirection.BACKWARD),
+            )
+        assertEquals(Severity.WARN, f.severity(CompatibilityDirection.BACKWARD))
+        assertNull(f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `a coverage gap under a forward-only profile warns forward only`() {
+        val f =
+            classify(
+                Change.CoverageGap("com.example.Blob"),
+                profile = CompatibilityProfile(direction = CompatibilityDirection.FORWARD),
+            )
+        assertNull(f.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.WARN, f.severity(CompatibilityDirection.FORWARD))
+    }
 }
