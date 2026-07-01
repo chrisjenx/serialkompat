@@ -207,6 +207,23 @@ public class Classifier(
                     fixHint = "Don't change the discriminator key; it breaks all polymorphic decoding.",
                 )
 
+            // Moving a plain type is wire-neutral (its class name isn't on the
+            // wire); moving a polymorphic type changes the discriminator value.
+            is Change.ContractMoved ->
+                if (change.kind == ContractKind.SEALED || change.kind == ContractKind.POLYMORPHIC) {
+                    Verdict(
+                        Rules.DISCRIMINATOR_VALUE_CHANGED,
+                        change.newSerialName,
+                        "type ${change.oldSerialName} -> ${change.newSerialName}",
+                        backward = Severity.BREAK,
+                        forward = Severity.BREAK,
+                        message = "polymorphic type moved ${change.oldSerialName} -> ${change.newSerialName}",
+                        fixHint = "Pin the old value with @SerialName, or file an exception; the move is a wire break.",
+                    )
+                } else {
+                    null // plain move is safe
+                }
+
             is Change.ConfigChanged -> configVerdict(change)
         }
 

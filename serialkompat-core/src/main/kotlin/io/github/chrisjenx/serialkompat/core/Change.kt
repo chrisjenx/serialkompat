@@ -20,6 +20,16 @@ public sealed interface Change {
         val kind: ContractKind,
     ) : Change
 
+    /**
+     * A type whose serial name changed via a declared rename/move (design §8):
+     * wire-neutral for a plain type, a discriminator break for a polymorphic one.
+     */
+    public data class ContractMoved(
+        val oldSerialName: String,
+        val newSerialName: String,
+        val kind: ContractKind,
+    ) : Change
+
     /** A new element (field) on an existing contract. */
     public data class ElementAdded(
         val contract: String,

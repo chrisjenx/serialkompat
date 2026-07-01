@@ -370,6 +370,14 @@ so it knows which case applies.
 This keeps the **no-silent-exclusions** invariant honest — a moved type is tracked
 to its new home, never quietly dropped.
 
+**Implemented (#12):** the differ takes a `renames` map (old serialName → new)
+and follows declared moves — emitting `ContractMoved` and diffing contents
+instead of remove+add; the classifier scores a plain move `SAFE` and a
+polymorphic move `DISCRIMINATOR_VALUE_CHANGED` (BREAK). Only renames whose both
+endpoints exist are honored, so a stale entry can't drop a contract. The
+`@PreviousSerialName` annotation form and the structural rename-detection
+heuristic remain for v0.5.
+
 ---
 
 ## 9. Developer workflow & CI integration
