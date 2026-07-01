@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.spotless) apply false
     alias(libs.plugins.bcv)
     alias(libs.plugins.kover)
+    alias(libs.plugins.dokka)
 }
 
 allprojects {
@@ -63,10 +64,14 @@ apiValidation {
     ignoredProjects.add("serialkompat-cli")
 }
 
-// Aggregate test coverage across all modules.
+// Aggregate test coverage and API docs across the library modules.
 dependencies {
     kover(project(":serialkompat-core"))
     kover(project(":serialkompat-extractor"))
     kover(project(":serialkompat-gradle"))
     kover(project(":serialkompat-cli"))
+
+    dokka(project(":serialkompat-core"))
+    dokka(project(":serialkompat-extractor"))
+    dokka(project(":serialkompat-gradle"))
 }
