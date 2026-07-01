@@ -65,9 +65,21 @@ public class SerialkompatPlugin : Plugin<Project> {
                 // so `check` never breaks on an unconfigured project.
                 task.onlyIf { extension.types.get().isNotEmpty() }
                 task.doLast {
-                    runCheck(target, extension, currentSnapshot.get().asFile)
+                    runCheck(target, extension, currentSnapshot.get().asFile, extension.baselineRef.get())
                 }
             }
+
+        // Ad-hoc variant: check against any ref via -Pserialkompat.ref=<ref>, no config edit.
+        target.tasks.register(CHECK_AGAINST_TASK_NAME) { task ->
+            task.group = VERIFICATION_GROUP
+            task.description = "Checks against an ad-hoc ref (-Pserialkompat.ref=<ref>), else the configured baseline."
+            task.dependsOn(extract)
+            task.onlyIf { extension.types.get().isNotEmpty() }
+            task.doLast {
+                val ref = resolveBaselineRef(target.findProperty(REF_PROPERTY), extension.baselineRef.get())
+                runCheck(target, extension, currentSnapshot.get().asFile, ref)
+            }
+        }
 
         // Only gate `check` once the project has declared what crosses the wire.
         target.tasks.named("check").configure { it.dependsOn(check) }
@@ -77,8 +89,8 @@ public class SerialkompatPlugin : Plugin<Project> {
         project: Project,
         extension: SerialkompatExtension,
         current: File,
+        baselineRef: String,
     ) {
-        val baselineRef = extension.baselineRef.get()
         val git = GitRefBaseline(SystemGit(project.rootDir))
         val cache =
             SnapshotCache(
@@ -180,6 +192,8 @@ public class SerialkompatPlugin : Plugin<Project> {
     public companion object {
         public const val EXTRACT_TASK_NAME: String = "serialkompatExtract"
         public const val CHECK_TASK_NAME: String = "serialkompatCheck"
+        public const val CHECK_AGAINST_TASK_NAME: String = "serialkompatCheckAgainst"
+        private const val REF_PROPERTY: String = "serialkompat.ref"
         private const val VERIFICATION_GROUP: String = "verification"
     }
 }
