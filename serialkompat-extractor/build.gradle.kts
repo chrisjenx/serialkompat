@@ -15,6 +15,8 @@ dependencies {
     api(libs.kotlinx.serialization.core)
     // Reads JSON-specific wire annotations (@JsonNames, @JsonClassDiscriminator).
     api(libs.kotlinx.serialization.json)
+    // Resolves a serializer from a type loaded by name on the target's classpath.
+    implementation(kotlin("reflect"))
 
     testImplementation(kotlin("test"))
     testImplementation(libs.junit.jupiter.engine)

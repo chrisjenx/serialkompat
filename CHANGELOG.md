@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Gradle plugin wired end-to-end: `serialkompatExtract` runs the extractor on the target project's runtime classpath (JavaExec) and dumps the current schema; `serialkompatCheck` recomputes the baseline from `baselineRef` (git-ref-live) and fails on unacknowledged breaks. `serialkompat { … }` config extension (types, jsonInstance, baselineRef, direction, failOnBreaking, include/exclude). Proven by a TestKit functional test against a real Kotlin project; applying the plugin without configuring `types` is a safe no-op.
 - `CompatibilityEngine`: the single end-to-end entry point tying the pure pipeline together — restrict to a `Scope`, diff, classify under a `CompatibilityProfile`, and fold declared renames and accepted breaks into a `Report`. Every front end (Gradle task, CLI) shares this one implementation.
 - git-ref-live baseline: `GitRefBaseline` recomputes the target ref's schema from source in a throwaway detached worktree (no committed baseline to go stale), with a content-addressed `SnapshotCache` keyed by commit SHA and fail-closed ref resolution. `GitCommands`/`SystemGit` seam is unit-tested with a fake and a real-git integration test.
 - `Scope` + `Coverage` + `Snapshot.applyScope`: restrict checking by serial-name prefix (include/exclude, exclude wins) so a module that never crosses the wire can be left out — with the excluded set enumerable, keeping the no-silent-exclusions invariant honest.

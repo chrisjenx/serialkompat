@@ -28,32 +28,42 @@
 - **Classification** is direction-aware (`BACKWARD` / `FORWARD` / `FULL`) and **config-aware** — it reads your actual `Json { }` settings, because whether a change is safe depends on `ignoreUnknownKeys`, `namingStrategy`, `encodeDefaults`, and friends.
 - **Every rule is verified against real kotlinx-serialization** via a round-trip oracle: serialize with the old model, decode with the new one, and assert the classifier predicted what actually happened.
 
-## Intended usage (target API — not yet published)
+## Usage (implemented; not yet published to the Gradle Plugin Portal)
 
 ```kotlin
 // build.gradle.kts of a module holding @Serializable wire/persisted contracts
+import io.github.chrisjenx.serialkompat.core.CompatibilityDirection
+
 plugins {
-    kotlin("multiplatform")
+    kotlin("jvm")
     kotlin("plugin.serialization")
-    id("io.github.chrisjenx.serialkompat") version "0.1.0"
+    id("io.github.chrisjenx.serialkompat")
 }
 
 serialkompat {
-    json      = "com.example.wire.WireJson.instance" // reads your real Json { } config
-    direction = FULL
-    baseline  = gitRef("origin/main")
-    failOn    = BREAKING
+    // Root @Serializable types whose JSON wire contract must stay compatible.
+    types.set(listOf("com.example.wire.OrderEvent", "com.example.wire.Payment"))
+    // Optional: read your real Json { } config (naming strategy, discriminator, …).
+    jsonInstance.set("com.example.wire.WireJson.instance")
+    baselineRef.set("origin/main")               // recomputed live from this ref
+    direction.set(CompatibilityDirection.FULL)   // BACKWARD / FORWARD / FULL
+    failOnBreaking.set(true)
 }
 ```
 
+Two tasks are registered:
+
+- **`serialkompatExtract`** — dumps the current schema to `build/serialkompat/current.snapshot`.
+- **`serialkompatCheck`** — recomputes the baseline from `baselineRef` (git-ref-live: a throwaway worktree, no committed baseline to go stale), diffs, and fails on an unacknowledged breaking change. Wired into `check`, so it runs on every build and on CI — nothing to remember. Applying the plugin without configuring `types` is a no-op, so it never breaks an unconfigured `check`.
+
 ```console
 $ ./gradlew serialkompatCheck
-> OrderEvent.note → renamed to 'memo'  [PROPERTY_NO_DELETE, BACKWARD, BREAK]
-  Old payloads use "note"; new code can't read them.
-  Fix: add @JsonNames("note"), or record an accepted break.
-```
+serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
 
-`serialkompatCheck` wires into the `check` lifecycle, so it runs on every build and on CI — nothing to remember.
+  BREAK  PROPERTY_REMOVED  com.example.wire.OrderEvent  (backward)
+    field 'note' was removed from com.example.wire.OrderEvent
+    fix: Set ignoreUnknownKeys, or keep the field until nothing uses it; else bump major.
+```
 
 ## What counts as breaking?
 

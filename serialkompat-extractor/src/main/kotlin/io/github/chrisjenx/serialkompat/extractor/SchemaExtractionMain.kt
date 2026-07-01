@@ -1,0 +1,92 @@
+package io.github.chrisjenx.serialkompat.extractor
+
+import io.github.chrisjenx.serialkompat.core.SnapshotConfig
+import io.github.chrisjenx.serialkompat.core.SnapshotFormat
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
+import java.io.File
+import kotlin.reflect.full.createType
+
+/**
+ * The program the Gradle `serialkompatExtract` task launches on the *target
+ * project's* runtime classpath (design §4). Running on that classpath is what
+ * lets it `Class.forName` the project's `@Serializable` types, obtain their real
+ * compiled serializers, and walk the descriptors at highest fidelity.
+ *
+ * It resolves each named type to a serializer, extracts a [io.github.chrisjenx.serialkompat.core.Snapshot],
+ * and writes the canonical text form to a file for the check to consume.
+ */
+public object SchemaExtractionMain {
+    /**
+     * Extracts [typeNames] (fully-qualified `@Serializable` class names) into a
+     * snapshot written to [output]. If [jsonInstanceFqn] names a reachable `Json`
+     * instance its configuration is read; otherwise a conservative default is
+     * assumed with a warning (design §6 resolution order).
+     */
+    public fun run(
+        typeNames: List<String>,
+        jsonInstanceFqn: String?,
+        output: File,
+    ) {
+        val json = jsonInstanceFqn?.let(::loadJson) ?: Json
+        if (jsonInstanceFqn != null && loadJson(jsonInstanceFqn) == null) {
+            System.err.println(
+                "serialkompat: could not load Json instance '$jsonInstanceFqn'; assuming default config.",
+            )
+        }
+        val config = if (json === Json) SnapshotConfig() else JsonConfigReader.read(json)
+        val descriptors =
+            typeNames.map { name ->
+                serializer(Class.forName(name).kotlin.createType()).descriptor
+            }
+        val snapshot = DescriptorSnapshotExtractor.extract(descriptors, json.serializersModule, config)
+        output.absoluteFile.parentFile?.mkdirs()
+        output.writeText(SnapshotFormat.serialize(snapshot))
+    }
+
+    /** CLI shim: `--types a,b,c --out path [--json fqn]`. */
+    @JvmStatic
+    public fun main(args: Array<String>) {
+        val options = parseOptions(args)
+        val types =
+            options["types"]
+                ?.split(",")
+                ?.map(String::trim)
+                ?.filter(String::isNotEmpty)
+                .orEmpty()
+        val output = options["out"] ?: error("serialkompat: --out is required")
+        require(types.isNotEmpty()) { "serialkompat: --types is required" }
+        run(types, options["json"], File(output))
+    }
+
+    private fun parseOptions(args: Array<String>): Map<String, String> {
+        val options = mutableMapOf<String, String>()
+        var index = 0
+        while (index < args.size - 1) {
+            if (args[index].startsWith("--")) options[args[index].removePrefix("--")] = args[index + 1]
+            index += 2
+        }
+        return options
+    }
+
+    /**
+     * Best-effort reflective load of a `Json` instance named `owner.member`,
+     * supporting an `object`'s property or a file-level `val`. Returns `null` if
+     * it can't be resolved (the caller then assumes defaults).
+     */
+    private fun loadJson(fqn: String): Json? =
+        runCatching {
+            val lastDot = fqn.lastIndexOf('.')
+            if (lastDot <= 0) return null
+            val owner = Class.forName(fqn.substring(0, lastDot))
+            val member = fqn.substring(lastDot + 1)
+            val instance = runCatching { owner.getField("INSTANCE").get(null) }.getOrNull()
+            val getter = "get" + member.replaceFirstChar(Char::uppercase)
+            val value =
+                runCatching { owner.getMethod(getter).invoke(instance) }.getOrNull()
+                    ?: runCatching {
+                        owner.getDeclaredField(member).also { it.isAccessible = true }.get(instance)
+                    }.getOrNull()
+            value as? Json
+        }.getOrNull()
+}
