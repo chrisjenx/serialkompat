@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `JsonConfigReader`: reads the wire-relevant settings off a user's real `Json.configuration` (naming strategy, discriminator, ignoreUnknownKeys, encodeDefaults, explicitNulls, coerceInputValues) into a `SnapshotConfig` — binding to the actual config rather than a redeclared copy.
 - `Classifier` + `Finding` + `Rules` + `CompatibilityProfile`: applies the full rule matrix (design §7), turning structural `Change`s into per-direction, severity-ranked findings using the reader/writer `Json` config (`ignoreUnknownKeys`, `encodeDefaults`, `coerceInputValues`) and numeric-widening awareness. Reports only actionable (WARN/BREAK) findings.
 - `SnapshotExtractor` + `DescriptorSnapshotExtractor`: vendored runtime `SerialDescriptor` walk (BFS + visited-set) reading serial names, per-element optionality, nullability, `@JsonNames`, enum values, sealed subtypes, and `SerializersModule`-resolved open polymorphism into a `Snapshot`.
 - `SnapshotDiffer` + `Change` taxonomy: pure structural, direction-neutral diff of two snapshots into typed changes (contract/element add·remove, type/optionality/nullability, enum & subtype add·remove, discriminator, config). Deterministic output; field reordering yields no change.
