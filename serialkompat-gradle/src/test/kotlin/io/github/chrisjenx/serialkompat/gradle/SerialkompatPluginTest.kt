@@ -25,4 +25,13 @@ class SerialkompatPluginTest {
         val dependencyNames = check.taskDependencies.getDependencies(check).map { it.name }
         assertTrue(dependencyNames.contains(SerialkompatPlugin.CHECK_TASK_NAME))
     }
+
+    @Test
+    fun `registers serialkompatExtract and the serialkompat extension`() {
+        val project = ProjectBuilder.builder().build()
+        project.pluginManager.apply("io.github.chrisjenx.serialkompat")
+
+        assertNotNull(project.tasks.findByName(SerialkompatPlugin.EXTRACT_TASK_NAME))
+        assertNotNull(project.extensions.findByName("serialkompat"))
+    }
 }

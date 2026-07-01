@@ -1,6 +1,18 @@
+public abstract class io/github/chrisjenx/serialkompat/gradle/SerialkompatExtension {
+	public fun <init> ()V
+	public abstract fun getBaselineRef ()Lorg/gradle/api/provider/Property;
+	public abstract fun getDirection ()Lorg/gradle/api/provider/Property;
+	public abstract fun getExclude ()Lorg/gradle/api/provider/ListProperty;
+	public abstract fun getFailOnBreaking ()Lorg/gradle/api/provider/Property;
+	public abstract fun getInclude ()Lorg/gradle/api/provider/ListProperty;
+	public abstract fun getJsonInstance ()Lorg/gradle/api/provider/Property;
+	public abstract fun getTypes ()Lorg/gradle/api/provider/ListProperty;
+}
+
 public final class io/github/chrisjenx/serialkompat/gradle/SerialkompatPlugin : org/gradle/api/Plugin {
 	public static final field CHECK_TASK_NAME Ljava/lang/String;
 	public static final field Companion Lio/github/chrisjenx/serialkompat/gradle/SerialkompatPlugin$Companion;
+	public static final field EXTRACT_TASK_NAME Ljava/lang/String;
 	public fun <init> ()V
 	public synthetic fun apply (Ljava/lang/Object;)V
 	public fun apply (Lorg/gradle/api/Project;)V
