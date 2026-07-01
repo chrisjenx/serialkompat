@@ -70,7 +70,7 @@ public object SnapshotFormat {
             if (contract.discriminator != null) append(" discriminator=").append(contract.discriminator)
             when (contract.kind) {
                 ContractKind.ENUM ->
-                    appendLineItem("values=[" + contract.enumValues.joinToString(",") + "]")
+                    appendLineItem("values=" + listLiteral(contract.enumValues))
                 ContractKind.SEALED, ContractKind.POLYMORPHIC -> {
                     appendLineItem("subtypes:")
                     for (subtype in contract.subtypes) {
@@ -93,9 +93,7 @@ public object SnapshotFormat {
             if (element.optional) append(" optional")
             if (element.nullable) append(" nullable")
             if (element.jsonNames.isNotEmpty()) {
-                append(
-                    " jsonNames=[",
-                ).append(element.jsonNames.joinToString(",")).append("]")
+                append(" jsonNames=").append(listLiteral(element.jsonNames))
             }
             if (element.encodeDefault != null) append(" encodeDefault=").append(element.encodeDefault.name)
         }
@@ -152,6 +150,9 @@ public object SnapshotFormat {
     }
 
     private fun parseElement(body: String): Element {
+        require(": " in body) {
+            "serialkompat: malformed element line '$body' (expected 'name: type')"
+        }
         val name = body.substringBefore(": ")
         val tokens = body.substringAfter(": ").trim().split(" ")
         var optional = false
@@ -188,14 +189,51 @@ public object SnapshotFormat {
         )
     }
 
-    /** Parses a `[a,b,c]` list literal; an empty `[]` yields an empty list. */
-    private fun parseList(literal: String): List<String> =
-        literal
-            .trim()
-            .removeSurrounding("[", "]")
-            .split(",")
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
+    /**
+     * Parses a `[a,b,c]` list literal; an empty `[]` yields an empty list. Values
+     * may contain the `,` separator or a `\` if escaped (see [escapeListValue]),
+     * so splitting is escape-aware rather than a naive `split(",")`.
+     */
+    private fun parseList(literal: String): List<String> = splitEscaped(literal.trim().removeSurrounding("[", "]"))
+
+    /** Builds a `[a,b,c]` list literal with each value [escaped][escapeListValue]. */
+    private fun listLiteral(values: List<String>): String =
+        "[" + values.joinToString(",", transform = ::escapeListValue) + "]"
+
+    /**
+     * Escapes a value for inclusion in a `[a,b,c]` list literal: a `\` becomes
+     * `\\` and the `,` separator becomes `\,`, so a value that legally contains a
+     * comma (e.g. from `@SerialName`/`@JsonNames`) round-trips without being split.
+     */
+    private fun escapeListValue(value: String): String = value.replace("\\", "\\\\").replace(",", "\\,")
+
+    /** Splits a list literal's inner text on unescaped `,`, reversing [escapeListValue]. */
+    private fun splitEscaped(inner: String): List<String> {
+        if (inner.isEmpty()) return emptyList()
+        val tokens = mutableListOf<String>()
+        val current = StringBuilder()
+        var i = 0
+        while (i < inner.length) {
+            val c = inner[i]
+            when {
+                c == '\\' && i + 1 < inner.length -> {
+                    current.append(inner[i + 1]) // consume the escape, keep the escaped char literally
+                    i += 2
+                }
+                c == ',' -> {
+                    tokens += current.toString()
+                    current.clear()
+                    i++
+                }
+                else -> {
+                    current.append(c)
+                    i++
+                }
+            }
+        }
+        tokens += current.toString()
+        return tokens
+    }
 
     private val BLANK_LINE = Regex("\\n[ \\t]*\\n")
 }

@@ -2,6 +2,7 @@ package io.github.chrisjenx.serialkompat.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 /**
  * The canonical text form of a [Snapshot] is the diffable, reviewable artifact.
@@ -135,6 +136,56 @@ class SnapshotFormatTest {
     @Test
     fun `round-trips an empty snapshot`() {
         val s = Snapshot()
+        assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
+    }
+
+    @Test
+    fun `round-trips enum values and jsonNames containing the list separator`() {
+        // A @SerialName / @JsonNames value may legally contain a comma; it must
+        // not be split into two values on round-trip (silent contract corruption).
+        val s =
+            Snapshot(
+                listOf(
+                    Contract("E", ContractKind.ENUM, enumValues = listOf("A,B", "C")),
+                    Contract(
+                        "T",
+                        ContractKind.CLASS,
+                        elements = listOf(Element("f", "String", jsonNames = listOf("a,b", "c"))),
+                    ),
+                ),
+            )
+        assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
+    }
+
+    @Test
+    fun `rejects a malformed element line rather than fabricating an element`() {
+        val text =
+            """
+            @contract T kind=CLASS
+              this_line_has_no_colon
+            """.trimIndent()
+        assertFailsWith<IllegalArgumentException> { SnapshotFormat.parse(text) }
+    }
+
+    @Test
+    fun `round-trips an OBJECT contract`() {
+        val s = Snapshot(listOf(Contract("com.example.Ping", ContractKind.OBJECT)))
+        assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
+    }
+
+    @Test
+    fun `round-trips a POLYMORPHIC contract with subtypes`() {
+        val s =
+            Snapshot(
+                listOf(
+                    Contract(
+                        "com.example.Event",
+                        ContractKind.POLYMORPHIC,
+                        discriminator = "type",
+                        subtypes = listOf(Subtype("a", "com.example.A"), Subtype("b", "com.example.B")),
+                    ),
+                ),
+            )
         assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
     }
 }
