@@ -88,6 +88,31 @@ class ClassifierConfigTest {
     }
 
     @Test
+    fun `changing the class discriminator breaks forward too`() {
+        val f = classify(Change.ConfigChanged("classDiscriminator", "type", "kind"))
+        assertEquals(Severity.BREAK, f.forward())
+    }
+
+    @Test
+    fun `changing explicitNulls warns forward too`() {
+        val f = classify(Change.ConfigChanged("explicitNulls", "true", "false"))
+        assertEquals(Severity.WARN, f.forward())
+    }
+
+    @Test
+    fun `disabling coerceInputValues is safe forward (a reader-side flag)`() {
+        val f = classify(Change.ConfigChanged("coerceInputValues", "true", "false"))
+        assertEquals(null, f.forward())
+    }
+
+    @Test
+    fun `an unrecognized wire-relevant setting is a conservative WARN both ways`() {
+        val f = classify(Change.ConfigChanged("prettyPrintIndent", "2", "4"))
+        assertEquals(Severity.WARN, f.backward())
+        assertEquals(Severity.WARN, f.forward())
+    }
+
+    @Test
     fun `config findings carry the field as detail and a rule name`() {
         val finding = classify(Change.ConfigChanged("namingStrategy", "none", "SnakeCase")).first()
         assertTrue(finding.detail.contains("namingStrategy"))
