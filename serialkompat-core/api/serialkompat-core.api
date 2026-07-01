@@ -186,6 +186,14 @@ public final class io/github/chrisjenx/serialkompat/core/Change$SubtypeRemoved :
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class io/github/chrisjenx/serialkompat/core/Classifier {
+	public fun <init> ()V
+	public fun <init> (Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;)V
+	public synthetic fun <init> (Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun classify (Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;)Ljava/util/List;
+	public static synthetic fun classify$default (Lio/github/chrisjenx/serialkompat/core/Classifier;Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Ljava/util/List;
+}
+
 public final class io/github/chrisjenx/serialkompat/core/CompatibilityDirection : java/lang/Enum {
 	public static final field BACKWARD Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
 	public static final field FORWARD Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
@@ -195,6 +203,21 @@ public final class io/github/chrisjenx/serialkompat/core/CompatibilityDirection 
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
 	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+}
+
+public final class io/github/chrisjenx/serialkompat/core/CompatibilityProfile {
+	public fun <init> ()V
+	public fun <init> (Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;)V
+	public synthetic fun <init> (Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
+	public final fun copy (Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;)Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;
+	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDirection ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun getReaderTolerance ()Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class io/github/chrisjenx/serialkompat/core/Contract {
@@ -242,6 +265,55 @@ public final class io/github/chrisjenx/serialkompat/core/EncodeDefaultMode : jav
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/EncodeDefaultMode;
 	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/EncodeDefaultMode;
+}
+
+public final class io/github/chrisjenx/serialkompat/core/Finding {
+	public fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/Severity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Change;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun component3 ()Lio/github/chrisjenx/serialkompat/core/Severity;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun component7 ()Ljava/lang/String;
+	public final fun component8 ()Lio/github/chrisjenx/serialkompat/core/Change;
+	public final fun copy (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/Severity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Change;)Lio/github/chrisjenx/serialkompat/core/Finding;
+	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Finding;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/Severity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Change;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Finding;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getChange ()Lio/github/chrisjenx/serialkompat/core/Change;
+	public final fun getContract ()Ljava/lang/String;
+	public final fun getDetail ()Ljava/lang/String;
+	public final fun getDirection ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun getFixHint ()Ljava/lang/String;
+	public final fun getMessage ()Ljava/lang/String;
+	public final fun getRule ()Ljava/lang/String;
+	public final fun getSeverity ()Lio/github/chrisjenx/serialkompat/core/Severity;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class io/github/chrisjenx/serialkompat/core/ReaderTolerance : java/lang/Enum {
+	public static final field FROM_CONFIG Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
+	public static final field STRICT Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
+	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
+}
+
+public final class io/github/chrisjenx/serialkompat/core/Rules {
+	public static final field CONFIG_CHANGED Ljava/lang/String;
+	public static final field CONTRACT_REMOVED Ljava/lang/String;
+	public static final field DISCRIMINATOR_CHANGED Ljava/lang/String;
+	public static final field ENUM_VALUE_ADDED Ljava/lang/String;
+	public static final field ENUM_VALUE_REMOVED Ljava/lang/String;
+	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/Rules;
+	public static final field PROPERTY_ADDED Ljava/lang/String;
+	public static final field PROPERTY_NULLABILITY Ljava/lang/String;
+	public static final field PROPERTY_OPTIONALITY Ljava/lang/String;
+	public static final field PROPERTY_REMOVED Ljava/lang/String;
+	public static final field PROPERTY_TYPE_CHANGED Ljava/lang/String;
+	public static final field SUBTYPE_ADDED Ljava/lang/String;
+	public static final field SUBTYPE_REMOVED Ljava/lang/String;
 }
 
 public final class io/github/chrisjenx/serialkompat/core/Severity : java/lang/Enum {
