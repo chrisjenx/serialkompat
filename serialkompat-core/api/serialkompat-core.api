@@ -532,3 +532,9 @@ public final class io/github/chrisjenx/serialkompat/core/Subtype {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class io/github/chrisjenx/serialkompat/core/TransitiveCompatibility {
+	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/TransitiveCompatibility;
+	public final fun checkAgainstHistory (Lio/github/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/Scope;Ljava/util/List;)Lio/github/chrisjenx/serialkompat/core/Report;
+	public static synthetic fun checkAgainstHistory$default (Lio/github/chrisjenx/serialkompat/core/TransitiveCompatibility;Lio/github/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/Scope;Ljava/util/List;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Report;
+}
+
