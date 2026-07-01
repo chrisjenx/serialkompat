@@ -11,6 +11,7 @@ public object Rules {
     public const val PROPERTY_REMOVED: String = "PROPERTY_REMOVED"
     public const val PROPERTY_OPTIONALITY: String = "PROPERTY_OPTIONALITY"
     public const val PROPERTY_NULLABILITY: String = "PROPERTY_NULLABILITY"
+    public const val PROPERTY_JSON_NAMES: String = "PROPERTY_JSON_NAMES"
     public const val PROPERTY_TYPE_CHANGED: String = "PROPERTY_TYPE_CHANGED"
     public const val ENUM_VALUE_ADDED: String = "ENUM_VALUE_ADDED"
     public const val ENUM_VALUE_REMOVED: String = "ENUM_VALUE_REMOVED"

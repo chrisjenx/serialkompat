@@ -122,7 +122,10 @@ public class Classifier(
                         change.contract,
                         "field '${change.element}'",
                         backward = Severity.SAFE,
-                        forward = Severity.BREAK, // old non-null reader chokes on an emitted null
+                        // forward: an emitted null breaks an old non-null reader. If the writer omits
+                        // nulls (explicitNulls=false) the key is simply absent, so whether it breaks
+                        // depends on that field's optionality (not visible here) — conditional → WARN.
+                        forward = if (newConfig.explicitNulls) Severity.BREAK else Severity.WARN,
                         message = "field '${change.element}' became nullable in ${change.contract}",
                         fixHint = "Old readers can't accept null here; introduce a new field or bump major.",
                     )
@@ -156,10 +159,12 @@ public class Classifier(
                     change.contract,
                     "value '${change.value}'",
                     backward = Severity.SAFE,
-                    // forward: old reader meets an unknown value - safe only if it coerces to a default.
-                    forward = if (oldConfig.coerceInputValues) Severity.SAFE else Severity.BREAK,
+                    // forward: old reader meets an unknown value. coerceInputValues only rescues it
+                    // when the *field* also has a default — invisible from this change — so a coercing
+                    // reader is conditionally-safe (WARN), not proven safe; a strict reader BREAKs.
+                    forward = if (oldConfig.coerceInputValues) Severity.WARN else Severity.BREAK,
                     message = "enum value '${change.value}' was added to ${change.contract}",
-                    fixHint = "Enable coerceInputValues with a default on readers, or bump major.",
+                    fixHint = "Enable coerceInputValues *and* give the field a default on readers, or bump major.",
                 )
 
             is Change.EnumValueRemoved ->
@@ -205,6 +210,28 @@ public class Classifier(
                     message = "discriminator changed: ${change.oldDiscriminator} -> ${change.newDiscriminator}",
                     fixHint = "Don't change the discriminator key; it breaks all polymorphic decoding.",
                 )
+
+            is Change.ElementJsonNamesChanged -> {
+                // Aliases only widen the keys a reader accepts. Adding one is safe; dropping one
+                // narrows acceptance, so a peer still sending that key (heterogeneous producers,
+                // per the threat model) can break the new reader — backward, and conditional → WARN.
+                val dropped = change.oldAliases - change.newAliases.toSet()
+                if (dropped.isEmpty()) {
+                    null
+                } else {
+                    Verdict(
+                        Rules.PROPERTY_JSON_NAMES,
+                        change.contract,
+                        "field '${change.element}'",
+                        backward = Severity.WARN,
+                        forward = Severity.SAFE,
+                        message =
+                            "field '${change.element}' dropped JSON alias(es) " +
+                                "${dropped.joinToString()} in ${change.contract}",
+                        fixHint = "Keep @JsonNames aliases while any producer may still send those keys.",
+                    )
+                }
+            }
 
             // Config-change classification is issue #13.
             is Change.ConfigChanged -> null

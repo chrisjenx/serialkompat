@@ -101,10 +101,23 @@ class ClassifierTest {
     // --- Nullability -----------------------------------------------------------
 
     @Test
-    fun `non-null to nullable — backward safe, forward breaks an old reader`() {
+    fun `non-null to nullable — backward safe, forward breaks when nulls are emitted`() {
+        // Default explicitNulls=true: the writer emits null, so an old non-null reader chokes → BREAK.
         val f = classify(Change.ElementNullabilityChanged("T", "x", wasNullable = false, nowNullable = true))
         assertNull(f.severity(CompatibilityDirection.BACKWARD))
         assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `non-null to nullable — forward only a WARN when the writer omits nulls`() {
+        // explicitNulls=false: the writer omits a null field, so whether an old reader chokes
+        // depends on that field's optionality (unknowable here) — conditional, so WARN not BREAK.
+        val f =
+            classify(
+                Change.ElementNullabilityChanged("T", "x", wasNullable = false, nowNullable = true),
+                new = SnapshotConfig(explicitNulls = false),
+            )
+        assertEquals(Severity.WARN, f.severity(CompatibilityDirection.FORWARD))
     }
 
     @Test
@@ -133,13 +146,15 @@ class ClassifierTest {
     // --- Enums -----------------------------------------------------------------
 
     @Test
-    fun `enum add value — forward breaks a strict reader, safe when coercing`() {
+    fun `enum add value — forward breaks a strict reader, only a WARN when coercing`() {
         val strictReader = classify(Change.EnumValueAdded("E", "C"))
         assertNull(strictReader.severity(CompatibilityDirection.BACKWARD))
         assertEquals(Severity.BREAK, strictReader.severity(CompatibilityDirection.FORWARD))
 
+        // coerceInputValues only rescues an unknown value when the *field* has a default —
+        // which the classifier cannot see from the change — so it is conditional (WARN), not SAFE.
         val coercing = classify(Change.EnumValueAdded("E", "C"), old = SnapshotConfig(coerceInputValues = true))
-        assertNull(coercing.severity(CompatibilityDirection.FORWARD))
+        assertEquals(Severity.WARN, coercing.severity(CompatibilityDirection.FORWARD))
     }
 
     @Test
@@ -147,6 +162,21 @@ class ClassifierTest {
         val f = classify(Change.EnumValueRemoved("E", "C"))
         assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))
         assertNull(f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    // --- @JsonNames aliases ----------------------------------------------------
+
+    @Test
+    fun `dropping a JsonNames alias warns backward, adding one is safe`() {
+        val removed =
+            classify(Change.ElementJsonNamesChanged("T", "x", oldAliases = listOf("legacy"), newAliases = emptyList()))
+        // A reader that stops accepting a key it used to accept can break a peer still sending it.
+        assertEquals(Severity.WARN, removed.severity(CompatibilityDirection.BACKWARD))
+        assertNull(removed.severity(CompatibilityDirection.FORWARD))
+
+        val added =
+            classify(Change.ElementJsonNamesChanged("T", "x", oldAliases = emptyList(), newAliases = listOf("extra")))
+        assertTrue(added.isEmpty()) // widening the accepted key set is safe both ways
     }
 
     // --- Polymorphism ----------------------------------------------------------
