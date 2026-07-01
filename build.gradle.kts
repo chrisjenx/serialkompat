@@ -58,9 +58,15 @@ subprojects {
     }
 }
 
+// The CLI is an application, not a library, so it has no tracked binary API.
+apiValidation {
+    ignoredProjects.add("serialkompat-cli")
+}
+
 // Aggregate test coverage across all modules.
 dependencies {
     kover(project(":serialkompat-core"))
     kover(project(":serialkompat-extractor"))
     kover(project(":serialkompat-gradle"))
+    kover(project(":serialkompat-cli"))
 }
