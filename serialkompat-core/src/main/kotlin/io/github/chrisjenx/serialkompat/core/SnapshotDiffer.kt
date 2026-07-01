@@ -92,6 +92,7 @@ public object SnapshotDiffer {
             ContractKind.CLASS, ContractKind.OBJECT -> diffElements(after.serialName, before, after)
             ContractKind.ENUM -> diffEnumValues(after.serialName, before, after)
             ContractKind.SEALED, ContractKind.POLYMORPHIC -> diffPolymorphic(after.serialName, before, after)
+            ContractKind.OPAQUE -> emptyList() // unanalyzable — no internals to diff
         }
     }
 

@@ -20,4 +20,12 @@ public enum class ContractKind {
 
     /** An open polymorphic hierarchy resolved via a `SerializersModule`. */
     POLYMORPHIC,
+
+    /**
+     * A type the extractor could not faithfully analyze (unknown `SerialKind`,
+     * unresolved contextual/custom serializer, or an extraction failure). Recorded
+     * as an explicit coverage gap rather than crashing or being silently dropped
+     * (design §10) — never assumed safe.
+     */
+    OPAQUE,
 }

@@ -282,6 +282,7 @@ public final class io/github/chrisjenx/serialkompat/core/ContractKind : java/lan
 	public static final field CLASS Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static final field ENUM Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static final field OBJECT Lio/github/chrisjenx/serialkompat/core/ContractKind;
+	public static final field OPAQUE Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static final field POLYMORPHIC Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static final field SEALED Lio/github/chrisjenx/serialkompat/core/ContractKind;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
