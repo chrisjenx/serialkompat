@@ -544,6 +544,14 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
   `@SerialInfo` annotation, so it never appears in `getElementAnnotations` (#7).
   The `Element.encodeDefault` field stays null from runtime extraction; a
   compiler-plugin extractor (Approach C) could read it from source.
+- **`@JvmInline value class`es are unwrapped to their underlying wire type.** A
+  serializable inline class serializes as its single underlying value (never a
+  wrapper object), so the extractor reads `descriptor.isInline` and records the
+  element by the wrapped type — e.g. a field of type `UserId(val raw: Int)` is
+  recorded as `kotlin.Int`. Without this, swapping a raw `Int` for a wire-identical
+  `UserId` (or back) would surface as a spurious `ElementTypeChanged` and score a
+  false `BREAK`. Value classes are transparent: they are not emitted as their own
+  contracts, but a value class wrapping a `@Serializable` type still walks that type.
 - Generic/parameterized `@Serializable` descriptors (per-instantiation shape).
 - Contextual serializers require the `SerializersModule` (supplied by the `Json`
   instance the user points at).
