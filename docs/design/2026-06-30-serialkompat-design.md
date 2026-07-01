@@ -524,6 +524,10 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
 ---
 
 ## 14. Residual risks to validate in the plan
+- `@EncodeDefault` mode is **not recoverable** via Approach A — it is not a
+  `@SerialInfo` annotation, so it never appears in `getElementAnnotations` (#7).
+  The `Element.encodeDefault` field stays null from runtime extraction; a KSP
+  extractor (Approach C, v1) could read it from source.
 - Generic/parameterized `@Serializable` descriptors (per-instantiation shape).
 - Contextual serializers require the `SerializersModule` (supplied by the `Json`
   instance the user points at).

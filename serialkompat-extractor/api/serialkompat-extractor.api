@@ -1,9 +1,14 @@
-public final class io/github/chrisjenx/serialkompat/extractor/DirectSchemaExtractor : io/github/chrisjenx/serialkompat/extractor/SchemaExtractor {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/extractor/DirectSchemaExtractor;
-	public fun elementNames (Lkotlinx/serialization/descriptors/SerialDescriptor;)Ljava/util/List;
+public final class io/github/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor : io/github/chrisjenx/serialkompat/extractor/SnapshotExtractor {
+	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor;
+	public fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
 }
 
-public abstract interface class io/github/chrisjenx/serialkompat/extractor/SchemaExtractor {
-	public abstract fun elementNames (Lkotlinx/serialization/descriptors/SerialDescriptor;)Ljava/util/List;
+public abstract interface class io/github/chrisjenx/serialkompat/extractor/SnapshotExtractor {
+	public abstract fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
+	public static synthetic fun extract$default (Lio/github/chrisjenx/serialkompat/extractor/SnapshotExtractor;Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
+}
+
+public final class io/github/chrisjenx/serialkompat/extractor/SnapshotExtractor$DefaultImpls {
+	public static synthetic fun extract$default (Lio/github/chrisjenx/serialkompat/extractor/SnapshotExtractor;Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
 }
 
