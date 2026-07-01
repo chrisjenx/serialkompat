@@ -13,7 +13,8 @@ package io.github.chrisjenx.serialkompat.core
  *   the *writer* is the new config.
  *
  * Only actionable findings are reported: a direction that is [Severity.SAFE]
- * yields no finding. Config *changes* are classified separately (issue #13).
+ * yields no finding. Config *changes* are themselves classified (design §6): a
+ * naming-strategy or discriminator change is a BREAK, a tightened reader a WARN.
  */
 public class Classifier(
     private val profile: CompatibilityProfile = CompatibilityProfile(),
@@ -206,9 +207,66 @@ public class Classifier(
                     fixHint = "Don't change the discriminator key; it breaks all polymorphic decoding.",
                 )
 
-            // Config-change classification is issue #13.
-            is Change.ConfigChanged -> null
+            is Change.ConfigChanged -> configVerdict(change)
         }
+
+    /** Classifies a change to a wire-relevant `Json` setting (design §6). */
+    private fun configVerdict(change: Change.ConfigChanged): Verdict? {
+        val disabled = change.oldValue == "true" && change.newValue == "false"
+        val (rule, severity, hint) =
+            when (change.field) {
+                "namingStrategy" ->
+                    Triple(
+                        Rules.CONFIG_NAMING_STRATEGY,
+                        Severity.BREAK,
+                        "A naming-strategy change renames every key; keep it stable or bump major.",
+                    )
+                "classDiscriminator" ->
+                    Triple(
+                        Rules.CONFIG_DISCRIMINATOR,
+                        Severity.BREAK,
+                        "Changing the discriminator breaks all polymorphic decoding.",
+                    )
+                // Tightening (true->false) makes readers reject previously-tolerated unknown keys.
+                "ignoreUnknownKeys" ->
+                    Triple(
+                        Rules.CONFIG_READER_STRICTNESS,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        "A stricter reader now rejects previously-tolerated unknown keys.",
+                    )
+                // Disabling (true->false) may drop default-valued fields peers expected.
+                "encodeDefaults" ->
+                    Triple(
+                        Rules.CONFIG_ENCODE_DEFAULTS,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        "No longer writing defaults can drop fields peers rely on.",
+                    )
+                "explicitNulls" ->
+                    Triple(
+                        Rules.CONFIG_EXPLICIT_NULLS,
+                        Severity.WARN,
+                        "This changes whether nulls appear on the wire.",
+                    )
+                // Disabling (true->false) makes the reader stricter about invalid values.
+                "coerceInputValues" ->
+                    Triple(
+                        Rules.CONFIG_COERCE_INPUT,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        "A reader that no longer coerces invalid values may fail to decode.",
+                    )
+                else -> Triple(Rules.CONFIG_CHANGED, Severity.WARN, "A wire-relevant Json setting changed.")
+            }
+        if (severity == Severity.SAFE) return null
+        return Verdict(
+            rule,
+            "Json config",
+            "config '${change.field}' ${change.oldValue} -> ${change.newValue}",
+            backward = severity,
+            forward = severity,
+            message = "Json ${change.field} changed ${change.oldValue} -> ${change.newValue}",
+            fixHint = hint,
+        )
+    }
 
     private fun isWidening(
         oldType: String,
