@@ -75,4 +75,96 @@ class SerialkompatCliTest {
         assertEquals(2, code)
         assertTrue(output.contains("usage"))
     }
+
+    @Test
+    fun `a missing baseline file exits 2 with an error, never crashing`() {
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", File(dir, "does-not-exist.snapshot").absolutePath, current)
+        assertEquals(2, code)
+        assertTrue(output.contains("error", ignoreCase = true), "expected a controlled error, got: $output")
+    }
+
+    @Test
+    fun `a missing current file exits 2 with an error, never crashing`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, File(dir, "nope.snapshot").absolutePath)
+        assertEquals(2, code)
+        assertTrue(output.contains("error", ignoreCase = true))
+    }
+
+    @Test
+    fun `a malformed snapshot file exits 2 with an error, never crashing`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val garbage = File(dir, "garbage.snapshot").apply { writeText("this is not a snapshot\n{{{") }
+        val (code, output) = run("diff", baseline, garbage.absolutePath)
+        assertEquals(2, code)
+        assertTrue(output.contains("error", ignoreCase = true))
+    }
+
+    @Test
+    fun `--direction=FORWARD catches a forward-only break`() {
+        // required -> optional breaks only forward.
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String", optional = false))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String", optional = true))
+        assertEquals(1, run("diff", baseline, current, "--direction=FORWARD").first)
+    }
+
+    @Test
+    fun `--direction=FULL catches a forward-only break`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String", optional = false))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String", optional = true))
+        assertEquals(1, run("diff", baseline, current, "--direction=FULL").first)
+    }
+
+    @Test
+    fun `an invalid --direction value exits 2 rather than silently defaulting`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current, "--direction=SIDEWAYS")
+        assertEquals(2, code)
+        assertTrue(
+            output.contains("SIDEWAYS") || output.contains("direction"),
+            "expected a direction error, got: $output",
+        )
+    }
+
+    @Test
+    fun `an unknown flag exits 2`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current, "--bogus")
+        assertEquals(2, code)
+        assertTrue(
+            output.contains("--bogus") || output.contains("unknown"),
+            "expected an unknown-flag error, got: $output",
+        )
+    }
+
+    @Test
+    fun `--help prints usage and exits 0`() {
+        val (code, output) = run("--help")
+        assertEquals(0, code)
+        assertTrue(output.contains("usage"))
+    }
+
+    @Test
+    fun `a WARN-only diff exits 0`() {
+        // Adding a new opaque (unanalysable) contract is a WARN coverage gap, not a BREAK.
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val currentFile = File(dir, "c.snapshot")
+        val current =
+            Snapshot(
+                listOf(
+                    Contract(
+                        "com.example.Order",
+                        ContractKind.CLASS,
+                        elements = listOf(Element("id", "kotlin.String")),
+                    ),
+                    Contract("com.example.Blob", ContractKind.OPAQUE),
+                ),
+            )
+        currentFile.writeText(SnapshotFormat.serialize(current))
+        val (code, output) = run("diff", baseline, currentFile.absolutePath)
+        assertEquals(0, code, "WARN-only diff must not fail; output: $output")
+    }
 }
