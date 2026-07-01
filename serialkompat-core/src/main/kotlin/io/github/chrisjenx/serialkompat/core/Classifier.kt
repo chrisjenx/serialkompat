@@ -252,6 +252,19 @@ public class Classifier(
                 }
 
             is Change.ConfigChanged -> configVerdict(change)
+
+            // An unanalysable type can't be verified either way — surfaced as a WARN
+            // coverage gap so it is never silently assumed compatible (design §10).
+            is Change.CoverageGap ->
+                Verdict(
+                    Rules.COVERAGE_GAP,
+                    change.serialName,
+                    "type ${change.serialName}",
+                    backward = Severity.WARN,
+                    forward = Severity.WARN,
+                    message = "type ${change.serialName} is opaque (unanalysable) — the gate cannot verify it",
+                    fixHint = "Provide an analysable @Serializable form, or accept this coverage gap explicitly.",
+                )
         }
 
     /**

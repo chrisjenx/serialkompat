@@ -53,12 +53,22 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             val serialName = contractName(descriptor)
             if (!visited.add(serialName)) continue
 
+            // A gate must never crash and never silently drop a type it can't
+            // analyze (design §10): an unknown kind or a walk failure becomes an
+            // explicit OPAQUE coverage gap instead.
             val referenced = mutableListOf<SerialDescriptor>()
-            val contract = contractOf(descriptor, serialName, config, openSubtypes, referenced)
-            if (contract != null) {
-                contracts += contract
-                queue += referenced
-            }
+            val contract =
+                try {
+                    contractOf(descriptor, serialName, config, openSubtypes, referenced)
+                        ?: Contract(serialName, ContractKind.OPAQUE)
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") error: Exception,
+                ) {
+                    referenced.clear()
+                    Contract(serialName, ContractKind.OPAQUE)
+                }
+            contracts += contract
+            queue += referenced
         }
         return Snapshot(contracts, config)
     }

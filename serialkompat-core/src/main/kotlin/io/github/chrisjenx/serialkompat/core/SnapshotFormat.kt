@@ -80,6 +80,7 @@ public object SnapshotFormat {
                 }
                 ContractKind.CLASS, ContractKind.OBJECT ->
                     for (element in contract.elements) appendLineItem(serializeElement(element))
+                ContractKind.OPAQUE -> Unit // no analyzable body
             }
         }
 

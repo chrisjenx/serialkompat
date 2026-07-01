@@ -59,6 +59,15 @@ public object SnapshotDiffer {
                     before != null && after != null -> addAll(diffContract(before, after))
                 }
             }
+
+            // Surface every unanalysable contract in the current snapshot as a coverage gap,
+            // whether or not it changed — the gate cannot verify it, so it must never pass
+            // silently ("unanalysable ≠ safe", design §10). The classifier scores it a WARN.
+            new.contracts
+                .filter { it.kind == ContractKind.OPAQUE }
+                .map { it.serialName }
+                .sorted()
+                .forEach { add(Change.CoverageGap(it)) }
         }
 
     private fun diffConfig(
@@ -97,6 +106,7 @@ public object SnapshotDiffer {
             ContractKind.CLASS, ContractKind.OBJECT -> diffElements(after.serialName, before, after)
             ContractKind.ENUM -> diffEnumValues(after.serialName, before, after)
             ContractKind.SEALED, ContractKind.POLYMORPHIC -> diffPolymorphic(after.serialName, before, after)
+            ContractKind.OPAQUE -> emptyList() // unanalyzable — no internals to diff
         }
     }
 
