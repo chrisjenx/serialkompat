@@ -296,7 +296,7 @@ Under `FULL` + **strict reader**:
 |---|:---:|:---:|---|
 | Add field **with default** (optional) | SAFE | **WARN→BREAK** | `ignoreUnknownKeys`→SAFE forward |
 | Add field **no default / `@Required`** | **BREAK** | **WARN→BREAK** | backward = `MissingFieldException` |
-| Remove **optional** field | **WARN→BREAK** | SAFE¹ | `ignoreUnknownKeys`→SAFE backward |
+| Remove **optional** field | **WARN→BREAK** | SAFE¹ | `ignoreUnknownKeys`→**WARN** (silent data-loss) backward² |
 | Remove **required** field | WARN→BREAK | **BREAK** | forward = old code needs it |
 | **Rename** key (no `@JsonNames`) | **BREAK** | **BREAK** | if new field optional: silent data-loss = **WARN** |
 | Rename **with `@JsonNames(old)`** | SAFE | **BREAK** | alias fixes *backward* only |
@@ -316,6 +316,17 @@ Under `FULL` + **strict reader**:
 
 ¹ Forward-safety of removing an optional field also depends on whether *old* code
 had it optional — the engine reads both descriptors, so it knows.
+
+² A tolerant (`ignoreUnknownKeys`) reader decodes an old payload without error, but the
+removed field's value is silently dropped — a *silent semantic break* (no exception,
+lost data), which is exactly the WARN tier's definition above. So removal under a
+tolerant reader is **WARN**, never SAFE. This is also the only signal the gate has for
+a field **rename** (no `@JsonNames`): the differ decomposes it into remove + add, and the
+remove half carries the WARN. (Earlier drafts said `→SAFE`; reconciled to `→WARN` since a
+lone SAFE would let a rename silently lose data — see the false-SAFE fixed in #77.) The
+remove half only carries the WARN **backward**; the rename's *forward* loss (an old reader
+dropping the new key) is forward-`SAFE`, identical to any field addition — so a rename is
+surfaced once, as a backward WARN, not flagged in both directions.
 
 Each row is a **named rule** (`PROPERTY_NO_DELETE`, `PROPERTY_SAME_TYPE`,
 `ENUM_VALUE_NO_DELETE`, `NULLABILITY_NO_NARROW`, `DISCRIMINATOR_VALUE_CHANGED`, …)
