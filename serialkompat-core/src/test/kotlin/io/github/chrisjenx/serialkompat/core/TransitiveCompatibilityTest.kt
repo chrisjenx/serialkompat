@@ -1,6 +1,7 @@
 package io.github.chrisjenx.serialkompat.core
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -72,5 +73,53 @@ class TransitiveCompatibilityTest {
             } ==
                 1,
         )
+    }
+
+    private fun status(
+        config: SnapshotConfig,
+        vararg values: String,
+    ) = Snapshot(listOf(Contract("com.example.Status", ContractKind.ENUM, enumValues = values.toList())), config)
+
+    @Test
+    fun `dedup keeps the worst-case severity when versions classify the same finding differently`() {
+        // The same finding key can classify differently against different published *configs*:
+        // adding an enum value is a forward WARN against a coercing reader but a BREAK against a
+        // strict one. Dedup must keep the BREAK, not whichever version happened to come first.
+        val coercingFirst = status(SnapshotConfig(coerceInputValues = true), "A", "B") // -> WARN
+        val strictSecond = status(SnapshotConfig(coerceInputValues = false), "A", "B") // -> BREAK
+        val current = status(SnapshotConfig(coerceInputValues = false), "A", "B", "C")
+
+        val report =
+            TransitiveCompatibility.checkAgainstHistory(
+                current,
+                listOf(coercingFirst, strictSecond), // WARN-producing version deliberately first
+                profile = CompatibilityProfile(direction = CompatibilityDirection.FORWARD),
+            )
+
+        val enumAdd =
+            report.findings.single {
+                it.rule == Rules.ENUM_VALUE_ADDED && it.direction == CompatibilityDirection.FORWARD
+            }
+        assertEquals(Severity.BREAK, enumAdd.severity, "worst-case (BREAK) must win over the earlier WARN")
+    }
+
+    @Test
+    fun `an accepted break is acknowledged against every published version`() {
+        val v1 = order(Element("id", "kotlin.String"), Element("x", "kotlin.String"))
+        val v2 = order(Element("id", "kotlin.String"), Element("x", "kotlin.String"))
+        val current = order(Element("id", "kotlin.String")) // drops required 'x' vs both versions
+
+        val report =
+            TransitiveCompatibility.checkAgainstHistory(
+                current,
+                listOf(v1, v2),
+                profile = CompatibilityProfile(direction = CompatibilityDirection.FORWARD),
+                accepted = listOf(AcceptedBreak("com.example.Order", Rules.PROPERTY_REMOVED)),
+            )
+
+        // The acceptance applies across the whole history, not just the latest version.
+        assertFalse(report.shouldFail(Severity.BREAK))
+        assertTrue(report.active.isEmpty())
+        assertTrue(report.acknowledged.isNotEmpty())
     }
 }
