@@ -1,5 +1,6 @@
 package io.github.chrisjenx.serialkompat.extractor
 
+import io.github.chrisjenx.serialkompat.core.ContractKind
 import io.github.chrisjenx.serialkompat.core.SnapshotFormat
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -87,5 +88,25 @@ class SchemaExtractionMainTest {
         val out = File(tempDir, "nested/dir/current.snapshot")
         SchemaExtractionMain.run(listOf(Order::class.java.name), null, out)
         assertTrue(out.isFile)
+    }
+
+    @Test
+    fun `an unresolvable type becomes an opaque coverage gap, not a crash`() {
+        val out = File(tempDir, "current.snapshot")
+        // One resolvable type + one FQN that does not resolve (stale manifest / renamed class).
+        // The extractor must never throw on a model it can't analyse (design §10): the bad type
+        // degrades to an OPAQUE coverage gap while the good one still extracts normally.
+        SchemaExtractionMain.run(
+            typeNames = listOf(Order::class.java.name, "com.example.NoSuchSerializableType"),
+            jsonInstanceFqn = null,
+            output = out,
+        )
+        val snapshot = SnapshotFormat.parse(out.readText())
+        assertTrue(
+            snapshot.contracts.any { it.serialName == "Order" },
+            "the resolvable type must still be extracted",
+        )
+        val opaque = snapshot.contracts.single { it.serialName == "com.example.NoSuchSerializableType" }
+        assertEquals(ContractKind.OPAQUE, opaque.kind)
     }
 }

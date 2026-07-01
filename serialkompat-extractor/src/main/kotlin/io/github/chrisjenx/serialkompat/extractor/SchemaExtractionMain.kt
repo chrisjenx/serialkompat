@@ -1,7 +1,11 @@
 package io.github.chrisjenx.serialkompat.extractor
 
+import io.github.chrisjenx.serialkompat.core.Contract
+import io.github.chrisjenx.serialkompat.core.ContractKind
+import io.github.chrisjenx.serialkompat.core.Snapshot
 import io.github.chrisjenx.serialkompat.core.SnapshotConfig
 import io.github.chrisjenx.serialkompat.core.SnapshotFormat
+import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 import java.io.File
@@ -37,11 +41,29 @@ public object SchemaExtractionMain {
         val config = if (json === Json) SnapshotConfig() else JsonConfigReader.read(json)
         // Fall back to discovered types when none are configured explicitly (see [TYPES_RESOURCE]).
         val effectiveTypes = typeNames.ifEmpty { discoverTypeNames() }
-        val descriptors =
-            effectiveTypes.map { name ->
-                serializer(Class.forName(name).kotlin.createType()).descriptor
+
+        // Resolve each type independently. A single unresolvable/broken type (stale manifest entry,
+        // renamed class, missing transitive dependency, a generic that needs type args) must NEVER
+        // abort the whole extraction — that would drop every type. It degrades to an OPAQUE coverage
+        // gap keyed by its FQN; the gate then surfaces a WARN rather than crashing or silently
+        // dropping the lot ("the extractor must never throw on a model it can't analyse", design §10).
+        val descriptors = mutableListOf<SerialDescriptor>()
+        val opaque = mutableListOf<Contract>()
+        for (name in effectiveTypes) {
+            val descriptor =
+                runCatching { serializer(Class.forName(name).kotlin.createType()).descriptor }.getOrNull()
+            if (descriptor != null) {
+                descriptors += descriptor
+            } else {
+                System.err.println(
+                    "serialkompat: could not resolve type '$name'; recording it as an opaque coverage gap.",
+                )
+                opaque += Contract(name, ContractKind.OPAQUE)
             }
-        val snapshot = DescriptorSnapshotExtractor.extract(descriptors, json.serializersModule, config)
+        }
+
+        val extracted = DescriptorSnapshotExtractor.extract(descriptors, json.serializersModule, config)
+        val snapshot = Snapshot(extracted.contracts + opaque, config)
         output.absoluteFile.parentFile?.mkdirs()
         output.writeText(SnapshotFormat.serialize(snapshot))
     }
