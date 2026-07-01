@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `SnapshotDiffer` + `Change` taxonomy: pure structural, direction-neutral diff of two snapshots into typed changes (contract/element add·remove, type/optionality/nullability, enum & subtype add·remove, discriminator, config). Deterministic output; field reordering yields no change.
 - `Snapshot` model (`Contract`, `Element`, `Subtype`, `SnapshotConfig`, `ContractKind`, `EncodeDefaultMode`) — the canonical, order-normalized representation of a JSON wire contract.
 - `SnapshotFormat`: deterministic, byte-stable, sorted-by-serial-name text codec that round-trips losslessly (`parse(serialize(s)) == s`) and is invariant to field ordering.
 - Project scaffold: `serialkompat-core`, `serialkompat-extractor`, `serialkompat-gradle` modules.
