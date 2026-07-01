@@ -44,3 +44,9 @@ public final class io/github/chrisjenx/serialkompat/gradle/git/SystemGit : io/gi
 	public fun run ([Ljava/lang/String;)Ljava/lang/String;
 }
 
+public final class io/github/chrisjenx/serialkompat/gradle/history/PublishedHistory {
+	public fun <init> (Ljava/io/File;)V
+	public final fun load ()Ljava/util/List;
+	public final fun record (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Snapshot;)V
+}
+
