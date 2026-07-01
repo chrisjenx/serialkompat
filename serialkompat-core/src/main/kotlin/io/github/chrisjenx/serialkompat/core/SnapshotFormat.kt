@@ -66,8 +66,8 @@ public object SnapshotFormat {
 
     private fun serializeContract(contract: Contract): String =
         buildString {
-            append(CONTRACT_PREFIX).append(contract.serialName).append(" kind=").append(contract.kind.name)
-            if (contract.discriminator != null) append(" discriminator=").append(contract.discriminator)
+            append(CONTRACT_PREFIX).append(escapeToken(contract.serialName)).append(" kind=").append(contract.kind.name)
+            if (contract.discriminator != null) append(" discriminator=").append(escapeToken(contract.discriminator))
             when (contract.kind) {
                 ContractKind.ENUM ->
                     appendLineItem("values=" + listLiteral(contract.enumValues))
@@ -75,7 +75,9 @@ public object SnapshotFormat {
                     appendLineItem("subtypes:")
                     for (subtype in contract.subtypes) {
                         append('\n').append(INDENT).append(INDENT)
-                        append(subtype.discriminatorValue).append(SUBTYPE_ARROW).append(subtype.serialName)
+                        append(escapeToken(subtype.discriminatorValue))
+                            .append(SUBTYPE_ARROW)
+                            .append(escapeToken(subtype.serialName))
                     }
                 }
                 ContractKind.CLASS, ContractKind.OBJECT ->
@@ -90,7 +92,7 @@ public object SnapshotFormat {
 
     private fun serializeElement(element: Element): String =
         buildString {
-            append(element.name).append(": ").append(element.type)
+            append(escapeToken(element.name)).append(": ").append(escapeToken(element.type))
             if (element.optional) append(" optional")
             if (element.nullable) append(" nullable")
             if (element.jsonNames.isNotEmpty()) {
@@ -123,13 +125,15 @@ public object SnapshotFormat {
                 .removePrefix(CONTRACT_PREFIX)
                 .trim()
                 .split(" ")
-        val serialName = headerTokens.first()
+        val serialName = unescapeToken(headerTokens.first())
         var kind: ContractKind? = null
         var discriminator: String? = null
         for (token in headerTokens.drop(1)) {
             when {
                 token.startsWith("kind=") -> kind = ContractKind.valueOf(token.removePrefix("kind="))
-                token.startsWith("discriminator=") -> discriminator = token.removePrefix("discriminator=")
+                token.startsWith("discriminator=") ->
+                    discriminator =
+                        unescapeToken(token.removePrefix("discriminator="))
             }
         }
         requireNotNull(kind) { "serialkompat: contract '$serialName' is missing kind=" }
@@ -144,7 +148,7 @@ public object SnapshotFormat {
                 body.startsWith("values=[") -> enumValues = parseList(body.substringAfter("values="))
                 SUBTYPE_ARROW in body -> {
                     val (value, name) = body.split(SUBTYPE_ARROW, limit = 2)
-                    subtypes += Subtype(value.trim(), name.trim())
+                    subtypes += Subtype(unescapeToken(value.trim()), unescapeToken(name.trim()))
                 }
                 else -> elements += parseElement(body)
             }
@@ -171,7 +175,7 @@ public object SnapshotFormat {
                     encodeDefault = EncodeDefaultMode.valueOf(token.removePrefix("encodeDefault="))
             }
         }
-        return Element(name, tokens.first(), optional, nullable, jsonNames, encodeDefault)
+        return Element(unescapeToken(name), unescapeToken(tokens.first()), optional, nullable, jsonNames, encodeDefault)
     }
 
     private fun parseConfig(lines: List<String>): SnapshotConfig {
@@ -211,6 +215,47 @@ public object SnapshotFormat {
      * comma (e.g. from `@SerialName`/`@JsonNames`) round-trips without being split.
      */
     private fun escapeListValue(value: String): String = value.replace("\\", "\\\\").replace(",", "\\,")
+
+    /**
+     * Escapes a name-bearing token (serial name, element name/type, discriminator,
+     * subtype value/name) so it survives the codec's positional delimiters. A `\`
+     * escapes itself and each whitespace delimiter — space (word/`": "`/`" -> "`
+     * separators), tab, and CR/LF (line/block separators). It is the **identity**
+     * for a token free of these characters, so every existing snapshot stays
+     * byte-for-byte identical; only names that would otherwise corrupt change form.
+     */
+    private fun escapeToken(value: String): String =
+        value
+            .replace("\\", "\\\\")
+            .replace(" ", "\\s")
+            .replace("\t", "\\t")
+            .replace("\r", "\\r")
+            .replace("\n", "\\n")
+
+    /** Reverses [escapeToken] in a single pass so `\\` is not mistaken for an escape. */
+    private fun unescapeToken(value: String): String {
+        if ('\\' !in value) return value
+        val out = StringBuilder(value.length)
+        var i = 0
+        while (i < value.length) {
+            val c = value[i]
+            if (c == '\\' && i + 1 < value.length) {
+                when (value[i + 1]) {
+                    '\\' -> out.append('\\')
+                    's' -> out.append(' ')
+                    't' -> out.append('\t')
+                    'r' -> out.append('\r')
+                    'n' -> out.append('\n')
+                    else -> out.append(value[i + 1]) // unknown escape: keep the char verbatim
+                }
+                i += 2
+            } else {
+                out.append(c)
+                i++
+            }
+        }
+        return out.toString()
+    }
 
     /** Splits a list literal's inner text on unescaped `,`, reversing [escapeListValue]. */
     private fun splitEscaped(inner: String): List<String> {

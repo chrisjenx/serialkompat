@@ -199,4 +199,83 @@ class SnapshotFormatTest {
             )
         assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
     }
+
+    // --- adversarial name fields ------------------------------------------------
+    // @SerialName / @JsonNames / @JsonClassDiscriminator may legally contain the
+    // codec's own structural delimiters (space, ": ", " -> ", "="), newlines, or
+    // backslashes. Every name-bearing field must round-trip losslessly, or the
+    // snapshot silently corrupts and the gate under/over-reports changes.
+
+    private fun assertRoundTrips(snapshot: Snapshot) {
+        assertEquals(snapshot, SnapshotFormat.parse(SnapshotFormat.serialize(snapshot)))
+    }
+
+    @Test
+    fun `round-trips a serial name containing spaces`() {
+        assertRoundTrips(Snapshot(listOf(Contract("order id class", ContractKind.CLASS))))
+    }
+
+    @Test
+    fun `round-trips an element name and type containing spaces and colons`() {
+        assertRoundTrips(
+            Snapshot(
+                listOf(
+                    Contract(
+                        "T",
+                        ContractKind.CLASS,
+                        elements = listOf(Element("a: b field", "some weird type", optional = true, nullable = true)),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `round-trips a serial name containing a newline`() {
+        assertRoundTrips(Snapshot(listOf(Contract("line1\nline2", ContractKind.CLASS))))
+    }
+
+    @Test
+    fun `round-trips a serial name that looks like another codec line`() {
+        // A serial name that mimics a header or config line must not be misparsed.
+        assertRoundTrips(
+            Snapshot(
+                listOf(
+                    Contract("@config kind=ENUM", ContractKind.OPAQUE),
+                    Contract("subtypes: values=[x]", ContractKind.CLASS),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `round-trips a custom discriminator and subtype values containing spaces`() {
+        assertRoundTrips(
+            Snapshot(
+                listOf(
+                    Contract(
+                        "com.example.Event",
+                        ContractKind.SEALED,
+                        discriminator = "@ event type",
+                        subtypes = listOf(Subtype("kind a", "com.example.A"), Subtype("kind b", "com.example.B")),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `round-trips names containing backslashes and unicode`() {
+        assertRoundTrips(
+            Snapshot(
+                listOf(
+                    Contract(
+                        "com.example.Ünïcodé\\Name",
+                        ContractKind.CLASS,
+                        elements = listOf(Element("naïve\\field", "kotlin.String")),
+                    ),
+                ),
+            ),
+        )
+    }
 }
