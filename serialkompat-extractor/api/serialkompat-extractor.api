@@ -1,0 +1,9 @@
+public final class io/github/chrisjenx/serialkompat/extractor/DirectSchemaExtractor : io/github/chrisjenx/serialkompat/extractor/SchemaExtractor {
+	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/extractor/DirectSchemaExtractor;
+	public fun elementNames (Lkotlinx/serialization/descriptors/SerialDescriptor;)Ljava/util/List;
+}
+
+public abstract interface class io/github/chrisjenx/serialkompat/extractor/SchemaExtractor {
+	public abstract fun elementNames (Lkotlinx/serialization/descriptors/SerialDescriptor;)Ljava/util/List;
+}
+

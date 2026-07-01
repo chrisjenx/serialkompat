@@ -1,0 +1,21 @@
+public final class io/github/chrisjenx/serialkompat/core/CompatibilityDirection : java/lang/Enum {
+	public static final field BACKWARD Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public static final field FORWARD Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public static final field FULL Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun getChecksBackward ()Z
+	public final fun getChecksForward ()Z
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+}
+
+public final class io/github/chrisjenx/serialkompat/core/Severity : java/lang/Enum {
+	public static final field BREAK Lio/github/chrisjenx/serialkompat/core/Severity;
+	public static final field SAFE Lio/github/chrisjenx/serialkompat/core/Severity;
+	public static final field WARN Lio/github/chrisjenx/serialkompat/core/Severity;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun isAtLeast (Lio/github/chrisjenx/serialkompat/core/Severity;)Z
+	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Severity;
+	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/Severity;
+}
+
