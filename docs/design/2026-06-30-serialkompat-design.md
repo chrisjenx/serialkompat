@@ -82,13 +82,13 @@ Everything hangs off one swappable artifact — the `Snapshot`.
                     walk, JVM)
                          ▲                              ▲
                     swappable                      reads two Snapshots;
-                  (KSP later)                    never knows their origin
+              (compiler plugin later)          never knows their origin
 ```
 
 The diff/classify engine is fully decoupled from extraction and from where
 baselines come from. This is what lets git-ref mode, local mode, and (v1)
-published-history mode share one engine, and lets a KSP extractor drop in later
-without touching the rules.
+published-history mode share one engine, and lets a compiler-plugin extractor drop
+in later without touching the rules.
 
 ### Modules
 
@@ -178,9 +178,16 @@ optionality — already accounts for `@Required`/`@Transient`/defaults),
 - **Compiler plugin:** most powerful, most fragile, unnecessary given the snapshot
   architecture.
 
-**KSP-based discovery (Approach C)** remains a v1 option if JVM classpath scanning
-proves awkward for the KMP module layout — it composes with runtime extraction
-(KSP enumerates types portably; runtime walks their descriptors).
+**Build-time discovery (Approach C) — deferred, opt-in.** Extraction (Approach A)
+needs a list of types to reflect on. The primary source is explicit configuration;
+as a convenience the extractor also reads a producer-agnostic classpath manifest
+(`META-INF/serialkompat/serializable-types.txt`, one `@Serializable` FQN per line)
+when no types are configured. That manifest may be authored by hand or emitted by a
+build-time discovery step. **The automated producer, if built, is a Kotlin compiler
+plugin — not KSP** (a maintainer decision, issue #22): KSP is blind to
+`SerializersModule`-resolved polymorphism, and the compiler-plugin route is the
+sanctioned one. It is not on the v1 critical path — explicit config plus the manifest
+contract cover discovery until then.
 
 ---
 
@@ -524,8 +531,9 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
 - **v0.5:** unified GitHub Action + sticky PR comment; `serialkompatCheckAgainst`;
   rename-detection heuristic.
 - **v1:** append-only published schema history + transitive checks (persisted
-  horizon); optional KSP discovery (Approach C) if classpath scan is awkward;
-  standalone CLI.
+  horizon); standalone CLI. (Automated build-time discovery — a Kotlin compiler
+  plugin, Approach C — is deferred beyond v1; explicit config + the manifest
+  contract suffice.)
 - **Later (only if needed):** CBOR/ProtoBuf rules (field order / `@ProtoNumber`);
   IDE inspection.
 
@@ -534,8 +542,8 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
 ## 14. Residual risks to validate in the plan
 - `@EncodeDefault` mode is **not recoverable** via Approach A — it is not a
   `@SerialInfo` annotation, so it never appears in `getElementAnnotations` (#7).
-  The `Element.encodeDefault` field stays null from runtime extraction; a KSP
-  extractor (Approach C, v1) could read it from source.
+  The `Element.encodeDefault` field stays null from runtime extraction; a
+  compiler-plugin extractor (Approach C) could read it from source.
 - Generic/parameterized `@Serializable` descriptors (per-instantiation shape).
 - Contextual serializers require the `SerializersModule` (supplied by the `Json`
   instance the user points at).
@@ -553,7 +561,9 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
 3. **Platform:** KMP; extraction on the JVM target.
 4. **Extractor:** runtime `SerialDescriptor` reflection (Approach A). Spike #6
    resolved: **vendor** the descriptor walk behind an `Extractor` anti-corruption
-   layer — `kotlinx-schema`'s IR is too lossy (see §12); KSP discovery deferred to v1.
+   layer — `kotlinx-schema`'s IR is too lossy (see §12). Build-time discovery
+   (Approach C) is deferred and, per maintainer decision (#22), must be a Kotlin
+   compiler plugin — **not KSP**.
 5. **Scope:** check-by-default per applied module, with module/package/file/type
    suppression; no-silent-exclusions coverage invariant.
 6. **Config:** read from the real `Json` instance; config is part of the snapshot;
