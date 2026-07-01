@@ -2,6 +2,7 @@ package io.github.chrisjenx.serialkompat.extractor
 
 import io.github.chrisjenx.serialkompat.core.SnapshotConfig
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.json.ClassDiscriminatorMode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
@@ -56,6 +57,24 @@ class JsonConfigReaderTest {
     fun `snake case naming strategy is read`() {
         val config = JsonConfigReader.read(Json { namingStrategy = JsonNamingStrategy.SnakeCase })
         assertEquals(JsonNamingStrategy.SnakeCase.toString(), config.namingStrategy)
+    }
+
+    /** A user naming strategy that does not override `toString()` (inherits `Object`'s identity form). */
+    private object CustomStrategy : JsonNamingStrategy {
+        override fun serialNameForJson(
+            descriptor: SerialDescriptor,
+            elementIndex: Int,
+            serialName: String,
+        ): String = serialName
+    }
+
+    @Test
+    fun `a custom naming strategy is recorded by a stable class identity, not a per-JVM object hash`() {
+        // Object.toString() defaults to "<class>@<identityHashCode>", whose hash differs across the
+        // baseline-worktree JVM and the current JVM → a phantom CONFIG_NAMING_STRATEGY BREAK every run
+        // (and a non-byte-stable snapshot). It must be recorded by a stable identity instead.
+        val recorded = JsonConfigReader.read(Json { namingStrategy = CustomStrategy }).namingStrategy
+        assertEquals(CustomStrategy::class.qualifiedName, recorded)
     }
 
     @Test
