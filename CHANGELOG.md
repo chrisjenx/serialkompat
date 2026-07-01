@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Unified GitHub composite action (`action.yml`): runs the gate and posts a sticky PR comment built from the JSON report (icon + breaking/warning/acknowledged summary + per-finding detail), then fails the job on incompatible changes. The Gradle task stays CI-agnostic; the action does the GitHub-specific posting.
 - `serialkompatCheckAgainst` task: check against an ad-hoc ref via `-Pserialkompat.ref=<ref>` without editing config, falling back to the configured `baselineRef`.
 - Gradle plugin wired end-to-end: `serialkompatExtract` runs the extractor on the target project's runtime classpath (JavaExec) and dumps the current schema; `serialkompatCheck` recomputes the baseline from `baselineRef` (git-ref-live) and fails on unacknowledged breaks. `serialkompat { … }` config extension (types, jsonInstance, baselineRef, direction, failOnBreaking, include/exclude). Proven by a TestKit functional test against a real Kotlin project; applying the plugin without configuring `types` is a safe no-op.
 - `CompatibilityEngine`: the single end-to-end entry point tying the pure pipeline together — restrict to a `Scope`, diff, classify under a `CompatibilityProfile`, and fold declared renames and accepted breaks into a `Report`. Every front end (Gradle task, CLI) shares this one implementation.
