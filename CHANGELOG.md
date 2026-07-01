@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- CLI never crashes on bad input (design §10). A missing/unreadable/malformed snapshot file, an unknown flag, or an invalid `--direction` value now produce a controlled exit code 2 with an `error:` message instead of an uncaught exception + stack trace. Added `--help`/`-h`. Exit codes: 0 ok, 1 breaking, 2 usage/input error.
 - `@JvmInline value class`es are now unwrapped to their underlying wire type during extraction. A serializable inline class serializes as its single underlying value, so a field typed `UserId(val raw: Int)` is recorded as `kotlin.Int`. Previously the wrapper's serial name was recorded, so swapping a raw primitive for a wire-identical value class (or back) produced a spurious `ElementTypeChanged` and a **false `BREAK`**. Value classes are transparent — never emitted as their own contracts — but a value class wrapping a `@Serializable` type still walks that type.
 
 ### Added
