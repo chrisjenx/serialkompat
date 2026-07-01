@@ -9,4 +9,5 @@ include(
     "serialkompat-core",
     "serialkompat-extractor",
     "serialkompat-gradle",
+    "serialkompat-cli",
 )
