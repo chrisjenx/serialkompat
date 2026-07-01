@@ -25,5 +25,6 @@ local.properties
 *.local
 .envrc
 
-# Claude Code personal, per-project settings (not committed)
-.claude/settings.local.json
+# Claude Code local, per-machine state (not committed); keep shareable project settings
+.claude/*
+!.claude/settings.json
