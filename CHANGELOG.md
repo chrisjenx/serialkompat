@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `CompatibilityEngine`: the single end-to-end entry point tying the pure pipeline together — restrict to a `Scope`, diff, classify under a `CompatibilityProfile`, and fold declared renames and accepted breaks into a `Report`. Every front end (Gradle task, CLI) shares this one implementation.
 - git-ref-live baseline: `GitRefBaseline` recomputes the target ref's schema from source in a throwaway detached worktree (no committed baseline to go stale), with a content-addressed `SnapshotCache` keyed by commit SHA and fail-closed ref resolution. `GitCommands`/`SystemGit` seam is unit-tested with a fake and a real-git integration test.
 - `Scope` + `Coverage` + `Snapshot.applyScope`: restrict checking by serial-name prefix (include/exclude, exclude wins) so a module that never crosses the wire can be left out — with the excluded set enumerable, keeping the no-silent-exclusions invariant honest.
 - Graceful degradation: `ContractKind.OPAQUE` + a crash-proof extractor — an unknown `SerialKind`, unresolved contextual/custom serializer, or extraction failure becomes an explicit opaque coverage gap (recorded, round-trippable, diffable), never an exception or a silent omission (design §10).

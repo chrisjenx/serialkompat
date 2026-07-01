@@ -244,6 +244,12 @@ public final class io/github/chrisjenx/serialkompat/core/CompatibilityDirection 
 	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
 }
 
+public final class io/github/chrisjenx/serialkompat/core/CompatibilityEngine {
+	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/CompatibilityEngine;
+	public final fun check (Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/Map;)Lio/github/chrisjenx/serialkompat/core/Report;
+	public static synthetic fun check$default (Lio/github/chrisjenx/serialkompat/core/CompatibilityEngine;Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Report;
+}
+
 public final class io/github/chrisjenx/serialkompat/core/CompatibilityProfile {
 	public fun <init> ()V
 	public fun <init> (Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;)V
