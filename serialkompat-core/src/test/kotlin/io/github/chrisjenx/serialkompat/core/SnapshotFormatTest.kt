@@ -66,11 +66,13 @@ class SnapshotFormatTest {
 
         @config
           classDiscriminator=type
+          classDiscriminatorMode=POLYMORPHIC
           coerceInputValues=false
           encodeDefaults=false
           explicitNulls=true
           ignoreUnknownKeys=false
           namingStrategy=none
+          useAlternativeNames=true
         """.trimIndent()
 
     @Test
@@ -136,6 +138,15 @@ class SnapshotFormatTest {
     @Test
     fun `round-trips an empty snapshot`() {
         val s = Snapshot()
+        assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
+    }
+
+    @Test
+    fun `round-trips non-default classDiscriminatorMode and useAlternativeNames`() {
+        val s =
+            Snapshot(
+                config = SnapshotConfig(classDiscriminatorMode = "NONE", useAlternativeNames = false),
+            )
         assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
     }
 

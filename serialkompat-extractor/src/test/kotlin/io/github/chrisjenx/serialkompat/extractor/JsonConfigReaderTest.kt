@@ -2,6 +2,7 @@ package io.github.chrisjenx.serialkompat.extractor
 
 import io.github.chrisjenx.serialkompat.core.SnapshotConfig
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.ClassDiscriminatorMode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
 import kotlin.test.Test
@@ -55,5 +56,20 @@ class JsonConfigReaderTest {
     fun `snake case naming strategy is read`() {
         val config = JsonConfigReader.read(Json { namingStrategy = JsonNamingStrategy.SnakeCase })
         assertEquals(JsonNamingStrategy.SnakeCase.toString(), config.namingStrategy)
+    }
+
+    @Test
+    fun `classDiscriminatorMode is read`() {
+        // NONE drops the discriminator from the wire — a wire-affecting setting (design §6)
+        // that must be captured so its change is detectable.
+        val config = JsonConfigReader.read(Json { classDiscriminatorMode = ClassDiscriminatorMode.NONE })
+        assertEquals("NONE", config.classDiscriminatorMode)
+        assertEquals("POLYMORPHIC", JsonConfigReader.read(Json).classDiscriminatorMode)
+    }
+
+    @Test
+    fun `useAlternativeNames is read`() {
+        assertEquals(false, JsonConfigReader.read(Json { useAlternativeNames = false }).useAlternativeNames)
+        assertEquals(true, JsonConfigReader.read(Json).useAlternativeNames)
     }
 }

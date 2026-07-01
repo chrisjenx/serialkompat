@@ -9,8 +9,9 @@ import kotlinx.serialization.json.Json
  * instance (`Json.configuration`) into a [SnapshotConfig] (design §6).
  *
  * This is a correctness requirement, not a convenience: `namingStrategy`,
- * `classDiscriminator`, `ignoreUnknownKeys`, `encodeDefaults`, `explicitNulls`,
- * and `coerceInputValues` all change the wire shape or decode behavior, so
+ * `classDiscriminator`, `classDiscriminatorMode`, `ignoreUnknownKeys`,
+ * `encodeDefaults`, `explicitNulls`, `coerceInputValues`, and
+ * `useAlternativeNames` all change the wire shape or decode behavior, so
  * re-declaring them by hand would silently drift from what the app actually does.
  */
 @OptIn(ExperimentalSerializationApi::class)
@@ -21,10 +22,12 @@ public object JsonConfigReader {
         return SnapshotConfig(
             namingStrategy = configuration.namingStrategy?.toString() ?: "none",
             classDiscriminator = configuration.classDiscriminator,
+            classDiscriminatorMode = configuration.classDiscriminatorMode.name,
             ignoreUnknownKeys = configuration.ignoreUnknownKeys,
             encodeDefaults = configuration.encodeDefaults,
             explicitNulls = configuration.explicitNulls,
             coerceInputValues = configuration.coerceInputValues,
+            useAlternativeNames = configuration.useAlternativeNames,
         )
     }
 }
