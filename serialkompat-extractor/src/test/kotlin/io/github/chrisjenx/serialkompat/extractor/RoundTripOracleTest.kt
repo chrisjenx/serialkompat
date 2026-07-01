@@ -2,6 +2,7 @@ package io.github.chrisjenx.serialkompat.extractor
 
 import io.github.chrisjenx.serialkompat.core.Classifier
 import io.github.chrisjenx.serialkompat.core.CompatibilityDirection
+import io.github.chrisjenx.serialkompat.core.Rules
 import io.github.chrisjenx.serialkompat.core.Severity
 import io.github.chrisjenx.serialkompat.core.SnapshotDiffer
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -352,10 +353,15 @@ class RoundTripOracleTest {
                 oldConfig,
                 newConfig,
             )
-        val backward = findings.filter { it.direction == CompatibilityDirection.BACKWARD }
+        // Assert on the remove-half finding specifically (robust to the add-half's optionality),
+        // rather than assuming exactly one backward finding.
+        val removal =
+            findings.single {
+                it.direction == CompatibilityDirection.BACKWARD && it.rule == Rules.PROPERTY_REMOVED
+            }
         assertEquals(
             Severity.WARN,
-            backward.singleOrNull()?.severity,
+            removal.severity,
             "a rename that silently drops data must surface as a backward WARN; got $findings",
         )
     }

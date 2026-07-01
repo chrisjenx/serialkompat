@@ -323,7 +323,10 @@ lost data), which is exactly the WARN tier's definition above. So removal under 
 tolerant reader is **WARN**, never SAFE. This is also the only signal the gate has for
 a field **rename** (no `@JsonNames`): the differ decomposes it into remove + add, and the
 remove half carries the WARN. (Earlier drafts said `→SAFE`; reconciled to `→WARN` since a
-lone SAFE would let a rename silently lose data — see the false-SAFE fixed in #77.)
+lone SAFE would let a rename silently lose data — see the false-SAFE fixed in #77.) The
+remove half only carries the WARN **backward**; the rename's *forward* loss (an old reader
+dropping the new key) is forward-`SAFE`, identical to any field addition — so a rename is
+surfaced once, as a backward WARN, not flagged in both directions.
 
 Each row is a **named rule** (`PROPERTY_NO_DELETE`, `PROPERTY_SAME_TYPE`,
 `ENUM_VALUE_NO_DELETE`, `NULLABILITY_NO_NARROW`, `DISCRIMINATOR_VALUE_CHANGED`, …)
