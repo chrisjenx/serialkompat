@@ -109,31 +109,37 @@ reviewable; a machine-readable JSON form may be emitted alongside for tooling.
 about field order, so reordering produces zero diff (and a rename correctly
 surfaces as remove+add). Number/format normalization ensures byte-stability.
 
-Sketch:
+Canonical form (as implemented in `SnapshotFormat`, issue #5). Separators are
+single spaces and list literals carry no inner spaces, so an element line
+tokenizes unambiguously on whitespace (a type ref never contains a space).
+Blocks are sorted by serial name; within a contract, elements sort by key, enum
+values sort, and subtypes sort by discriminator value — so reordering fields
+produces a zero diff. An element whose type is another contract simply records
+that contract's serial name as its type ref (no distinguishing `->` marker):
 
 ```
-@contract com.mercury.orders.OrderEvent  kind=CLASS
+@contract com.mercury.orders.OrderEvent kind=CLASS
   amountCents: Long
   id: String
-  note: String  optional
-  status: -> com.mercury.orders.OrderStatus
-  tags: List<String>  optional  jsonNames=[labels]
+  note: String optional
+  status: com.mercury.orders.OrderStatus
+  tags: List<String> optional jsonNames=[labels]
 
-@contract com.mercury.orders.OrderStatus  kind=ENUM
-  values=[CANCELLED, CREATED, PAID]
+@contract com.mercury.orders.OrderStatus kind=ENUM
+  values=[CANCELLED,CREATED,PAID]
 
-@contract com.mercury.orders.Payment  kind=SEALED  discriminator="type"
+@contract com.mercury.orders.Payment kind=SEALED discriminator=type
   subtypes:
     ach -> com.mercury.orders.AchPayment
     card -> com.mercury.orders.CardPayment
 
 @config
-  namingStrategy=none
-  classDiscriminator="type"
-  ignoreUnknownKeys=false
+  classDiscriminator=type
+  coerceInputValues=false
   encodeDefaults=false
   explicitNulls=true
-  coerceInputValues=false
+  ignoreUnknownKeys=false
+  namingStrategy=none
 ```
 
 Per element it records the compat-bearing facts: **JSON key** (post-`@SerialName`
