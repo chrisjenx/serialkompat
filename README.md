@@ -65,6 +65,23 @@ serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
     fix: Set ignoreUnknownKeys, or keep the field until nothing uses it; else bump major.
 ```
 
+## CI (GitHub Action)
+
+A unified composite action runs the gate and posts a **sticky PR comment** with the findings (the Gradle task stays CI-agnostic — it emits a JSON report + exit code; the action does the GitHub-specific posting):
+
+```yaml
+# .github/workflows/serialkompat.yml
+jobs:
+  serialkompat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }        # git-ref-live needs history for the baseline
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 17 }
+      - uses: chrisjenx/serialkompat@v1  # ref: origin/<base> resolved from the PR
+```
+
 ## What counts as breaking?
 
 A change's severity depends on **direction** and your **reader config**. A few examples under `FULL` with a strict reader:
