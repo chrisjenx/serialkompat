@@ -4,12 +4,17 @@ import io.github.chrisjenx.serialkompat.core.Classifier
 import io.github.chrisjenx.serialkompat.core.CompatibilityDirection
 import io.github.chrisjenx.serialkompat.core.Severity
 import io.github.chrisjenx.serialkompat.core.SnapshotDiffer
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNames
+import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.serialization.serializer
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -29,6 +34,7 @@ import kotlin.test.assertTrue
  * BREAK the specific probe value doesn't trigger. What it must never do is miss
  * a real break, which is exactly what this asserts.
  */
+@OptIn(ExperimentalSerializationApi::class)
 class RoundTripOracleTest {
     private enum class Outcome { DECODED, THREW }
 
@@ -88,6 +94,80 @@ class RoundTripOracleTest {
             !forwardThrew || predictedBreak(CompatibilityDirection.FORWARD),
             "forward: real decode threw but classifier predicted no break",
         )
+    }
+
+    /**
+     * Config-only oracle: the schema is fixed, but the reader/writer [Json] *config*
+     * differs. Beyond soundness (`realThrew ⇒ predictedBreak`), this also asserts
+     * **no silent data loss**: if a direction decodes to a *different* value than was
+     * written, the classifier must have flagged that direction (WARN or BREAK), never
+     * left it silently safe. This is what backs the config rules against the real
+     * library — previously the classifier's config verdicts had no round-trip proof.
+     */
+    private fun <T> assertConfigOracle(
+        serializer: KSerializer<T>,
+        value: T,
+        oldJson: Json,
+        newJson: Json,
+    ) {
+        val oldConfig = JsonConfigReader.read(oldJson)
+        val newConfig = JsonConfigReader.read(newJson)
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer.descriptor), config = oldConfig),
+                DescriptorSnapshotExtractor.extract(listOf(serializer.descriptor), config = newConfig),
+            )
+        val findings = Classifier().classify(changes, oldConfig, newConfig)
+
+        fun predictedBreak(d: CompatibilityDirection) =
+            findings.any { it.direction == d && it.severity == Severity.BREAK }
+
+        // Only actionable (WARN/BREAK) findings are reported, so any finding = flagged.
+        fun flagged(d: CompatibilityDirection) = findings.any { it.direction == d }
+
+        // backward = new code reads old data; forward = old code reads new data.
+        checkConfigDirection(
+            CompatibilityDirection.BACKWARD,
+            serializer,
+            value,
+            oldJson,
+            newJson,
+            ::predictedBreak,
+            ::flagged,
+        )
+        checkConfigDirection(
+            CompatibilityDirection.FORWARD,
+            serializer,
+            value,
+            newJson,
+            oldJson,
+            ::predictedBreak,
+            ::flagged,
+        )
+    }
+
+    private fun <T> checkConfigDirection(
+        direction: CompatibilityDirection,
+        serializer: KSerializer<T>,
+        value: T,
+        writerJson: Json,
+        readerJson: Json,
+        predictedBreak: (CompatibilityDirection) -> Boolean,
+        flagged: (CompatibilityDirection) -> Boolean,
+    ) {
+        val decoded =
+            try {
+                readerJson.decodeFromString(serializer, writerJson.encodeToString(serializer, value))
+            } catch (_: Exception) {
+                assertTrue(predictedBreak(direction), "$direction: real decode threw but classifier predicted no BREAK")
+                return
+            }
+        if (decoded != value) {
+            assertTrue(
+                flagged(direction),
+                "$direction: decoded value differs from what was written (silent data loss) but classifier flagged nothing",
+            )
+        }
     }
 
     // --- fixtures: two versions of the same serial name ------------------------
@@ -320,6 +400,173 @@ class RoundTripOracleTest {
             ShapeV2.Square(2.0),
             serializer<ShapeV1>(),
             ShapeV1.Circle(1.0),
+        )
+    }
+
+    // --- config-change fixtures ------------------------------------------------
+
+    @Serializable
+    @SerialName("Named")
+    private data class Named(
+        val orderId: String,
+        val lineTotal: Long,
+    )
+
+    @Serializable
+    @SerialName("NullHolder")
+    private data class NullHolder(
+        val id: String,
+        val note: String? = null,
+    )
+
+    @Serializable
+    @SerialName("DefHolder")
+    private data class DefHolder(
+        val id: String,
+        val note: String = "default",
+    )
+
+    @Serializable
+    @SerialName("Poly")
+    private sealed interface Poly {
+        @Serializable
+        @SerialName("a")
+        data class A(
+            val x: Int,
+        ) : Poly
+    }
+
+    // --- config oracle checks --------------------------------------------------
+
+    @Test
+    fun `changing the naming strategy renames every key — a real break both ways`() {
+        // SnakeCase writes order_id / line_total; a default-naming reader expects
+        // orderId / lineTotal and vice versa — both decodes throw on the missing key.
+        assertConfigOracle(
+            serializer<Named>(),
+            Named("x", 1),
+            oldJson = strict,
+            newJson = Json { namingStrategy = JsonNamingStrategy.SnakeCase },
+        )
+    }
+
+    @Test
+    fun `changing the class discriminator breaks polymorphic decoding both ways`() {
+        assertConfigOracle(
+            serializer<Poly>(),
+            Poly.A(1),
+            oldJson = strict,
+            newJson = Json { classDiscriminator = "kind" },
+        )
+    }
+
+    @Test
+    fun `toggling explicitNulls round-trips without a decode failure`() {
+        // Writer with explicitNulls=false omits the null note; the reader restores it
+        // from the field default. No throw, no loss — the classifier's WARN is conservative.
+        assertConfigOracle(
+            serializer<NullHolder>(),
+            NullHolder("x", note = null),
+            oldJson = strict,
+            newJson = Json { explicitNulls = false },
+        )
+    }
+
+    @Test
+    fun `disabling encodeDefaults round-trips without a decode failure`() {
+        // Writer with encodeDefaults=false omits the defaulted note; reader restores the default.
+        assertConfigOracle(
+            serializer<DefHolder>(),
+            DefHolder("x"),
+            oldJson = Json { encodeDefaults = true },
+            newJson = strict,
+        )
+    }
+
+    // --- coerceInputValues: schema + config interaction ------------------------
+
+    @Serializable
+    @SerialName("CoerceHolder")
+    private data class CoerceHolderV1(
+        val s: CoerceEnumV1 = CoerceEnumV1.A,
+    )
+
+    @Serializable
+    @SerialName("CoerceHolder")
+    private data class CoerceHolderV2(
+        val s: CoerceEnumV2 = CoerceEnumV2.A,
+    )
+
+    @Serializable
+    @SerialName("CoerceEnum")
+    private enum class CoerceEnumV1 { A, B }
+
+    @Serializable
+    @SerialName("CoerceEnum")
+    private enum class CoerceEnumV2 { A, B, C }
+
+    @Test
+    fun `coerceInputValues rescues an added enum value, downgrading the forward break to a warning`() {
+        val newData = strict.encodeToString(serializer<CoerceHolderV2>(), CoerceHolderV2(CoerceEnumV2.C))
+
+        // A strict old reader cannot decode the unknown value C -> real forward break.
+        assertFailsWith<Exception> { strict.decodeFromString(serializer<CoerceHolderV1>(), newData) }
+        // A coercing old reader falls back to the field default -> decodes (to A), no throw.
+        val coercing = Json { coerceInputValues = true }
+        assertEquals(CoerceEnumV1.A, coercing.decodeFromString(serializer<CoerceHolderV1>(), newData).s)
+
+        // The classifier must mirror this: BREAK for a strict old reader, WARN once it coerces.
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer<CoerceHolderV1>().descriptor)),
+                DescriptorSnapshotExtractor.extract(listOf(serializer<CoerceHolderV2>().descriptor)),
+            )
+        val strictForward =
+            Classifier()
+                .classify(changes, JsonConfigReader.read(strict), JsonConfigReader.read(strict))
+                .single { it.direction == CompatibilityDirection.FORWARD }
+        val coerceForward =
+            Classifier()
+                .classify(changes, JsonConfigReader.read(coercing), JsonConfigReader.read(coercing))
+                .single { it.direction == CompatibilityDirection.FORWARD }
+        assertEquals(Severity.BREAK, strictForward.severity)
+        assertEquals(Severity.WARN, coerceForward.severity)
+    }
+
+    // --- @JsonNames alias drop -------------------------------------------------
+
+    @Serializable
+    @SerialName("Alias")
+    private data class AliasV1(
+        @JsonNames("legacy") val name: String,
+    )
+
+    @Serializable
+    @SerialName("Alias")
+    private data class AliasV2(
+        val name: String,
+    )
+
+    @Test
+    fun `dropping a @JsonNames alias breaks a producer still sending that key`() {
+        // A heterogeneous producer sending the legacy key decodes under V1 (alias present)
+        // but not under V2 (alias dropped) — the backward-direction risk the classifier warns on.
+        // Use isolated Json instances: V1 and V2 share @SerialName("Alias") with identical
+        // elements, so their descriptors compare equal and would share the alt-names cache on a
+        // single Json instance (V1's alias would leak to V2). A fresh reader per version is honest.
+        val legacyPayload = """{"legacy":"x"}"""
+        assertEquals("x", Json { }.decodeFromString(serializer<AliasV1>(), legacyPayload).name)
+        assertFailsWith<Exception> { Json { }.decodeFromString(serializer<AliasV2>(), legacyPayload) }
+
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer<AliasV1>().descriptor)),
+                DescriptorSnapshotExtractor.extract(listOf(serializer<AliasV2>().descriptor)),
+            )
+        val findings = Classifier().classify(changes)
+        assertTrue(
+            findings.any { it.direction == CompatibilityDirection.BACKWARD && it.severity == Severity.WARN },
+            "expected a backward WARN for the dropped alias; got $findings",
         )
     }
 }
