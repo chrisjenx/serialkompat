@@ -13,9 +13,10 @@ kotlin {
 dependencies {
     api(project(":serialkompat-core"))
     api(libs.kotlinx.serialization.core)
+    // Reads JSON-specific wire annotations (@JsonNames, @JsonClassDiscriminator).
+    api(libs.kotlinx.serialization.json)
 
     testImplementation(kotlin("test"))
-    testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit.jupiter.engine)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
