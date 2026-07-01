@@ -78,6 +78,8 @@ public class SerialkompatPlugin : Plugin<Project> {
                 .get()
                 .asFile
         val currentFile = currentSnapshot.get().asFile
+        // A Provider (not project.findProperty at execution) keeps -Pserialkompat.ref config-cache-safe.
+        val refProperty = target.providers.gradleProperty(REF_PROPERTY)
 
         val check =
             target.tasks.register(CHECK_TASK_NAME) { task ->
@@ -105,6 +107,31 @@ public class SerialkompatPlugin : Plugin<Project> {
                     )
                 }
             }
+
+        // Ad-hoc variant: check against any ref via -Pserialkompat.ref=<ref>, no config edit.
+        target.tasks.register(CHECK_AGAINST_TASK_NAME) { task ->
+            task.group = VERIFICATION_GROUP
+            task.description = "Checks against an ad-hoc ref (-Pserialkompat.ref=<ref>), else the configured baseline."
+            task.dependsOn(extract)
+            task.onlyIf { extension.types.get().isNotEmpty() }
+            task.doLast { t ->
+                runCheck(
+                    logger = t.logger,
+                    rootDir = rootDir,
+                    projectDir = projectDir,
+                    projectPath = projectPath,
+                    current = currentFile,
+                    baselineDir = baselineDir,
+                    worktreesDir = worktreesDir,
+                    reportFile = reportFile,
+                    baselineRef = resolveBaselineRef(refProperty.orNull, extension.baselineRef.get()),
+                    direction = extension.direction.get(),
+                    include = extension.include.get(),
+                    exclude = extension.exclude.get(),
+                    failOnBreaking = extension.failOnBreaking.get(),
+                )
+            }
+        }
 
         // Only gate `check` once the project has declared what crosses the wire.
         target.tasks.named("check").configure { it.dependsOn(check) }
@@ -213,6 +240,8 @@ public class SerialkompatPlugin : Plugin<Project> {
     public companion object {
         public const val EXTRACT_TASK_NAME: String = "serialkompatExtract"
         public const val CHECK_TASK_NAME: String = "serialkompatCheck"
+        public const val CHECK_AGAINST_TASK_NAME: String = "serialkompatCheckAgainst"
+        private const val REF_PROPERTY: String = "serialkompat.ref"
         private const val VERIFICATION_GROUP: String = "verification"
     }
 }

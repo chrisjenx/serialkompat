@@ -10,6 +10,7 @@ public abstract class io/github/chrisjenx/serialkompat/gradle/SerialkompatExtens
 }
 
 public final class io/github/chrisjenx/serialkompat/gradle/SerialkompatPlugin : org/gradle/api/Plugin {
+	public static final field CHECK_AGAINST_TASK_NAME Ljava/lang/String;
 	public static final field CHECK_TASK_NAME Ljava/lang/String;
 	public static final field Companion Lio/github/chrisjenx/serialkompat/gradle/SerialkompatPlugin$Companion;
 	public static final field EXTRACT_TASK_NAME Ljava/lang/String;
