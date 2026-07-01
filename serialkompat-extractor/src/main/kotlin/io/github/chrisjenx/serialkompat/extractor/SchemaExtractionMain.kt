@@ -35,8 +35,10 @@ public object SchemaExtractionMain {
             )
         }
         val config = if (json === Json) SnapshotConfig() else JsonConfigReader.read(json)
+        // Fall back to discovered types when none are configured explicitly (see [TYPES_RESOURCE]).
+        val effectiveTypes = typeNames.ifEmpty { discoverTypeNames() }
         val descriptors =
-            typeNames.map { name ->
+            effectiveTypes.map { name ->
                 serializer(Class.forName(name).kotlin.createType()).descriptor
             }
         val snapshot = DescriptorSnapshotExtractor.extract(descriptors, json.serializersModule, config)
@@ -58,6 +60,34 @@ public object SchemaExtractionMain {
         require(types.isNotEmpty()) { "serialkompat: --types is required" }
         run(types, options["json"], File(output))
     }
+
+    /**
+     * Classpath manifest of discovered `@Serializable` FQNs, one per line (blank
+     * lines and `#` comments ignored). This is a producer-agnostic contract: the
+     * file may be authored by hand or emitted by a build-time discovery step. A
+     * Kotlin compiler plugin producer is the sanctioned automated route and is
+     * tracked separately (design §4, issue #22); KSP is explicitly not used.
+     */
+    public const val TYPES_RESOURCE: String = "META-INF/serialkompat/serializable-types.txt"
+
+    /**
+     * Reads discovered `@Serializable` type names from every [TYPES_RESOURCE] on
+     * [loader]'s classpath, ignoring blank lines and `#` comments; sorted + deduped.
+     */
+    public fun discoverTypeNames(
+        loader: ClassLoader =
+            Thread.currentThread().contextClassLoader ?: SchemaExtractionMain::class.java.classLoader,
+    ): List<String> =
+        loader
+            .getResources(TYPES_RESOURCE)
+            .asSequence()
+            .flatMap { url ->
+                url.openStream().bufferedReader().use { it.readLines() }
+            }.map(String::trim)
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+            .distinct()
+            .sorted()
+            .toList()
 
     private fun parseOptions(args: Array<String>): Map<String, String> {
         val options = mutableMapOf<String, String>()

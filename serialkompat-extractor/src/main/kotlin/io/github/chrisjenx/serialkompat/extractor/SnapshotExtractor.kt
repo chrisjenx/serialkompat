@@ -9,7 +9,7 @@ import kotlinx.serialization.modules.SerializersModule
 /**
  * Builds a [Snapshot] from compiled `@Serializable` [SerialDescriptor]s — the
  * anti-corruption boundary between kotlinx-serialization and the pure engine.
- * The rest of the tool depends only on [Snapshot], so a future KSP-based
+ * The rest of the tool depends only on [Snapshot], so a future compiler-plugin
  * extractor (Approach C) can drop in behind this interface without touching the
  * differ, classifier, or rules (design §3–§4).
  */

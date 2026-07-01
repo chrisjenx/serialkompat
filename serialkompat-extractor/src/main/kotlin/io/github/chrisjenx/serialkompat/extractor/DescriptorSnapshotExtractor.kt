@@ -138,7 +138,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             jsonNames = annotations.filterIsInstance<JsonNames>().flatMap { it.names.toList() },
             // NOTE: @EncodeDefault is not a @SerialInfo annotation, so it does not
             // appear in getElementAnnotations — Approach A (runtime descriptor)
-            // cannot recover its mode. Left null; a KSP extractor could read it (§14).
+            // cannot recover its mode. Left null; a compiler-plugin extractor could read it (§14).
             encodeDefault = null,
         )
     }

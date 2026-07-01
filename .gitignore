@@ -24,3 +24,6 @@ out/
 local.properties
 *.local
 .envrc
+
+# Claude Code personal, per-project settings (not committed)
+.claude/settings.local.json

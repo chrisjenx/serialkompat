@@ -10,6 +10,9 @@ public final class io/github/chrisjenx/serialkompat/extractor/JsonConfigReader {
 
 public final class io/github/chrisjenx/serialkompat/extractor/SchemaExtractionMain {
 	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/extractor/SchemaExtractionMain;
+	public static final field TYPES_RESOURCE Ljava/lang/String;
+	public final fun discoverTypeNames (Ljava/lang/ClassLoader;)Ljava/util/List;
+	public static synthetic fun discoverTypeNames$default (Lio/github/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/lang/ClassLoader;ILjava/lang/Object;)Ljava/util/List;
 	public static final fun main ([Ljava/lang/String;)V
 	public final fun run (Ljava/util/List;Ljava/lang/String;Ljava/io/File;)V
 }

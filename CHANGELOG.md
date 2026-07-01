@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Producer-agnostic `@Serializable` discovery: when no `types` are configured, the extractor reads FQNs from a classpath manifest (`META-INF/serialkompat/serializable-types.txt`, one per line, `#` comments and blanks ignored). The manifest may be authored by hand or emitted by a build-time step. An automated producer, if built, is a Kotlin compiler plugin — **not KSP** (issue #22).
 - Persisted-data horizon: `TransitiveCompatibility.checkAgainstHistory` verifies the current schema against *every* published version (Confluent `*_TRANSITIVE` semantics), catching a break vs an old version even when the latest looks fine; `PublishedHistory` is an append-only per-version snapshot store (refuses overwrites).
 - Dokka 2.0 multi-module API docs (`dokkaGenerate` aggregates core/extractor/gradle) published to GitHub Pages via a `Docs` workflow on `main`.
 - `serialkompat-cli` module: a standalone CLI (`serialkompat diff <baseline> <current>`) for non-Gradle / cross-repo use that diffs two snapshot files through the same engine + report, with `--direction` and `--no-fail`. Exit codes: 0 ok, 1 breaking, 2 usage.
