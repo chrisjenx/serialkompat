@@ -3,6 +3,11 @@ public final class io/github/chrisjenx/serialkompat/extractor/DescriptorSnapshot
 	public fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
 }
 
+public final class io/github/chrisjenx/serialkompat/extractor/JsonConfigReader {
+	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/extractor/JsonConfigReader;
+	public final fun read (Lkotlinx/serialization/json/Json;)Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;
+}
+
 public abstract interface class io/github/chrisjenx/serialkompat/extractor/SnapshotExtractor {
 	public abstract fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
 	public static synthetic fun extract$default (Lio/github/chrisjenx/serialkompat/extractor/SnapshotExtractor;Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
