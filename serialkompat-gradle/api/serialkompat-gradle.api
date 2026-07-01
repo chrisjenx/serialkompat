@@ -9,3 +9,25 @@ public final class io/github/chrisjenx/serialkompat/gradle/SerialkompatPlugin : 
 public final class io/github/chrisjenx/serialkompat/gradle/SerialkompatPlugin$Companion {
 }
 
+public abstract interface class io/github/chrisjenx/serialkompat/gradle/git/GitCommands {
+	public abstract fun run ([Ljava/lang/String;)Ljava/lang/String;
+}
+
+public final class io/github/chrisjenx/serialkompat/gradle/git/GitRefBaseline {
+	public fun <init> (Lio/github/chrisjenx/serialkompat/gradle/git/GitCommands;)V
+	public final fun resolveSha (Ljava/lang/String;)Ljava/lang/String;
+	public final fun snapshotAt (Ljava/lang/String;Ljava/io/File;Lio/github/chrisjenx/serialkompat/gradle/git/SnapshotCache;Lkotlin/jvm/functions/Function1;)Ljava/lang/String;
+	public final fun withWorktree (Ljava/lang/String;Ljava/io/File;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
+}
+
+public final class io/github/chrisjenx/serialkompat/gradle/git/SnapshotCache {
+	public fun <init> (Ljava/io/File;)V
+	public final fun get (Ljava/lang/String;)Ljava/lang/String;
+	public final fun put (Ljava/lang/String;Ljava/lang/String;)V
+}
+
+public final class io/github/chrisjenx/serialkompat/gradle/git/SystemGit : io/github/chrisjenx/serialkompat/gradle/git/GitCommands {
+	public fun <init> (Ljava/io/File;)V
+	public fun run ([Ljava/lang/String;)Ljava/lang/String;
+}
+
