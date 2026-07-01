@@ -95,7 +95,7 @@ without touching the rules.
 | Module | Responsibility | Depends on |
 |---|---|---|
 | `serialkompat-core` | `Snapshot` model + canonical serialize/parse, `Differ`, `Classifier`, rule set, `Report`. **Pure Kotlin, no kotlinx-serialization runtime, no I/O.** | — |
-| `serialkompat-extractor` | Walk `SerialDescriptor` → build `Snapshot`. Reuses `kotlinx-schema`'s introspector behind an anti-corruption layer (incl. `SerializersModule` polymorphism). Runs on JVM. | kotlinx-serialization, kotlinx-schema |
+| `serialkompat-extractor` | Walk `SerialDescriptor` → build `Snapshot`, behind an `Extractor` interface (anti-corruption layer), incl. `SerializersModule` polymorphism. Vendors its own walk (see §12); does **not** depend on `kotlinx-schema`. Runs on JVM. | kotlinx-serialization |
 | `serialkompat-gradle` | `serialkompatCheck` / `serialkompatCheckAgainst` / `serialkompatExtract` / `serialkompatDump` tasks; config extension. | core, extractor |
 | `serialkompat-cli` | Thin CLI for cross-repo / non-Gradle use. v1. | core, extractor |
 
@@ -462,20 +462,46 @@ assertion first, then the rule.
 
 ---
 
-## 12. `kotlinx-schema` reuse risk
+## 12. `kotlinx-schema` reuse — spike outcome: **vendor the walk** (resolved, #6)
 
-It is **v0.5.0, experimental, `InternalSchemaGeneratorApi`, "nothing settled"**,
-and its IR targets schema *emission*, so it may drop fields compat depends on
-(`@SerialName`, element order, `@Required`-vs-optional, discriminator config,
-value-class inline). Mitigation:
-1. **Anti-corruption layer** — our `Snapshot` is the contract; kotlinx-schema sits
-   behind an `Extractor` interface so its churn can't reach the rule engine.
-2. **v0 fidelity spike** (first plan task): confirm the IR preserves serialName /
-   `isElementOptional` / nullability / enum values / sealed subtypes + discriminator.
-   Read `SerialDescriptor` directly for anything it drops.
-3. **Fallback ready:** vendor our own walk from the `ProtoBufSchemaGenerator`
-   reference (a few hundred lines, well-understood) if it's too lossy/unstable. The
-   walk was never the hard part — the rules are.
+The v0 fidelity spike is done (`DescriptorFidelitySpikeTest`, issue #6). **Decision:
+vendor a direct `SerialDescriptor` walk; do not depend on `kotlinx-schema`.**
+
+`kotlinx-schema` **is** published to Maven Central
+(`org.jetbrains.kotlinx:kotlinx-schema-generator-json:0.5.0`, 2026-04-07), so
+availability was never the problem — **fidelity** is. Its IR is a one-way,
+JSON-Schema-shaped projection built for schema *emission*, and it drops or
+flattens exactly the facts compatibility turns on:
+- **per-element optionality** is collapsed into an `ObjectNode.required` name-set
+  plus a `hasDefaultValue` boolean — the serialization path never even sets the
+  richer fields;
+- **`@JsonNames`** aliases are not captured at all;
+- **`@JsonClassDiscriminator`** is ignored (discriminator name hardcoded from
+  `Json` config);
+- arbitrary element annotations are reduced to a single description string, and
+  finer primitive kinds (BYTE/SHORT/CHAR/unsigned) are folded away.
+
+It is also experimental 0.x ("nothing settled") with open bugs on the very path
+we'd use (recursion `StackOverflow`; brittle sealed-structure `require`).
+
+The spike confirmed the alternative is trivial and complete: a compiled
+`SerialDescriptor` exposes **everything** we need directly —
+
+| Fact | How it's read (verified in the spike) |
+|---|---|
+| serial name (post-`@SerialName`) | `descriptor.serialName`, `getElementName(i)` |
+| per-element optionality | `isElementOptional(i)` (authoritative; no re-derivation) |
+| nullability | `getElementDescriptor(i).isNullable` |
+| `@JsonNames` aliases | `getElementAnnotations(i).filterIsInstance<JsonNames>()` |
+| enum values | `SerialKind.ENUM` + `elementNames` |
+| sealed subtypes + discriminator | `PolymorphicKind.SEALED`; element 1 (`"value"`) child descriptors |
+| open polymorphism | `SerializersModule.dumpTo(SerializersModuleCollector { polymorphic(...) })` |
+
+So we own a small, stable walk (depends only on `kotlinx-serialization-core`,
+which is stable versioned API) behind the `Extractor` interface. The one piece
+worth *copying* (not depending on) from `kotlinx-schema` is its
+`SerializersModuleCollector` open-polymorphism resolution (~30 lines); that
+pattern is reflected in the spike. The walk was never the hard part — the rules are.
 
 ---
 
@@ -503,8 +529,8 @@ value-class inline). Mitigation:
   instance the user points at).
 - Rebuilding *recent* refs is reliable; *ancient* ones are not (→ old baselines
   come from published history, not recompilation).
-- `kotlinx-schema` IR fidelity for `@SerialName` / optionality / discriminator
-  (the §12 spike gates this).
+- ~~`kotlinx-schema` IR fidelity~~ — **resolved (#6):** vendor the walk; a compiled
+  `SerialDescriptor` exposes everything directly (see §12).
 
 ---
 
@@ -513,8 +539,9 @@ value-class inline). Mitigation:
 2. **Baseline:** git-ref-live (no mutable committed baseline); content-addressed
    cache; fail-closed; v1 append-only published history for persisted horizon.
 3. **Platform:** KMP; extraction on the JVM target.
-4. **Extractor:** runtime `SerialDescriptor` reflection (Approach A), reusing
-   `kotlinx-schema` behind an anti-corruption layer; KSP discovery deferred to v1.
+4. **Extractor:** runtime `SerialDescriptor` reflection (Approach A). Spike #6
+   resolved: **vendor** the descriptor walk behind an `Extractor` anti-corruption
+   layer — `kotlinx-schema`'s IR is too lossy (see §12); KSP discovery deferred to v1.
 5. **Scope:** check-by-default per applied module, with module/package/file/type
    suppression; no-silent-exclusions coverage invariant.
 6. **Config:** read from the real `Json` instance; config is part of the snapshot;
