@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Config-change classification: the classifier now judges `Json` config deltas (design §6) — naming-strategy / discriminator changes are BREAK, tightening `ignoreUnknownKeys` / disabling `encodeDefaults` / `coerceInputValues` are WARN, loosening is safe.
 - `JsonConfigReader`: reads the wire-relevant settings off a user's real `Json.configuration` (naming strategy, discriminator, ignoreUnknownKeys, encodeDefaults, explicitNulls, coerceInputValues) into a `SnapshotConfig` — binding to the actual config rather than a redeclared copy.
 - `Classifier` + `Finding` + `Rules` + `CompatibilityProfile`: applies the full rule matrix (design §7), turning structural `Change`s into per-direction, severity-ranked findings using the reader/writer `Json` config (`ignoreUnknownKeys`, `encodeDefaults`, `coerceInputValues`) and numeric-widening awareness. Reports only actionable (WARN/BREAK) findings.
 - `SnapshotExtractor` + `DescriptorSnapshotExtractor`: vendored runtime `SerialDescriptor` walk (BFS + visited-set) reading serial names, per-element optionality, nullability, `@JsonNames`, enum values, sealed subtypes, and `SerializersModule`-resolved open polymorphism into a `Snapshot`.

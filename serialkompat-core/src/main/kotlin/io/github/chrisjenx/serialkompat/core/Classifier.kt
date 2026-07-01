@@ -13,7 +13,8 @@ package io.github.chrisjenx.serialkompat.core
  *   the *writer* is the new config.
  *
  * Only actionable findings are reported: a direction that is [Severity.SAFE]
- * yields no finding. Config *changes* are classified separately (issue #13).
+ * yields no finding. Config *changes* are themselves classified (design §6): a
+ * naming-strategy or discriminator change is a BREAK, a tightened reader a WARN.
  */
 public class Classifier(
     private val profile: CompatibilityProfile = CompatibilityProfile(),
@@ -233,9 +234,106 @@ public class Classifier(
                 }
             }
 
-            // Config-change classification is issue #13.
-            is Change.ConfigChanged -> null
+            is Change.ConfigChanged -> configVerdict(change)
         }
+
+    /**
+     * Classifies a change to a wire-relevant `Json` setting (design §6). Several
+     * settings are inherently one-directional: a reader-side flag only affects the
+     * direction whose reader changed (backward = new reader ← old data), a
+     * writer-side flag only the other (forward = old reader ← new data), so
+     * severities are assigned per direction rather than symmetrically.
+     */
+    private fun configVerdict(change: Change.ConfigChanged): Verdict? {
+        val disabled = change.oldValue == "true" && change.newValue == "false"
+        val spec =
+            when (change.field) {
+                // Rename every key / break polymorphic decoding — both directions.
+                "namingStrategy" ->
+                    ConfigSpec(
+                        Rules.CONFIG_NAMING_STRATEGY,
+                        Severity.BREAK,
+                        Severity.BREAK,
+                        "A naming-strategy change renames every key; keep it stable or bump major.",
+                    )
+                "classDiscriminator" ->
+                    ConfigSpec(
+                        Rules.CONFIG_DISCRIMINATOR,
+                        Severity.BREAK,
+                        Severity.BREAK,
+                        "Changing the discriminator breaks all polymorphic decoding.",
+                    )
+                "classDiscriminatorMode" ->
+                    ConfigSpec(
+                        Rules.CONFIG_DISCRIMINATOR,
+                        Severity.BREAK,
+                        Severity.BREAK,
+                        "Changing whether the discriminator is emitted breaks polymorphic decoding.",
+                    )
+                // Reader-side (backward only): a stricter NEW reader can reject old data.
+                "ignoreUnknownKeys" ->
+                    ConfigSpec(
+                        Rules.CONFIG_READER_STRICTNESS,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        Severity.SAFE,
+                        "A stricter reader now rejects previously-tolerated unknown keys.",
+                    )
+                "coerceInputValues" ->
+                    ConfigSpec(
+                        Rules.CONFIG_COERCE_INPUT,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        Severity.SAFE,
+                        "A reader that no longer coerces invalid values may fail to decode.",
+                    )
+                "useAlternativeNames" ->
+                    ConfigSpec(
+                        Rules.CONFIG_READER_STRICTNESS,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        Severity.SAFE,
+                        "The reader no longer accepts @JsonNames alias keys.",
+                    )
+                // Writer-side (forward only): the NEW writer may omit fields the old reader expects.
+                "encodeDefaults" ->
+                    ConfigSpec(
+                        Rules.CONFIG_ENCODE_DEFAULTS,
+                        Severity.SAFE,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        "No longer writing defaults can drop fields peers rely on.",
+                    )
+                // Whether nulls are written; conditional in both directions — kept coarse (WARN).
+                "explicitNulls" ->
+                    ConfigSpec(
+                        Rules.CONFIG_EXPLICIT_NULLS,
+                        Severity.WARN,
+                        Severity.WARN,
+                        "This changes whether nulls appear on the wire.",
+                    )
+                else ->
+                    ConfigSpec(
+                        Rules.CONFIG_CHANGED,
+                        Severity.WARN,
+                        Severity.WARN,
+                        "A wire-relevant Json setting changed.",
+                    )
+            }
+        if (spec.backward == Severity.SAFE && spec.forward == Severity.SAFE) return null
+        return Verdict(
+            spec.rule,
+            "Json config",
+            "config '${change.field}' ${change.oldValue} -> ${change.newValue}",
+            backward = spec.backward,
+            forward = spec.forward,
+            message = "Json ${change.field} changed ${change.oldValue} -> ${change.newValue}",
+            fixHint = spec.hint,
+        )
+    }
+
+    private data class ConfigSpec(
+        val rule: String,
+        val backward: Severity,
+        val forward: Severity,
+        val hint: String,
+    )
 
     private fun isWidening(
         oldType: String,

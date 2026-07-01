@@ -19,6 +19,12 @@ public object Rules {
     public const val SUBTYPE_REMOVED: String = "SUBTYPE_REMOVED"
     public const val DISCRIMINATOR_CHANGED: String = "DISCRIMINATOR_CHANGED"
     public const val CONFIG_CHANGED: String = "CONFIG_CHANGED"
+    public const val CONFIG_NAMING_STRATEGY: String = "CONFIG_NAMING_STRATEGY"
+    public const val CONFIG_DISCRIMINATOR: String = "CONFIG_DISCRIMINATOR"
+    public const val CONFIG_READER_STRICTNESS: String = "CONFIG_READER_STRICTNESS"
+    public const val CONFIG_ENCODE_DEFAULTS: String = "CONFIG_ENCODE_DEFAULTS"
+    public const val CONFIG_EXPLICIT_NULLS: String = "CONFIG_EXPLICIT_NULLS"
+    public const val CONFIG_COERCE_INPUT: String = "CONFIG_COERCE_INPUT"
 }
 
 /**

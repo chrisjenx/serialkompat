@@ -319,6 +319,12 @@ public final class io/github/chrisjenx/serialkompat/core/ReaderTolerance : java/
 
 public final class io/github/chrisjenx/serialkompat/core/Rules {
 	public static final field CONFIG_CHANGED Ljava/lang/String;
+	public static final field CONFIG_COERCE_INPUT Ljava/lang/String;
+	public static final field CONFIG_DISCRIMINATOR Ljava/lang/String;
+	public static final field CONFIG_ENCODE_DEFAULTS Ljava/lang/String;
+	public static final field CONFIG_EXPLICIT_NULLS Ljava/lang/String;
+	public static final field CONFIG_NAMING_STRATEGY Ljava/lang/String;
+	public static final field CONFIG_READER_STRICTNESS Ljava/lang/String;
 	public static final field CONTRACT_REMOVED Ljava/lang/String;
 	public static final field DISCRIMINATOR_CHANGED Ljava/lang/String;
 	public static final field ENUM_VALUE_ADDED Ljava/lang/String;
