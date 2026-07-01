@@ -57,6 +57,7 @@ class SerialkompatCheckFunctionalTest {
     private fun buildFile(
         baselineRef: String?,
         direction: String? = null,
+        acceptedBreaks: List<String> = emptyList(),
     ) = write(
         "build.gradle.kts",
         """
@@ -73,6 +74,11 @@ class SerialkompatCheckFunctionalTest {
             ${direction?.let {
             "direction.set(io.github.chrisjenx.serialkompat.core.CompatibilityDirection.$it)"
         } ?: ""}
+            ${if (acceptedBreaks.isEmpty()) {
+            ""
+        } else {
+            "acceptedBreaks.set(listOf(${acceptedBreaks.joinToString(", ") { "\"$it\"" }}))"
+        }}
         }
         """,
     )
@@ -215,6 +221,21 @@ class SerialkompatCheckFunctionalTest {
         // Plain check falls back to origin/main, which is unresolvable -> fail closed, never green.
         val fallback = runner("serialkompatCheck").buildAndFail()
         assertEquals(TaskOutcome.FAILED, fallback.task(":serialkompatCheck")?.outcome)
+    }
+
+    @Test
+    fun `an accepted break declared in the extension lets the build pass`() {
+        settings()
+        // id: String -> Int is a breaking type change; sanction it via the extension.
+        buildFile(baselineRef = "HEAD", acceptedBreaks = listOf("com.example.Order PROPERTY_TYPE_CHANGED"))
+        orderModel("val id: Int")
+        val sha = initCommit()
+        seedBaseline(sha, orderSnapshot(Element("id", "kotlin.String")))
+
+        val result = runner("serialkompatCheck").build()
+
+        // The break is acknowledged, so the gate passes instead of failing.
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheck")?.outcome)
     }
 
     @Test

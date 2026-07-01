@@ -1,5 +1,6 @@
 package io.github.chrisjenx.serialkompat.gradle
 
+import io.github.chrisjenx.serialkompat.core.AcceptedBreak
 import io.github.chrisjenx.serialkompat.core.CompatibilityDirection
 import io.github.chrisjenx.serialkompat.gradle.git.GitRefBaseline
 import io.github.chrisjenx.serialkompat.gradle.git.SnapshotCache
@@ -32,6 +33,8 @@ public class SerialkompatPlugin : Plugin<Project> {
         extension.baselineRef.convention("origin/main")
         extension.include.convention(listOf(""))
         extension.exclude.convention(emptyList())
+        extension.acceptedBreaks.convention(emptyList())
+        extension.renames.convention(emptyMap())
 
         val currentSnapshot = target.layout.buildDirectory.file("serialkompat/current.snapshot")
 
@@ -104,6 +107,8 @@ public class SerialkompatPlugin : Plugin<Project> {
                         include = extension.include.get(),
                         exclude = extension.exclude.get(),
                         failOnBreaking = extension.failOnBreaking.get(),
+                        accepted = extension.acceptedBreaks.get().map { parseAcceptedBreak(it) },
+                        renames = extension.renames.get(),
                     )
                 }
             }
@@ -129,6 +134,8 @@ public class SerialkompatPlugin : Plugin<Project> {
                     include = extension.include.get(),
                     exclude = extension.exclude.get(),
                     failOnBreaking = extension.failOnBreaking.get(),
+                    accepted = extension.acceptedBreaks.get().map { parseAcceptedBreak(it) },
+                    renames = extension.renames.get(),
                 )
             }
         }
@@ -152,6 +159,8 @@ public class SerialkompatPlugin : Plugin<Project> {
         include: List<String>,
         exclude: List<String>,
         failOnBreaking: Boolean,
+        accepted: List<AcceptedBreak>,
+        renames: Map<String, String>,
     ) {
         val git = GitRefBaseline(SystemGit(rootDir))
         val cache = SnapshotCache(baselineDir)
@@ -170,6 +179,8 @@ public class SerialkompatPlugin : Plugin<Project> {
                 include = include,
                 exclude = exclude,
                 failOnBreaking = failOnBreaking,
+                accepted = accepted,
+                renames = renames,
             )
         logger.lifecycle(outcome.console)
         reportFile.also { it.parentFile.mkdirs() }.writeText(outcome.json)

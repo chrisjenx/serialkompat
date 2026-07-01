@@ -33,6 +33,7 @@ internal object CheckExecutor {
         exclude: List<String>,
         failOnBreaking: Boolean,
         accepted: List<AcceptedBreak> = emptyList(),
+        renames: Map<String, String> = emptyMap(),
     ): Outcome {
         val report =
             CompatibilityEngine.check(
@@ -41,6 +42,7 @@ internal object CheckExecutor {
                 profile = CompatibilityProfile(direction = direction),
                 scope = Scope(include = include, exclude = exclude),
                 accepted = accepted,
+                renames = renames,
             )
         val failed = failOnBreaking && report.shouldFail(Severity.BREAK)
         return Outcome(report, ConsoleReporter.render(report), JsonReporter.render(report), failed)
