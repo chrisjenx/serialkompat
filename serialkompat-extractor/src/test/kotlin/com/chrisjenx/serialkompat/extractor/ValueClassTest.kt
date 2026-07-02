@@ -38,6 +38,23 @@ class ValueClassTest {
     )
 
     @Serializable
+    @JvmInline
+    private value class Millis(
+        val raw: Long,
+    )
+
+    @Serializable
+    @SerialName("Timed")
+    private data class Timed(
+        val at: Millis,
+    )
+
+    @Test
+    fun `a value class over Long records the underlying Long`() {
+        assertEquals("kotlin.Long", extract(serializer<Timed>().descriptor).element("Timed", "at").type)
+    }
+
+    @Serializable
     @SerialName("Account")
     private data class Account(
         val id: UserId,
