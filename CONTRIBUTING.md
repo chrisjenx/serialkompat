@@ -30,6 +30,17 @@ Requires **JDK 17+**. Everything runs through the Gradle wrapper — no local Gr
 ./gradlew koverHtmlReport  # coverage report -> build/reports/kover
 ```
 
+### Docs site
+
+The docs site ([chrisjenx.github.io/serialkompat](https://chrisjenx.github.io/serialkompat/)) is MkDocs Material; content lives in `docs/`. To preview locally:
+
+```console
+python3 -m venv build/docs-venv && build/docs-venv/bin/pip install -r requirements-docs.txt
+build/docs-venv/bin/mkdocs serve   # live-reload at http://127.0.0.1:8000
+```
+
+CI runs `mkdocs build --strict` on any PR touching docs — broken links or nav fail the PR.
+
 ## Before you push
 
 Run the full local gate — CI runs the same thing:

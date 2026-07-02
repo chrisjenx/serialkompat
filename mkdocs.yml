@@ -1,0 +1,62 @@
+site_name: serialkompat
+site_description: A backward/forward compatibility gate for kotlinx-serialization @Serializable models
+site_url: https://chrisjenx.github.io/serialkompat/
+repo_url: https://github.com/chrisjenx/serialkompat
+repo_name: chrisjenx/serialkompat
+edit_uri: edit/main/docs/
+
+# Engineering specs stay on GitHub, not in the site.
+exclude_docs: |
+  design/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.footer
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - search.suggest
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets:
+      check_paths: true
+      base_path: ["."]
+
+nav:
+  - Home: index.md
+  - Quick start: quickstart.md
+  - Setup: setup.md
+  - CI setup: ci.md
+  - Configuration: configuration.md
+  - Rules: rules.md
+  - Recipes: recipes.md
+  - Deep dive: deep-dive.md
+  - API: https://chrisjenx.github.io/serialkompat/api/
+  - Changelog: changelog.md
