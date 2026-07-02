@@ -32,12 +32,12 @@
 
 ```kotlin
 // build.gradle.kts of a module holding @Serializable wire/persisted contracts
-import io.github.chrisjenx.serialkompat.core.CompatibilityDirection
+import com.chrisjenx.serialkompat.core.CompatibilityDirection
 
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
-    id("io.github.chrisjenx.serialkompat")
+    id("com.chrisjenx.serialkompat")
 }
 
 serialkompat {
@@ -130,7 +130,7 @@ The library modules publish to **Maven Central** via the [vanniktech `maven-publ
 - **Release** (`Release` workflow, `workflow_dispatch` with a version): validates → tests → `publishAndReleaseToMavenCentral` → tags `vX.Y.Z` + GitHub release → bumps `gradle.properties` to the next `-SNAPSHOT`.
 - **Snapshot**: pushes to `main` publish `-SNAPSHOT`s automatically.
 
-Locally, `./gradlew publishToMavenLocal` publishes to `~/.m2` (signing uses your `signing.*` Gradle properties). Gradle Plugin Portal publishing (for `plugins { id("io.github.chrisjenx.serialkompat") }` resolution) is not yet configured.
+Locally, `./gradlew publishToMavenLocal` publishes to `~/.m2` (signing uses your `signing.*` Gradle properties). Gradle Plugin Portal publishing (for `plugins { id("com.chrisjenx.serialkompat") }` resolution) is not yet configured.
 
 ## Contributing
 

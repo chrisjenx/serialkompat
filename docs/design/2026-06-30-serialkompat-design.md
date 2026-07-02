@@ -3,7 +3,7 @@
 **Date:** 2026-06-30
 **Status:** Design approved; ready for implementation planning
 **Repo:** `github.com/chrisjenx/serialkompat` (public, personal)
-**Coordinates:** plugin id `io.github.chrisjenx.serialkompat`, Maven group `io.github.chrisjenx`
+**Coordinates:** plugin id `com.chrisjenx.serialkompat`, Maven group `com.chrisjenx`
 
 ---
 
@@ -410,7 +410,7 @@ heuristic remain for v0.5.
 plugins {
   kotlin("jvm")
   kotlin("plugin.serialization")
-  id("io.github.chrisjenx.serialkompat")
+  id("com.chrisjenx.serialkompat")
 }
 
 serialkompat {
@@ -593,4 +593,4 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
    config changes are classified; strict override for third-party-facing scopes.
 7. **Identity:** match by `serialName`; `@PreviousSerialName`/`renames` to track
    moves; plain-type moves SAFE, polymorphic discriminator renames BREAK.
-8. **Name:** `serialkompat` (`io.github.chrisjenx.serialkompat`).
+8. **Name:** `serialkompat` (`com.chrisjenx.serialkompat`).

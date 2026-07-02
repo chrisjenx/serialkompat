@@ -14,5 +14,5 @@ dependencies {
 }
 
 application {
-    mainClass.set("io.github.chrisjenx.serialkompat.cli.SerialkompatCli")
+    mainClass.set("com.chrisjenx.serialkompat.cli.SerialkompatCli")
 }

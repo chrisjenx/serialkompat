@@ -1,28 +1,28 @@
-public final class io/github/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor : io/github/chrisjenx/serialkompat/extractor/SnapshotExtractor {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor;
-	public fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
+public final class com/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor : com/chrisjenx/serialkompat/extractor/SnapshotExtractor {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor;
+	public fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;)Lcom/chrisjenx/serialkompat/core/Snapshot;
 }
 
-public final class io/github/chrisjenx/serialkompat/extractor/JsonConfigReader {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/extractor/JsonConfigReader;
-	public final fun read (Lkotlinx/serialization/json/Json;)Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;
+public final class com/chrisjenx/serialkompat/extractor/JsonConfigReader {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/extractor/JsonConfigReader;
+	public final fun read (Lkotlinx/serialization/json/Json;)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
 }
 
-public final class io/github/chrisjenx/serialkompat/extractor/SchemaExtractionMain {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/extractor/SchemaExtractionMain;
+public final class com/chrisjenx/serialkompat/extractor/SchemaExtractionMain {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;
 	public static final field TYPES_RESOURCE Ljava/lang/String;
 	public final fun discoverTypeNames (Ljava/lang/ClassLoader;)Ljava/util/List;
-	public static synthetic fun discoverTypeNames$default (Lio/github/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/lang/ClassLoader;ILjava/lang/Object;)Ljava/util/List;
+	public static synthetic fun discoverTypeNames$default (Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/lang/ClassLoader;ILjava/lang/Object;)Ljava/util/List;
 	public static final fun main ([Ljava/lang/String;)V
 	public final fun run (Ljava/util/List;Ljava/lang/String;Ljava/io/File;)V
 }
 
-public abstract interface class io/github/chrisjenx/serialkompat/extractor/SnapshotExtractor {
-	public abstract fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
-	public static synthetic fun extract$default (Lio/github/chrisjenx/serialkompat/extractor/SnapshotExtractor;Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
+public abstract interface class com/chrisjenx/serialkompat/extractor/SnapshotExtractor {
+	public abstract fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;)Lcom/chrisjenx/serialkompat/core/Snapshot;
+	public static synthetic fun extract$default (Lcom/chrisjenx/serialkompat/extractor/SnapshotExtractor;Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Snapshot;
 }
 
-public final class io/github/chrisjenx/serialkompat/extractor/SnapshotExtractor$DefaultImpls {
-	public static synthetic fun extract$default (Lio/github/chrisjenx/serialkompat/extractor/SnapshotExtractor;Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
+public final class com/chrisjenx/serialkompat/extractor/SnapshotExtractor$DefaultImpls {
+	public static synthetic fun extract$default (Lcom/chrisjenx/serialkompat/extractor/SnapshotExtractor;Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Snapshot;
 }
 
