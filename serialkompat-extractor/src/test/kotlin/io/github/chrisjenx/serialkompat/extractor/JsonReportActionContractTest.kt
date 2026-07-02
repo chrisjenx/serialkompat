@@ -128,4 +128,34 @@ class JsonReportActionContractTest {
                 .jsonPrimitive.content,
         )
     }
+
+    @Test
+    fun `messages with control characters stay strictly valid JSON`() {
+        // JSON forbids raw control chars (< U+0020) inside strings; the action's Node JSON.parse is
+        // strict and throws on them. Serial names are user-controlled, so backspace/form-feed/NUL are
+        // reachable. str() previously escaped only \n \r \t, leaking the rest raw.
+        val nasty = "a\bb\u000Cc\u0000d\u001Fe"
+        val rendered =
+            JsonReporter.render(
+                Report(
+                    listOf(
+                        finding("R", Severity.BREAK, CompatibilityDirection.BACKWARD, "com.example.T", message = nasty),
+                    ),
+                ),
+            )
+        // No raw control char may survive unescaped (the pretty-printer's own '\n' line breaks aside).
+        assertTrue(
+            rendered.none { it < ' ' && it != '\n' },
+            "rendered JSON contains a raw control character",
+        )
+        // ...and it still round-trips through a real parser.
+        val json = Json.parseToJsonElement(rendered).jsonObject
+        assertEquals(
+            nasty,
+            json["findings"]!!
+                .jsonArray[0]
+                .jsonObject["message"]!!
+                .jsonPrimitive.content,
+        )
+    }
 }

@@ -47,14 +47,24 @@ public object JsonReporter {
             append("    }")
         }
 
-    private fun str(value: String): String {
-        val escaped =
-            value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t")
-        return "\"$escaped\""
-    }
+    private fun str(value: String): String =
+        buildString {
+            append('"')
+            for (c in value) {
+                when (c) {
+                    '\\' -> append("\\\\")
+                    '"' -> append("\\\"")
+                    '\n' -> append("\\n")
+                    '\r' -> append("\\r")
+                    '\t' -> append("\\t")
+                    '\b' -> append("\\b")
+                    '\u000C' -> append("\\f") // form feed (Kotlin has no '\\f' escape)
+                    // JSON requires every control char < U+0020 to be escaped; the ones above have
+                    // short forms, the rest fall back to \u00XX. Leaving them raw makes the report
+                    // invalid JSON and the action's JSON.parse throws.
+                    else -> if (c < ' ') append("\\u").append(c.code.toString(16).padStart(4, '0')) else append(c)
+                }
+            }
+            append('"')
+        }
 }
