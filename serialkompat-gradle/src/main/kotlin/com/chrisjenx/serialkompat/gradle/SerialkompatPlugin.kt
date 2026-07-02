@@ -2,9 +2,11 @@ package com.chrisjenx.serialkompat.gradle
 
 import com.chrisjenx.serialkompat.core.AcceptedBreak
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
+import com.chrisjenx.serialkompat.core.SnapshotFormat
 import com.chrisjenx.serialkompat.gradle.git.GitRefBaseline
 import com.chrisjenx.serialkompat.gradle.git.SnapshotCache
 import com.chrisjenx.serialkompat.gradle.git.SystemGit
+import com.chrisjenx.serialkompat.gradle.history.PublishedHistory
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -13,6 +15,7 @@ import org.gradle.api.logging.Logger
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
 import java.io.File
+import java.time.Instant
 
 /**
  * Registers the serialkompat compatibility-gate tasks (design §9):
@@ -37,6 +40,8 @@ public class SerialkompatPlugin : Plugin<Project> {
         extension.exclude.convention(emptyList())
         extension.acceptedBreaks.convention(emptyList())
         extension.renames.convention(emptyMap())
+        // A source-controlled (not build/) location: the transitive check reads it, so it must persist.
+        extension.history.dir.convention(target.layout.projectDirectory.dir("serialkompat/history"))
 
         val currentSnapshot = target.layout.buildDirectory.file("serialkompat/current.snapshot")
 
@@ -85,6 +90,10 @@ public class SerialkompatPlugin : Plugin<Project> {
         val currentFile = currentSnapshot.get().asFile
         // A Provider (not project.findProperty at execution) keeps -Pserialkompat.ref config-cache-safe.
         val refProperty = target.providers.gradleProperty(REF_PROPERTY)
+        val recordVersionProperty = target.providers.gradleProperty(RECORD_VERSION_PROPERTY)
+        // Captured at configuration time (a String, not the Project) so the record action never
+        // touches `Task.project` at execution — config-cache-safe like the rest of the plugin.
+        val projectVersion = target.version.toString()
 
         val check =
             target.tasks.register(CHECK_TASK_NAME) { task ->
@@ -144,8 +153,59 @@ public class SerialkompatPlugin : Plugin<Project> {
             }
         }
 
-        // Only gate `check` once the project has declared what crosses the wire.
-        target.tasks.named("check").configure { it.dependsOn(check) }
+        // Records the current schema into the append-only published history (design §5), keyed by
+        // version. Run from the release flow (or manually) and commit the result; the transitive
+        // check reads it. Not wired into `check` — recording is an explicit, release-time act.
+        target.tasks.register(RECORD_TASK_NAME) { task ->
+            task.group = VERIFICATION_GROUP
+            task.description = "Records the current schema into the published history (-Pserialkompat.recordVersion=X)."
+            task.dependsOn(extract)
+            task.onlyIf { extension.types.get().isNotEmpty() }
+            val historyDir =
+                extension.history.dir
+                    .get()
+                    .asFile
+            val version = resolveRecordVersion(recordVersionProperty.orNull, projectVersion)
+            task.doLast { t ->
+                runRecord(t.logger, currentFile, historyDir, version)
+            }
+        }
+
+        // Transitive persisted-data check: the current schema vs EVERY published version at once,
+        // so a break against a version older than the latest still fails (design §5). A no-op when
+        // no history has been recorded yet.
+        val checkHistory =
+            target.tasks.register(CHECK_HISTORY_TASK_NAME) { task ->
+                task.group = VERIFICATION_GROUP
+                task.description = "Fails on changes incompatible with any published schema version (transitive)."
+                task.dependsOn(extract)
+                val historyDir =
+                    extension.history.dir
+                        .get()
+                        .asFile
+                task.onlyIf { extension.types.get().isNotEmpty() && hasHistory(historyDir) }
+                task.doLast { t ->
+                    runCheckHistory(
+                        logger = t.logger,
+                        current = currentFile,
+                        historyDir = historyDir,
+                        reportFile = reportFile,
+                        direction = extension.direction.get(),
+                        include = extension.include.get(),
+                        exclude = extension.exclude.get(),
+                        failOnBreaking = extension.failOnBreaking.get(),
+                        accepted = extension.acceptedBreaks.get().map { parseAcceptedBreak(it) },
+                    )
+                }
+            }
+
+        // Only gate `check` once the project has declared what crosses the wire. The transitive
+        // history check joins the gate too, but its own `onlyIf` makes it a no-op until a history
+        // has been recorded — so it never breaks a project that hasn't opted in.
+        target.tasks.named("check").configure {
+            it.dependsOn(check)
+            it.dependsOn(checkHistory)
+        }
     }
 
     @Suppress("LongParameterList")
@@ -196,6 +256,48 @@ public class SerialkompatPlugin : Plugin<Project> {
         reportFile.also { it.parentFile.mkdirs() }.writeText(outcome.json)
         if (outcome.failed) {
             throw GradleException("serialkompat: incompatible wire changes vs '$effectiveRef'. See the report above.")
+        }
+    }
+
+    private fun runRecord(
+        logger: Logger,
+        current: File,
+        historyDir: File,
+        version: String,
+    ) {
+        val snapshot = SnapshotFormat.parse(current.readText())
+        val history = PublishedHistory(historyDir)
+        history.record(version, snapshot, Instant.now())
+        logger.lifecycle("serialkompat: recorded schema for version '$version' into ${historyDir.absolutePath}")
+    }
+
+    @Suppress("LongParameterList")
+    private fun runCheckHistory(
+        logger: Logger,
+        current: File,
+        historyDir: File,
+        reportFile: File,
+        direction: CompatibilityDirection,
+        include: List<String>,
+        exclude: List<String>,
+        failOnBreaking: Boolean,
+        accepted: List<AcceptedBreak>,
+    ) {
+        val history = PublishedHistory(historyDir).snapshots()
+        val outcome =
+            CheckExecutor.executeHistory(
+                currentText = current.readText(),
+                history = history,
+                direction = direction,
+                include = include,
+                exclude = exclude,
+                failOnBreaking = failOnBreaking,
+                accepted = accepted,
+            )
+        logger.lifecycle(outcome.console)
+        reportFile.also { it.parentFile.mkdirs() }.writeText(outcome.json)
+        if (outcome.failed) {
+            throw GradleException("serialkompat: schema incompatible with published history. See the report above.")
         }
     }
 
@@ -262,7 +364,36 @@ public class SerialkompatPlugin : Plugin<Project> {
         public const val EXTRACT_TASK_NAME: String = "serialkompatExtract"
         public const val CHECK_TASK_NAME: String = "serialkompatCheck"
         public const val CHECK_AGAINST_TASK_NAME: String = "serialkompatCheckAgainst"
+        public const val RECORD_TASK_NAME: String = "serialkompatRecord"
+        public const val CHECK_HISTORY_TASK_NAME: String = "serialkompatCheckHistory"
         private const val REF_PROPERTY: String = "serialkompat.ref"
+        private const val RECORD_VERSION_PROPERTY: String = "serialkompat.recordVersion"
         private const val VERIFICATION_GROUP: String = "verification"
+
+        /** True if [historyDir] holds at least one recorded `.snapshot` entry. */
+        private fun hasHistory(historyDir: File): Boolean =
+            historyDir.listFiles { f -> f.isFile && f.name.endsWith(".snapshot") }?.isNotEmpty() == true
+
+        /**
+         * The version to record under: an explicit `-Pserialkompat.recordVersion` wins, else the
+         * project version. Fails closed on an unusable version rather than writing a junk entry into
+         * the append-only, never-overwritten history.
+         */
+        private fun resolveRecordVersion(
+            property: String?,
+            projectVersion: String,
+        ): String {
+            val version = property?.trim()?.takeIf(String::isNotEmpty) ?: projectVersion.trim()
+            require(version.isNotEmpty() && version != "unspecified") {
+                "serialkompat: cannot record history without a version — set the project `version` or pass " +
+                    "-Pserialkompat.recordVersion=<X.Y.Z>."
+            }
+            // The version is both the file stem and a space-delimited field in the @history header;
+            // whitespace would corrupt both, so reject it rather than write an unloadable entry.
+            require(version.none(Char::isWhitespace)) {
+                "serialkompat: record version '$version' must not contain whitespace."
+            }
+            return version
+        }
     }
 }

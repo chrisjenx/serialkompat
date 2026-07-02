@@ -233,6 +233,19 @@ from the exact release commit. The gate then diffs against the latest
 Append-only ⇒ no "dump defeats the gate" hazard; a periodic drift audit
 re-extracts a tag and fails closed if it disagrees with what was published.
 
+**Wired (#88):** `serialkompatRecord` writes `<version>.snapshot` into a
+source-controlled `history { dir }` (default `serialkompat/history/`), keyed by
+version, atomically and append-only (refuses to overwrite). Each entry carries an
+`@history version=… recordedAt=…` header — a block key `SnapshotFormat` never
+emits, so it can't collide with schema content — and load validates every entry,
+failing closed on a torn/corrupt one rather than under-reporting. Entries load in
+**semver** order (not lexicographic, so `1.9.0` < `1.10.0`).
+`serialkompatCheckHistory` runs `TransitiveCompatibility` over the whole history
+and is wired into `check`, but no-ops until a version is recorded. Recording is
+decoupled from Maven publishing (#24): a consumer can record + commit manually or
+from any release step. *(Retention — bounding the horizon by version/depth/age —
+is #121; the `recordedAt` timestamp is already stored for the age bound.)*
+
 ---
 
 ## 6. Config model (bind to the real `Json`, don't re-declare)
