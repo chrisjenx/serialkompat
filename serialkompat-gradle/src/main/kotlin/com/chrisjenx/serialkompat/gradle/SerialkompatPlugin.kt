@@ -6,6 +6,7 @@ import com.chrisjenx.serialkompat.core.SnapshotFormat
 import com.chrisjenx.serialkompat.gradle.git.GitRefBaseline
 import com.chrisjenx.serialkompat.gradle.git.SnapshotCache
 import com.chrisjenx.serialkompat.gradle.git.SystemGit
+import com.chrisjenx.serialkompat.gradle.history.HistoryRetention
 import com.chrisjenx.serialkompat.gradle.history.PublishedHistory
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
@@ -195,6 +196,9 @@ public class SerialkompatPlugin : Plugin<Project> {
                         exclude = extension.exclude.get(),
                         failOnBreaking = extension.failOnBreaking.get(),
                         accepted = extension.acceptedBreaks.get().map { parseAcceptedBreak(it) },
+                        sinceVersion = extension.history.sinceVersion.orNull,
+                        depth = extension.history.depth.orNull,
+                        maxAge = extension.history.maxAge.orNull,
                     )
                 }
             }
@@ -282,12 +286,22 @@ public class SerialkompatPlugin : Plugin<Project> {
         exclude: List<String>,
         failOnBreaking: Boolean,
         accepted: List<AcceptedBreak>,
+        sinceVersion: String?,
+        depth: Int?,
+        maxAge: java.time.Duration?,
     ) {
-        val history = PublishedHistory(historyDir).snapshots()
+        val all = PublishedHistory(historyDir).load()
+        val retained = HistoryRetention.retain(all, sinceVersion, depth, maxAge, Instant.now())
+        if (retained.size < all.size) {
+            logger.lifecycle(
+                "serialkompat: history horizon ${describeHorizon(sinceVersion, depth, maxAge)} — " +
+                    "checking ${retained.size} of ${all.size} recorded version(s).",
+            )
+        }
         val outcome =
             CheckExecutor.executeHistory(
                 currentText = current.readText(),
-                history = history,
+                history = retained.map { it.snapshot },
                 direction = direction,
                 include = include,
                 exclude = exclude,
@@ -373,6 +387,18 @@ public class SerialkompatPlugin : Plugin<Project> {
         /** True if [historyDir] holds at least one recorded `.snapshot` entry. */
         private fun hasHistory(historyDir: File): Boolean =
             historyDir.listFiles { f -> f.isFile && f.name.endsWith(".snapshot") }?.isNotEmpty() == true
+
+        /** A short, human-readable description of the configured retention horizon for the log. */
+        private fun describeHorizon(
+            sinceVersion: String?,
+            depth: Int?,
+            maxAge: java.time.Duration?,
+        ): String =
+            buildList {
+                sinceVersion?.let { add("since $it") }
+                depth?.takeIf { it > 0 }?.let { add("last $it") }
+                maxAge?.let { add("within $it") }
+            }.joinToString(", ").ifEmpty { "none" }
 
         /**
          * The version to record under: an explicit `-Pserialkompat.recordVersion` wins, else the

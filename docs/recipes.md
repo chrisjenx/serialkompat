@@ -153,6 +153,31 @@ live-service compatibility; history covers the persisted-data horizon.
     after publishing, and commit the new `serialkompat/history/*.snapshot` file
     so it's there for the next run's transitive check.
 
+### Bounding the horizon (retention)
+
+You rarely guarantee compatibility with *every* version ever shipped — only a
+horizon: the last N releases, back to some version, or within a time window.
+Retention bounds the transitive check accordingly:
+
+```kotlin title="build.gradle.kts"
+serialkompat {
+    history {
+        depth.set(10)                          // only the newest 10 recorded versions
+        // or:
+        sinceVersion.set("2.0.0")              // only versions >= 2.0.0
+        // or:
+        maxAge.set(java.time.Duration.ofDays(548)) // only versions recorded in the last ~18 months
+    }
+}
+```
+
+Set one, or combine them — combining is **most-permissive** (the union of what
+each keeps), so adding a second bound only ever *widens* coverage; it can't
+silently drop a version another bound was still checking. When a horizon is in
+effect, the check logs which versions it dropped, so "compatible" is never
+mistaken for "compatible with all history". With no bounds set, every recorded
+version is checked.
+
 ## Next
 
 - [Configuration](configuration.md) — full `serialkompat { }` reference.
