@@ -3,25 +3,26 @@ name: Docs
 on:
   push:
     branches: [main]
+  pull_request:
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
-# Allow the workflow to publish to GitHub Pages.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# One in-flight deployment at a time; don't cancel a running publish.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: docs-${{ github.ref }}
+  # Don't cancel an in-flight main deploy; superseded PR builds are safe to cancel.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  publish:
+  # PRs: strict build is the gate. Pushes to main: also produces the deploy artifact.
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v5
@@ -29,15 +30,35 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-docs.txt
       - name: Generate API docs
         run: ./gradlew dokkaGenerate --stacktrace
-      # enablement:true lets the workflow turn on GitHub Pages (Actions source) itself,
-      # so the first run doesn't fail with "Get Pages site failed" before Pages is set up.
+      - name: Build site (strict)
+        run: mkdocs build --strict
+      - name: Nest API docs under /api
+        run: mkdir -p site/api && cp -R build/dokka/html/. site/api/
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      # enablement:true lets the workflow turn on GitHub Pages (Actions source) itself.
       - uses: actions/configure-pages@v5
         with:
           enablement: true
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: build/dokka/html
       - id: deploy
         uses: actions/deploy-pages@v5
