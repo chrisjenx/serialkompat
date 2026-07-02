@@ -7,6 +7,7 @@ dokka = "2.2.0"
 spotless = "8.8.0"
 ktlint = "1.5.0"
 bcv = "0.18.1"
+maven-publish = "0.34.0"
 
 [libraries]
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
@@ -20,3 +21,4 @@ kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 bcv = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "bcv" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }

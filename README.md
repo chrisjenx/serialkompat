@@ -117,6 +117,21 @@ See the [design doc](docs/design) for the full rule matrix and semantics.
 
 Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.6.1), Kotlin 2.4.0, and kotlinx-serialization 1.11.0.
 
+## Publishing
+
+The library modules publish to **Maven Central** via the [vanniktech `maven-publish`](https://github.com/vanniktech/gradle-maven-publish-plugin) plugin. Credentials are never committed — they are read from CI secrets:
+
+| Repo secret | Maps to (`ORG_GRADLE_PROJECT_…`) |
+|---|---|
+| `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` | `mavenCentralUsername` / `mavenCentralPassword` |
+| `SIGNING_KEY_ID` / `SIGNING_KEY` / `SIGNING_KEY_PASSWORD` | `signingInMemoryKeyId` / `signingInMemoryKey` / `signingInMemoryKeyPassword` |
+| `APP_ID` / `APP_PRIVATE_KEY` | GitHub App used by the release job to tag, release, and bump the version |
+
+- **Release** (`Release` workflow, `workflow_dispatch` with a version): validates → tests → `publishAndReleaseToMavenCentral` → tags `vX.Y.Z` + GitHub release → bumps `gradle.properties` to the next `-SNAPSHOT`.
+- **Snapshot**: pushes to `main` publish `-SNAPSHOT`s automatically.
+
+Locally, `./gradlew publishToMavenLocal` publishes to `~/.m2` (signing uses your `signing.*` Gradle properties). Gradle Plugin Portal publishing (for `plugins { id("io.github.chrisjenx.serialkompat") }` resolution) is not yet configured.
+
 ## Contributing
 
 Contributions welcome — this project is built test-first. See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md). Good starting points are issues labelled [`good first issue`](https://github.com/chrisjenx/serialkompat/labels/good%20first%20issue).

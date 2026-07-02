@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.spotless) apply false
+    alias(libs.plugins.maven.publish) apply false
     alias(libs.plugins.bcv)
     alias(libs.plugins.kover)
     alias(libs.plugins.dokka)
@@ -13,7 +14,8 @@ plugins {
 
 allprojects {
     group = "io.github.chrisjenx"
-    version = "0.1.0-SNAPSHOT"
+    // Version comes from `version=` in gradle.properties, overridable via `-Pversion=<x>` on release.
+    version = rootProject.findProperty("version") as String
 
     repositories {
         mavenCentral()
@@ -56,6 +58,38 @@ subprojects {
     // Keep javac and Kotlin on the same JVM target (both 17) without a separate toolchain.
     tasks.withType<JavaCompile>().configureEach {
         options.release.set(17)
+    }
+
+    // Maven Central publishing (vanniktech). Any module that applies the plugin gets this common
+    // config; credentials are supplied only via env (ORG_GRADLE_PROJECT_mavenCentral*/signingInMemory*)
+    // in CI — never committed. Coordinates default to (group, project.name, version).
+    plugins.withId("com.vanniktech.maven.publish") {
+        extensions.configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
+            publishToMavenCentral()
+            signAllPublications()
+            pom {
+                name.set(project.name)
+                description.set(provider { project.description })
+                url.set("https://github.com/chrisjenx/serialkompat")
+                licenses {
+                    license {
+                        name.set("Apache-2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                    }
+                }
+                developers {
+                    developer {
+                        id.set("chrisjenx")
+                        name.set("Christopher Jenkins")
+                    }
+                }
+                scm {
+                    url.set("https://github.com/chrisjenx/serialkompat")
+                    connection.set("scm:git:git://github.com/chrisjenx/serialkompat.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/chrisjenx/serialkompat.git")
+                }
+            }
+        }
     }
 }
 
