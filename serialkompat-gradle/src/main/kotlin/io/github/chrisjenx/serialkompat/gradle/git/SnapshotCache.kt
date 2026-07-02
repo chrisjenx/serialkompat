@@ -2,6 +2,9 @@ package io.github.chrisjenx.serialkompat.gradle.git
 
 import io.github.chrisjenx.serialkompat.core.SnapshotFormat
 import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * A content-addressed cache of serialized snapshots keyed by commit SHA. Because
@@ -44,10 +47,24 @@ public class SnapshotCache(
         cacheDir.mkdirs()
         val target = fileFor(sha)
         val tmp = File.createTempFile(sha, ".snapshot.tmp", cacheDir)
-        tmp.writeText(snapshotText)
-        if (!tmp.renameTo(target)) {
-            tmp.copyTo(target, overwrite = true)
-            tmp.delete()
+        try {
+            tmp.writeText(snapshotText)
+            // Move (not copy) so `target` only ever appears as a fully-written file — a crash can
+            // never leave a torn `<sha>.snapshot` that a later run would trust as a baseline.
+            try {
+                Files.move(
+                    tmp.toPath(),
+                    target.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                // Rare (e.g. some network filesystems): fall back to a plain move — still a single
+                // rename/replace, never the old non-atomic copy that could leave a partial file.
+                Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            tmp.delete() // no-op after a successful move; cleans up if the write or move failed
         }
     }
 

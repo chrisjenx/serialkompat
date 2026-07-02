@@ -57,6 +57,7 @@ class GitRefBaselineTest {
             FakeGit(
                 mapOf(
                     "rev-parse --verify main^{commit}" to "sha1\n",
+                    "worktree prune" to "",
                     "worktree add --detach $worktree main" to "",
                     "worktree remove --force $worktree" to "",
                 ),
@@ -79,11 +80,35 @@ class GitRefBaselineTest {
     }
 
     @Test
+    fun `useWorktree prunes stale worktrees before adding, so a crashed prior run self-heals`() {
+        val sha = "sha3"
+        val worktree = tempDir.resolve(sha).absolutePath
+        val git =
+            FakeGit(
+                mapOf(
+                    "rev-parse --verify $sha^{commit}" to "$sha\n",
+                    "worktree prune" to "",
+                    "worktree add --detach $worktree $sha" to "",
+                    "worktree remove --force $worktree" to "",
+                ),
+            )
+
+        GitRefBaseline(git).withWorktree(sha, tempDir) { it }
+
+        val verbs = git.commands.map { it.take(2).joinToString(" ") }
+        val pruneIdx = verbs.indexOf("worktree prune")
+        val addIdx = verbs.indexOfFirst { it == "worktree add" }
+        assertTrue(pruneIdx >= 0, "expected a 'worktree prune' to recover stale worktrees; commands: ${git.commands}")
+        assertTrue(pruneIdx < addIdx, "prune must run before add so a leftover worktree can't wedge the gate")
+    }
+
+    @Test
     fun `snapshotAt removes the worktree even when extraction fails`() {
         val git =
             FakeGit(
                 mapOf(
                     "rev-parse --verify main^{commit}" to "sha2\n",
+                    "worktree prune" to "",
                     "worktree add --detach ${tempDir.resolve("sha2").absolutePath} main" to "",
                     "worktree remove --force ${tempDir.resolve("sha2").absolutePath}" to "",
                 ),

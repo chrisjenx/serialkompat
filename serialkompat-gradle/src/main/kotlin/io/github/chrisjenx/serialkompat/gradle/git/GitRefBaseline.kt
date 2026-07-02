@@ -51,6 +51,15 @@ public class GitRefBaseline(
         worktreeDir: File,
         block: (File) -> T,
     ): T {
+        // A prior run killed before its cleanup can leave a registered and/or on-disk worktree at
+        // this path, which makes `worktree add` fail on every later run and permanently wedges the
+        // gate (fail-closed, but self-inflicted). Prune stale registrations and remove any leftover
+        // directory first, so the gate self-heals instead of needing a manual `git worktree prune`.
+        runCatching { git.run("worktree", "prune") }
+        if (worktreeDir.exists()) {
+            runCatching { git.run("worktree", "remove", "--force", worktreeDir.absolutePath) }
+            worktreeDir.deleteRecursively()
+        }
         git.run("worktree", "add", "--detach", worktreeDir.absolutePath, ref)
         try {
             return block(worktreeDir)
