@@ -10,7 +10,7 @@ what it controls. See [Quick start](quickstart.md) for the minimal version and
 |---|---|---|---|
 | `types` | `ListProperty<String>` | — (required) | FQNs of `@Serializable` root types to check |
 | `jsonInstance` | `Property<String>` | empty | FQN of a `Json` instance describing the wire (e.g. `com.example.WireJson.instance`); empty = default `Json{}` |
-| `baselineRef` | `Property<String>` | `"origin/main"` | Git ref the current schema is checked against |
+| `baselineRef` | `Property<String>` | auto-detected | Git ref the current schema is checked against. Unset ⇒ auto-detect the default branch (`origin/HEAD` → `origin/main` → `origin/master` → local `main`/`master`) |
 | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
 | `failOnBreaking` | `Property<Boolean>` | `true` | A `BREAK` finding fails the build |
 | `failOnEmptyBaseline` | `Property<Boolean>` | `true` | Empty baseline fails the build (prevents silently masking removed types); set `false` for first adoption |
@@ -64,9 +64,12 @@ serialkompat {
    `encodeDefaults`, `explicitNulls`, etc.), not kotlinx-serialization's defaults.
    Leave empty only if you truly serialize with a bare `Json { }`.
 3. The git ref extracted as the "old" schema to diff against. Any ref `git`
-   resolves — a branch, tag, or commit SHA. Overridable per-invocation with
-   `-Pserialkompat.ref=<ref>` on the `serialkompatCheckAgainst` task without
-   touching this file.
+   resolves — a branch, tag, or commit SHA. **Optional:** leave it unset and
+   serialkompat auto-detects your default branch (`origin/HEAD`, falling back to
+   `origin/main`/`origin/master`, then a local `main`/`master`), so a `master`-default
+   repo works without configuration. Set it explicitly to pin a specific ref.
+   Overridable per-invocation with `-Pserialkompat.ref=<ref>` on the
+   `serialkompatCheckAgainst` task without touching this file.
 4. See [Choosing a direction](#choosing-a-direction) below.
 5. When `false`, `BREAK` findings are reported but don't fail the build — useful
    for a soft-launch/audit period, not recommended long-term.

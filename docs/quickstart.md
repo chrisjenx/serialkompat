@@ -44,8 +44,8 @@ $ ./gradlew serialkompatCheck
 `serialkompatCheck` is wired into `check`, so `./gradlew build` runs it too. It:
 
 1. Extracts the current wire schema from your compiled `@Serializable` types.
-2. Extracts the baseline schema live from `baselineRef` (default `origin/main`)
-   via a temporary git worktree — no baseline file to maintain.
+2. Extracts the baseline schema live from `baselineRef` (unset ⇒ your auto-detected
+   default branch) via a temporary git worktree — no baseline file to maintain.
 3. Diffs the two, classifies every change against real kotlinx-serialization
    behavior, and fails the build if anything is `BREAK` (see
    [exit codes](#exit-codes) below).

@@ -35,7 +35,7 @@ Install serialkompat as a Gradle plugin, a standalone CLI, or a GitHub Action.
     serialkompat {
         types.set(listOf("com.example.wire.OrderEvent", "com.example.wire.Payment"))
         jsonInstance.set("com.example.wire.WireJson.instance")
-        baselineRef.set("origin/main")
+        // baselineRef is optional — unset, it auto-detects your default branch.
         direction.set(CompatibilityDirection.FULL)
         failOnBreaking.set(true)
         failOnEmptyBaseline.set(true)
@@ -52,7 +52,7 @@ Install serialkompat as a Gradle plugin, a standalone CLI, or a GitHub Action.
     |---|---|---|---|
     | `types` | `ListProperty<String>` | — (required) | FQNs of `@Serializable` root types to check |
     | `jsonInstance` | `Property<String>` | empty | FQN of a `Json` instance describing the wire; empty = default `Json{}` |
-    | `baselineRef` | `Property<String>` | `"origin/main"` | Git ref the current schema is checked against |
+    | `baselineRef` | `Property<String>` | auto-detected | Git ref checked against; unset ⇒ auto-detect the default branch (`origin/HEAD` → `main`/`master`) |
     | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
     | `failOnBreaking` | `Property<Boolean>` | `true` | A `BREAK` finding fails the build |
     | `failOnEmptyBaseline` | `Property<Boolean>` | `true` | Empty baseline fails the build (prevents masking removals); set `false` for first adoption |

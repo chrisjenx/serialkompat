@@ -31,7 +31,8 @@ public class SerialkompatPlugin : Plugin<Project> {
         extension.direction.convention(CompatibilityDirection.FULL)
         extension.failOnBreaking.convention(true)
         extension.failOnEmptyBaseline.convention(true)
-        extension.baselineRef.convention("origin/main")
+        // No baselineRef convention: an unset ref auto-detects the default branch at execution
+        // time (issue #116), so a repo whose default is `master` works out of the box.
         extension.include.convention(listOf(""))
         extension.exclude.convention(emptyList())
         extension.acceptedBreaks.convention(emptyList())
@@ -103,7 +104,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                         baselineDir = baselineDir,
                         worktreesDir = worktreesDir,
                         reportFile = reportFile,
-                        baselineRef = extension.baselineRef.get(),
+                        baselineRef = extension.baselineRef.orNull,
                         direction = extension.direction.get(),
                         include = extension.include.get(),
                         exclude = extension.exclude.get(),
@@ -131,7 +132,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                     baselineDir = baselineDir,
                     worktreesDir = worktreesDir,
                     reportFile = reportFile,
-                    baselineRef = resolveBaselineRef(refProperty.orNull, extension.baselineRef.get()),
+                    baselineRef = resolveBaselineRef(refProperty.orNull, extension.baselineRef.orNull),
                     direction = extension.direction.get(),
                     include = extension.include.get(),
                     exclude = extension.exclude.get(),
@@ -157,7 +158,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         baselineDir: File,
         worktreesDir: File,
         reportFile: File,
-        baselineRef: String,
+        baselineRef: String?,
         direction: CompatibilityDirection,
         include: List<String>,
         exclude: List<String>,
@@ -166,12 +167,16 @@ public class SerialkompatPlugin : Plugin<Project> {
         accepted: List<AcceptedBreak>,
         renames: Map<String, String>,
     ) {
-        val git = GitRefBaseline(SystemGit(rootDir))
+        val gitCli = SystemGit(rootDir)
+        val git = GitRefBaseline(gitCli)
         val cache = SnapshotCache(baselineDir)
         worktreesDir.mkdirs()
 
+        // An unconfigured, un-overridden ref auto-detects the default branch (issue #116).
+        val effectiveRef = baselineRef ?: resolveDefaultBranch(gitCli)
+
         val baselineText =
-            git.snapshotAt(baselineRef, worktreesDir, cache) { worktreeDir ->
+            git.snapshotAt(effectiveRef, worktreesDir, cache) { worktreeDir ->
                 extractInWorktree(rootDir, projectDir, projectPath, worktreeDir)
             }
 
@@ -190,7 +195,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         logger.lifecycle(outcome.console)
         reportFile.also { it.parentFile.mkdirs() }.writeText(outcome.json)
         if (outcome.failed) {
-            throw GradleException("serialkompat: incompatible wire changes vs '$baselineRef'. See the report above.")
+            throw GradleException("serialkompat: incompatible wire changes vs '$effectiveRef'. See the report above.")
         }
     }
 

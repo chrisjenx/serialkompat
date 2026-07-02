@@ -50,7 +50,7 @@ serialkompat {
     types.set(listOf("com.example.wire.OrderEvent", "com.example.wire.Payment"))
     // Optional: read your real Json { } config (naming strategy, discriminator, …).
     jsonInstance.set("com.example.wire.WireJson.instance")
-    baselineRef.set("origin/main")               // recomputed live from this ref
+    baselineRef.set("origin/main")               // optional; unset auto-detects the default branch
     direction.set(CompatibilityDirection.FULL)   // BACKWARD / FORWARD / FULL
     failOnBreaking.set(true)
 }

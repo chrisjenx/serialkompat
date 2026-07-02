@@ -110,11 +110,16 @@ class SerialkompatCheckFunctionalTest {
         return out
     }
 
-    /** Initializes a repo, commits the current tree, and returns the HEAD SHA. */
+    /**
+     * Initializes a repo, commits the current tree, and returns the HEAD SHA.
+     * Forces the branch to `main` so default-branch auto-detection (#116) is
+     * deterministic regardless of the runner's `init.defaultBranch` setting.
+     */
     private fun initCommit(): String {
         git("init", "--quiet")
         git("add", "-A")
         git("-c", "user.email=t@t.io", "-c", "user.name=t", "commit", "--quiet", "-m", "baseline")
+        git("branch", "-M", "main")
         return git("rev-parse", "HEAD").trim()
     }
 
@@ -208,8 +213,8 @@ class SerialkompatCheckFunctionalTest {
     @Test
     fun `serialkompatCheckAgainst uses the -P ref override and fails closed on an unresolvable configured ref`() {
         settings()
-        // No baselineRef configured -> defaults to origin/main, which does not resolve in this repo.
-        buildFile(baselineRef = null)
+        // An explicitly-configured ref that does not resolve in this repo.
+        buildFile(baselineRef = "does-not-exist")
         orderModel("val id: String")
         val sha = initCommit()
         seedBaseline(sha, orderSnapshot(Element("id", "kotlin.String")))
@@ -218,9 +223,23 @@ class SerialkompatCheckFunctionalTest {
         val against = runner("serialkompatCheckAgainst", "-Pserialkompat.ref=HEAD").build()
         assertEquals(TaskOutcome.SUCCESS, against.task(":serialkompatCheckAgainst")?.outcome)
 
-        // Plain check falls back to origin/main, which is unresolvable -> fail closed, never green.
+        // Plain check uses the configured (bogus) ref -> unresolvable -> fail closed, never green.
         val fallback = runner("serialkompatCheck").buildAndFail()
         assertEquals(TaskOutcome.FAILED, fallback.task(":serialkompatCheck")?.outcome)
+    }
+
+    @Test
+    fun `serialkompatCheck auto-detects the default branch when baselineRef is unset`() {
+        settings()
+        // No baselineRef configured -> auto-detect (#116). initCommit forces a local `main`,
+        // which auto-detect resolves; the seeded baseline matches the (unchanged) current model.
+        buildFile(baselineRef = null)
+        orderModel("val id: String")
+        val sha = initCommit()
+        seedBaseline(sha, orderSnapshot(Element("id", "kotlin.String")))
+
+        val result = runner("serialkompatCheck").build()
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheck")?.outcome)
     }
 
     @Test
