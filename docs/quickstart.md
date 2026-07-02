@@ -24,7 +24,7 @@ pluginManagement {
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
-    id("com.chrisjenx.serialkompat") version "0.1.0-SNAPSHOT"
+    id("com.chrisjenx.serialkompat") version "{{ skversion }}"
 }
 
 serialkompat {

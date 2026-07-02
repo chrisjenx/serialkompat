@@ -32,6 +32,14 @@ theme:
     - content.tabs.link
     - search.suggest
 
+plugins:
+  - search
+  - macros:
+      # Re-emit unknown {{ ... }} verbatim instead of failing. The CHANGELOG include
+      # contains literal GitHub-Actions `${{ ... }}` expressions; pinning this keeps a
+      # future plugin-default change from silently switching to strict and breaking the build.
+      on_undefined: keep
+
 extra_css:
   - stylesheets/pipeline.css
 

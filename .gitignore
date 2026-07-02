@@ -40,6 +40,10 @@ secring.*
 *.jks
 *.keystore
 
+# Python bytecode from the mkdocs-macros module (main.py)
+__pycache__/
+*.pyc
+
 # Claude Code local, per-machine state (not committed); keep shareable project settings
 .claude/*
 !.claude/settings.json
