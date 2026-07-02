@@ -26,6 +26,14 @@ public abstract class SerialkompatExtension {
     /** Whether a breaking change fails the build. Defaults to `true`. */
     public abstract val failOnBreaking: Property<Boolean>
 
+    /**
+     * Whether a baseline that produced **zero** contracts (while the current schema has some) fails
+     * the build. Defaults to `true`: a degenerate baseline would otherwise diff as "everything added
+     * → safe" and silently mask removals. Set `false` for first-time adoption, where the baseline ref
+     * legitimately has no `@Serializable` types yet.
+     */
+    public abstract val failOnEmptyBaseline: Property<Boolean>
+
     /** Serial-name prefixes to include in the check (default: everything). */
     public abstract val include: ListProperty<String>
 

@@ -30,6 +30,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         val extension = target.extensions.create("serialkompat", SerialkompatExtension::class.java)
         extension.direction.convention(CompatibilityDirection.FULL)
         extension.failOnBreaking.convention(true)
+        extension.failOnEmptyBaseline.convention(true)
         extension.baselineRef.convention("origin/main")
         extension.include.convention(listOf(""))
         extension.exclude.convention(emptyList())
@@ -107,6 +108,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                         include = extension.include.get(),
                         exclude = extension.exclude.get(),
                         failOnBreaking = extension.failOnBreaking.get(),
+                        failOnEmptyBaseline = extension.failOnEmptyBaseline.get(),
                         accepted = extension.acceptedBreaks.get().map { parseAcceptedBreak(it) },
                         renames = extension.renames.get(),
                     )
@@ -134,6 +136,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                     include = extension.include.get(),
                     exclude = extension.exclude.get(),
                     failOnBreaking = extension.failOnBreaking.get(),
+                    failOnEmptyBaseline = extension.failOnEmptyBaseline.get(),
                     accepted = extension.acceptedBreaks.get().map { parseAcceptedBreak(it) },
                     renames = extension.renames.get(),
                 )
@@ -159,6 +162,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         include: List<String>,
         exclude: List<String>,
         failOnBreaking: Boolean,
+        failOnEmptyBaseline: Boolean,
         accepted: List<AcceptedBreak>,
         renames: Map<String, String>,
     ) {
@@ -179,6 +183,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                 include = include,
                 exclude = exclude,
                 failOnBreaking = failOnBreaking,
+                failOnEmptyBaseline = failOnEmptyBaseline,
                 accepted = accepted,
                 renames = renames,
             )

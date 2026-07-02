@@ -5,6 +5,7 @@ public abstract class io/github/chrisjenx/serialkompat/gradle/SerialkompatExtens
 	public abstract fun getDirection ()Lorg/gradle/api/provider/Property;
 	public abstract fun getExclude ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getFailOnBreaking ()Lorg/gradle/api/provider/Property;
+	public abstract fun getFailOnEmptyBaseline ()Lorg/gradle/api/provider/Property;
 	public abstract fun getInclude ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getJsonInstance ()Lorg/gradle/api/provider/Property;
 	public abstract fun getRenames ()Lorg/gradle/api/provider/MapProperty;

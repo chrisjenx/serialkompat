@@ -37,6 +37,37 @@ class CheckExecutorTest {
     )
 
     @Test
+    fun `an empty baseline with a non-empty current fails closed`() {
+        // A baseline that produced zero contracts must not read as "everything is new -> safe"
+        // (that would silently mask removals); the gate fails closed by default (#78).
+        val outcome =
+            CheckExecutor.execute(
+                baselineText = SnapshotFormat.serialize(Snapshot(emptyList())),
+                currentText = snapshot(Element("id", "kotlin.String")),
+                direction = CompatibilityDirection.FULL,
+                include = listOf(""),
+                exclude = emptyList(),
+                failOnBreaking = true,
+            )
+        assertTrue(outcome.failed, "an empty baseline must fail closed, not read as all-added-safe")
+    }
+
+    @Test
+    fun `failOnEmptyBaseline=false lets an empty baseline pass (first-time adoption)`() {
+        val outcome =
+            CheckExecutor.execute(
+                baselineText = SnapshotFormat.serialize(Snapshot(emptyList())),
+                currentText = snapshot(Element("id", "kotlin.String")),
+                direction = CompatibilityDirection.FULL,
+                include = listOf(""),
+                exclude = emptyList(),
+                failOnBreaking = true,
+                failOnEmptyBaseline = false,
+            )
+        assertFalse(outcome.failed, "a repo adding its first serializable types may pass when the flag is off")
+    }
+
+    @Test
     fun `identical schemas pass`() {
         val text = snapshot(Element("id", "kotlin.String"))
         val outcome = execute(text, text)
