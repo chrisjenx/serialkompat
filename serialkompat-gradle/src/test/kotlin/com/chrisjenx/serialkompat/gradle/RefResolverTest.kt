@@ -1,6 +1,8 @@
 package com.chrisjenx.serialkompat.gradle
 
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
+import com.chrisjenx.serialkompat.gradle.git.GitCommands
+import org.gradle.api.GradleException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -25,6 +27,66 @@ class RefResolverTest {
     @Test
     fun `a blank property falls back to the configured ref`() {
         assertEquals("origin/main", resolveBaselineRef("  ", configured = "origin/main"))
+    }
+
+    @Test
+    fun `with neither a property nor a configured ref, resolution is deferred to auto-detect`() {
+        assertNull(resolveBaselineRef(null, configured = null))
+        assertNull(resolveBaselineRef("  ", configured = "  "))
+    }
+
+    // --- default-branch auto-detection (issue #116) ---
+
+    /** A fake git returning canned output; a missing key throws like a non-zero exit. */
+    private class FakeGit(
+        private val responses: Map<String, String>,
+    ) : GitCommands {
+        override fun run(vararg args: String): String {
+            val key = args.joinToString(" ")
+            return responses[key] ?: error("fake git: '$key' failed")
+        }
+    }
+
+    @Test
+    fun `auto-detect prefers the remote's declared default branch via origin HEAD`() {
+        val git = FakeGit(mapOf("symbolic-ref --short refs/remotes/origin/HEAD" to "origin/master\n"))
+        assertEquals("origin/master", resolveDefaultBranch(git))
+    }
+
+    @Test
+    fun `auto-detect falls back to origin main when origin HEAD is unset`() {
+        val git =
+            FakeGit(
+                mapOf(
+                    // origin/HEAD unset → symbolic-ref absent (throws); origin/main resolves.
+                    "rev-parse --verify --quiet origin/main^{commit}" to "abc\n",
+                ),
+            )
+        assertEquals("origin/main", resolveDefaultBranch(git))
+    }
+
+    @Test
+    fun `auto-detect falls back to origin master when origin main is absent`() {
+        val git =
+            FakeGit(
+                mapOf(
+                    "rev-parse --verify --quiet origin/master^{commit}" to "abc\n",
+                ),
+            )
+        assertEquals("origin/master", resolveDefaultBranch(git))
+    }
+
+    @Test
+    fun `auto-detect falls back to a local branch when there is no remote`() {
+        val git = FakeGit(mapOf("rev-parse --verify --quiet main^{commit}" to "abc\n"))
+        assertEquals("main", resolveDefaultBranch(git))
+    }
+
+    @Test
+    fun `auto-detect fails with an actionable error when nothing resolves`() {
+        val git = FakeGit(emptyMap())
+        val error = assertFailsWith<GradleException> { resolveDefaultBranch(git) }
+        assertEquals(true, error.message?.contains("baselineRef"))
     }
 
     @Test
