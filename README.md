@@ -132,10 +132,18 @@ The library modules publish to **Maven Central** via the [vanniktech `maven-publ
 | `SIGNING_KEY_ID` / `SIGNING_KEY` / `SIGNING_KEY_PASSWORD` | `signingInMemoryKeyId` / `signingInMemoryKey` / `signingInMemoryKeyPassword` |
 | `APP_ID` / `APP_PRIVATE_KEY` | GitHub App used by the release job to tag, release, and bump the version |
 
-- **Release** (`Release` workflow, `workflow_dispatch` with a version): validates → tests → `publishAndReleaseToMavenCentral` → tags `vX.Y.Z` + GitHub release → bumps `gradle.properties` to the next `-SNAPSHOT`.
+- **Release** (`Release` workflow, `workflow_dispatch` with a version): validates → tests → `publishAndReleaseToMavenCentral` → tags `vX.Y.Z` + GitHub release → moves the floating major tag (`v1`) → bumps `gradle.properties` to the next `-SNAPSHOT`. The floating `vN` tag is what Action consumers pin (`uses: chrisjenx/serialkompat@v1`); it moves only on stable (non-prerelease) releases.
 - **Snapshot**: pushes to `main` publish `-SNAPSHOT`s automatically.
 
 Locally, `./gradlew publishToMavenLocal` publishes to `~/.m2` (signing uses your `signing.*` Gradle properties). Gradle Plugin Portal publishing (for `plugins { id("com.chrisjenx.serialkompat") }` resolution) is not yet configured.
+
+### GitHub Actions Marketplace
+
+The composite action (`action.yml`) already carries the Marketplace metadata (name, description, `branding`), and the release workflow keeps the floating major tag current — so listing it is a **one-time manual step** on the first stable release (GitHub can't automate the Marketplace toggle):
+
+1. Cut a stable release via the **Release** workflow (this creates the `vX.Y.Z` release and moves `v1`).
+2. On that release's page (**Releases → Edit**), tick **"Publish this Action to the GitHub Marketplace"** and accept the Marketplace Developer Agreement (repo owner, first time only).
+3. Pick the primary/secondary categories and save. Later releases can each be published to the Marketplace from the same checkbox, but `uses: chrisjenx/serialkompat@v1` already resolves the moment `v1` exists — Marketplace listing is discoverability, not a functional prerequisite.
 
 ## Contributing
 
