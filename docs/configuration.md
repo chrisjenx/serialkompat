@@ -26,6 +26,11 @@ regenerate or go stale.
 
 ## Annotated example
 
+!!! note
+    serialkompat isn't on the Gradle Plugin Portal yet, so `plugins { id(…) }` won't
+    resolve on its own — see [Setup](setup.md#gradle-plugin) for the `pluginManagement`
+    block that points Gradle at Maven Central.
+
 ```kotlin title="build.gradle.kts"
 plugins {
     kotlin("jvm")
