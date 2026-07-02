@@ -117,6 +117,9 @@ val checkRulesDoc = tasks.register("checkRulesDoc") {
             .toList()
         require(ruleIds.isNotEmpty()) { "checkRulesDoc: found no Rules constants — regex/paths wrong?" }
         val docText = rulesDoc.asFile.readText()
+        // Substring match: fine while no rule id is a prefix of another. If you ever add a
+        // rule whose id contains an existing one (e.g. PROPERTY_ADDED_STRICT), tighten this
+        // to a word-boundary/backtick-delimited match so the shorter id can't be masked.
         val missing = ruleIds.filter { !docText.contains(it) }
         if (missing.isNotEmpty()) {
             throw GradleException(
