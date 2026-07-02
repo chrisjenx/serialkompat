@@ -10,12 +10,15 @@
   --sk-stage-fg: var(--md-default-fg-color);
   --sk-accent: var(--md-primary-fg-color);
 
+  /* Never wrap: a wrapped row strands connectors mid-air. Stages shrink to
+     their labels and connectors absorb the slack; below the media-query
+     breakpoint the whole pipeline stacks vertically instead. */
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.25rem;
   margin: 1.5rem 0;
-  padding: 1rem;
+  padding: 1rem 0.5rem;
   border-radius: 0.5rem;
   background: var(--md-default-bg-color);
   overflow-x: auto;
@@ -26,8 +29,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 6.5rem;
-  padding: 0.65rem 0.85rem;
+  flex: 0 0 auto;
+  padding: 0.65rem 0.75rem;
   border-radius: 0.5rem;
   border: 1px solid var(--sk-stage-border);
   background: var(--sk-stage-bg);
@@ -47,8 +50,8 @@
 
 .sk-connector {
   position: relative;
-  flex: 1 0 1.5rem;
-  min-width: 1.5rem;
+  flex: 1 1 1rem;
+  min-width: 0.5rem;
   height: 2px;
   background: var(--sk-stage-border);
   overflow: hidden;
@@ -108,8 +111,9 @@
 }
 
 /* Narrow screens: stack stages vertically, connectors become short
-   vertical rules instead of horizontal flow lines. */
-@media (max-width: 30rem) {
+   vertical rules instead of horizontal flow lines. 45rem is where six
+   shrunk stages stop fitting one row inside Material's content column. */
+@media (max-width: 45rem) {
   .sk-pipeline {
     flex-direction: column;
     align-items: stretch;
@@ -162,7 +166,7 @@
     opacity: 1;
   }
 
-  @media (max-width: 30rem) {
+  @media (max-width: 45rem) {
     .sk-connector::after {
       top: 40%;
       left: 50%;

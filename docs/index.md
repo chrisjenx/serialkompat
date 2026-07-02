@@ -39,4 +39,9 @@ The baseline snapshot is extracted **live from a git ref** (e.g. your target bra
 [API](https://chrisjenx.github.io/serialkompat/api/){ .md-button }
 
 !!! warning "Early development"
-    serialkompat is `0.1.0-SNAPSHOT` and not yet published to Maven Central or the Gradle Plugin Portal. The design is settled and the project is being built in the open, one reviewed PR at a time — see the [issues](https://github.com/chrisjenx/serialkompat/issues) and [milestones](https://github.com/chrisjenx/serialkompat/milestones).
+    serialkompat is `{{ skversion }}` — `-SNAPSHOT`s publish to Maven Central on every push
+    to `main`, but there is no stable release yet and the plugin is not on the Gradle Plugin
+    Portal (see [Setup](setup.md#gradle-plugin)). The design is settled and the project is
+    being built in the open, one reviewed PR at a time — see the
+    [issues](https://github.com/chrisjenx/serialkompat/issues) and
+    [milestones](https://github.com/chrisjenx/serialkompat/milestones).
