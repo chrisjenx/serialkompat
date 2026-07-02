@@ -98,6 +98,43 @@ apiValidation {
     ignoredProjects.add("serialkompat-cli")
 }
 
+// Docs/code sync gate: every `Rules.*` constant must appear in docs/rules.md so the rule
+// matrix can never silently drift from the shipped rule set (see docs/rules.md "Coming later").
+val checkRulesDoc = tasks.register("checkRulesDoc") {
+    group = "verification"
+    description = "Fails if any Rules.* constant is undocumented in docs/rules.md."
+    val findingKt = layout.projectDirectory.file(
+        "serialkompat-core/src/main/kotlin/com/chrisjenx/serialkompat/core/Finding.kt",
+    )
+    val rulesDoc = layout.projectDirectory.file("docs/rules.md")
+    inputs.file(findingKt)
+    inputs.file(rulesDoc)
+    doLast {
+        val decl = Regex("""const val (\w+)\s*:\s*String\s*=\s*"([A-Z_]+)"""")
+        val ruleIds = decl.findAll(findingKt.asFile.readText())
+            .map { it.groupValues[2] }
+            .filter { it.isNotEmpty() }
+            .toList()
+        require(ruleIds.isNotEmpty()) { "checkRulesDoc: found no Rules constants — regex/paths wrong?" }
+        val docText = rulesDoc.asFile.readText()
+        val missing = ruleIds.filter { !docText.contains(it) }
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "docs/rules.md is missing rule row(s): ${missing.joinToString(", ")}. " +
+                    "Update the matrix in docs/rules.md when you add or rename a rule.",
+            )
+        }
+        logger.lifecycle("checkRulesDoc: ${ruleIds.size}/${ruleIds.size} rules documented")
+    }
+}
+
+// The root project has no `check` task by default (no Kotlin/base plugin applied at root);
+// apply `base` to get the standard lifecycle and hang the gate on it.
+if (tasks.findByName("check") == null) {
+    plugins.apply("base")
+}
+tasks.named("check") { dependsOn(checkRulesDoc) }
+
 // Aggregate test coverage and API docs across the library modules.
 dependencies {
     kover(project(":serialkompat-core"))
