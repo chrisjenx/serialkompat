@@ -53,6 +53,7 @@ below for exactly how.
 | `CONFIG_ENCODE_DEFAULTS` | `encodeDefaults` toggled | ✅ SAFE | ⚠️ WARN if disabled, ✅ SAFE if enabled | — |
 | `CONFIG_EXPLICIT_NULLS` | `explicitNulls` toggled | ⚠️ WARN | ⚠️ WARN | — |
 | `CONFIG_COERCE_INPUT` | `coerceInputValues` toggled | ⚠️ WARN if disabled, ✅ SAFE if enabled | ✅ SAFE | — |
+| `CONFIG_CHANGED` | Any other wire-relevant `Json` setting changed (catch-all) | ⚠️ WARN | ⚠️ WARN | — |
 | `COVERAGE_GAP` | Opaque/unanalyzable type | ⚠️ WARN | ⚠️ WARN | — |
 
 ## Config awareness
