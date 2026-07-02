@@ -278,4 +278,21 @@ class SnapshotFormatTest {
             ),
         )
     }
+
+    @Test
+    fun `round-trips config free-text values containing whitespace and a newline`() {
+        // classDiscriminator / namingStrategy are free text. A value with leading/trailing
+        // whitespace or a newline was serialized raw, then lost on parse (per-line trim / line
+        // split), so serialize→parse was not idempotent → a spurious or missed config diff.
+        assertRoundTrips(
+            Snapshot(
+                contracts = emptyList(),
+                config =
+                    SnapshotConfig(
+                        classDiscriminator = " leading and trailing ",
+                        namingStrategy = "line one\nline two",
+                    ),
+            ),
+        )
+    }
 }

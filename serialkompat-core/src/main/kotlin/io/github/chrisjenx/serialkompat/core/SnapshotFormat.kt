@@ -105,13 +105,13 @@ public object SnapshotFormat {
         buildString {
             append(CONFIG_HEADER)
             // Emitted in a fixed (alphabetical) order for byte-stability.
-            appendLineItem("classDiscriminator=" + config.classDiscriminator)
+            appendLineItem("classDiscriminator=" + escapeToken(config.classDiscriminator))
             appendLineItem("classDiscriminatorMode=" + config.classDiscriminatorMode)
             appendLineItem("coerceInputValues=" + config.coerceInputValues)
             appendLineItem("encodeDefaults=" + config.encodeDefaults)
             appendLineItem("explicitNulls=" + config.explicitNulls)
             appendLineItem("ignoreUnknownKeys=" + config.ignoreUnknownKeys)
-            appendLineItem("namingStrategy=" + config.namingStrategy)
+            appendLineItem("namingStrategy=" + escapeToken(config.namingStrategy))
             appendLineItem("useAlternativeNames=" + config.useAlternativeNames)
         }
 
@@ -187,8 +187,8 @@ public object SnapshotFormat {
                 .associate { it.substringBefore("=") to it.substringAfter("=") }
         val defaults = SnapshotConfig()
         return SnapshotConfig(
-            namingStrategy = values["namingStrategy"] ?: defaults.namingStrategy,
-            classDiscriminator = values["classDiscriminator"] ?: defaults.classDiscriminator,
+            namingStrategy = values["namingStrategy"]?.let(::unescapeToken) ?: defaults.namingStrategy,
+            classDiscriminator = values["classDiscriminator"]?.let(::unescapeToken) ?: defaults.classDiscriminator,
             classDiscriminatorMode = values["classDiscriminatorMode"] ?: defaults.classDiscriminatorMode,
             ignoreUnknownKeys = values["ignoreUnknownKeys"]?.toBooleanStrict() ?: defaults.ignoreUnknownKeys,
             encodeDefaults = values["encodeDefaults"]?.toBooleanStrict() ?: defaults.encodeDefaults,
