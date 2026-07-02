@@ -52,6 +52,6 @@ Keep the diff/classify engine (`-core`) decoupled from extraction and from where
 
 - `detekt` static analysis (pending Kotlin 2.4 compatibility check).
 - Dokka API-docs site.
-- Publishing to Maven Central + Gradle Plugin Portal (needs CI secrets).
+- Maven Central publishing is **wired** (vanniktech `maven-publish` on the three library modules; `Release`/`Snapshot` workflows). It needs the CI secrets listed in README → Publishing to actually run. Gradle Plugin Portal publishing (for `plugins { id(...) }` resolution) is still pending.
 
 See the [issues](https://github.com/chrisjenx/serialkompat/issues) and [milestones](https://github.com/chrisjenx/serialkompat/milestones) for the build order.
