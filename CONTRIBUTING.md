@@ -41,6 +41,7 @@ Run the full local gate — CI runs the same thing:
 - **Formatting** is enforced by Spotless + ktlint. `spotlessApply` fixes most issues.
 - **Public API stability** is enforced by [binary-compatibility-validator](https://github.com/Kotlin/binary-compatibility-validator). If you intentionally change a module's public API, run `./gradlew apiDump` and commit the updated `*.api` file — the diff is part of your PR review.
 - **Coverage** is reported by Kover.
+- **Secrets** are scanned by [gitleaks](https://github.com/gitleaks/gitleaks). CI runs it over the full history (`Secret Scan` workflow); to catch a secret locally before it is ever committed, enable the pre-commit hook once: `pip install pre-commit && pre-commit install`. Never commit credentials or signing keys — publishing secrets live only in CI secrets.
 
 ## Code style
 

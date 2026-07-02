@@ -1,0 +1,10 @@
+# Local secret-scanning gate. Enable once with:
+#   pip install pre-commit   (or: brew install pre-commit)
+#   pre-commit install
+# Thereafter gitleaks runs on every commit, catching a secret before it is ever pushed.
+# CI (.github/workflows/gitleaks.yml) is the backstop for anyone who hasn't installed it.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.27.2
+    hooks:
+      - id: gitleaks

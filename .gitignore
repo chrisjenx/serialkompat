@@ -24,6 +24,18 @@ out/
 local.properties
 *.local
 .envrc
+.env
+.env.*
+
+# Credentials / signing material — never commit (defence-in-depth; CI also runs gitleaks)
+*.gpg
+*.pgp
+secring.*
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
 
 # Claude Code local, per-machine state (not committed); keep shareable project settings
 .claude/*

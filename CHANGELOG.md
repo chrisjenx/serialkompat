@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Secret scanning with [gitleaks](https://github.com/gitleaks/gitleaks). A `Secret Scan` CI workflow runs gitleaks over the full commit history on every push and PR (`--redact`, so a matched secret is never echoed into public logs), and a `.pre-commit-config.yaml` offers the same check locally before a commit is created. `.gitignore` now also blocks common credential/signing-key file types (`*.gpg`, `*.pem`, `*.p12`, `*.jks`, `.env`, …) as defence-in-depth. A baseline scan of the existing history (110 commits) found no leaked secrets.
+
 ### Fixed
 - The gate fails closed on a degenerate (zero-contract) baseline (#78). A baseline that produced no contracts while the current schema has some previously diffed as "everything added → safe", silently masking removals. `serialkompatCheck` now fails with a clear message (`baseline produced 0 contracts but the current schema has N …`). A new `serialkompat { failOnEmptyBaseline }` option (default `true`) opts out for first-time adoption, where the baseline ref legitimately has no `@Serializable` types yet. (Extraction *failures* already degrade to OPAQUE / fail closed via #81; this closes the remaining successful-but-empty case.)
 - Documentation reconciled with the shipped code (#87). The design doc's Gradle DSL (`json=`, `baseline=gitRef()`, `failOn=`, `scope {}`) wouldn't compile and its rule names (`PROPERTY_NO_DELETE`, …) didn't exist; both now match the real `SerialkompatExtension` and `Rules` constants (the public `acceptedBreaks` keys), the phantom `serialkompatDump` task was removed, and the vacuous "number normalization" byte-stability claim was corrected. README/CLAUDE version references updated from Kotlin 2.3 to 2.4.0 (+ kotlinx-serialization 1.11.0), `serialkompat-cli` added to the module tables, and the stale `2026-07-01-v1-hardening-plan.md` marked superseded.
