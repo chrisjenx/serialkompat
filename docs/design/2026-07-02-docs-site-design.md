@@ -47,18 +47,27 @@ with the code. Replaces the current Dokka-only Pages deployment with a full site
 
 ## Sync gates
 
-1. **`docs-samples` module** — unpublished Gradle module, excluded from `apiCheck`. Every Kotlin
-   sample in the docs is embedded from its sources via `pymdownx.snippets` region markers
-   (`--8<-- [start:name]`); the module compiles and its tests run in the normal `./gradlew build`.
-   Gradle-config snippets embed from a real sample build exercised by `serialkompat-gradle`
-   functional tests.
+1. **`docs-samples` module** — **DEFERRED** (follow-up, not in PR ③). Converting every doc snippet
+   to embed from a compiled, unpublished Gradle module is a sizeable architectural change with high
+   doc churn; it warrants its own focused, human-reviewed PR. The matrix-completeness gate (#4 below)
+   and version templating (#3) already give strong anti-rot coverage, so shipping them first — and the
+   samples module later — is the pragmatic order. Original intent retained for the follow-up: every
+   Kotlin sample embedded from its sources via `pymdownx.snippets` region markers (`--8<-- [start:name]`),
+   the module compiling and testing under `./gradlew build`, and Gradle-config snippets exercised by
+   `serialkompat-gradle` functional tests.
 2. **Strict docs build on PRs** — CI job runs `mkdocs build --strict` on PRs touching `docs/`,
    `mkdocs.yml`, or samples. Broken links, missing pages, bad nav fail the PR, not the deploy.
-3. **Version templating** — `mkdocs-macros-plugin`; CI exports the version from `gradle.properties`
-   into the build, so install snippets never show a stale version. Local builds fall back to `dev`.
-4. **Generated rule matrix** — a Gradle task renders `docs/rules/matrix.md` from the actual
-   `serialkompat-core` rule set. The file is checked in; an `apiCheck`-style verify task in `build`
-   fails if a rule change forgot to regenerate (`docsRulesDump` / check, mirroring BCV).
+   *(Shipped in PR ①.)*
+3. **Version templating** — `mkdocs-macros-plugin`; the version is read from `gradle.properties`
+   (or an injected `SERIALKOMPAT_VERSION`) into the build via a `skversion` macro, so install snippets
+   never show a stale version. Local builds fall back to `dev`. *(Shipped in PR ③.)*
+4. **Rule-matrix completeness gate** — a root Gradle task `checkRulesDoc`, wired into `check`, reads
+   every `Rules.*` constant from `serialkompat-core`'s `Finding.kt` and fails the build if any is
+   absent from `docs/rules.md`. This is the pragmatic form of the "generated matrix" idea: the full
+   verdict matrix is authored by hand (the verdicts live imperatively in `Classifier.kt`, not as a
+   declarative table), but no rule can be silently added to the code without being documented.
+   Full auto-generation of the verdict cells would require a declarative rule catalog in core and is a
+   possible future enhancement. *(Shipped in PR ③.)*
 
 ## CI / workflow changes
 
@@ -77,4 +86,5 @@ Versioned docs (`mike`) until post-1.0 · custom domain · blog · i18n · scree
 1. **PR ①** — site skeleton: MkDocs Material theme, nav stubs, Pages assembly with Dokka, strict
    build job.
 2. **PR ②** — content: all pages, animated pipeline, Mermaid diagrams.
-3. **PR ③** — sync gates: `docs-samples` module, version macro, generated rule matrix + verify task.
+3. **PR ③** — sync gates: version macro + `checkRulesDoc` matrix-completeness gate. (The
+   `docs-samples` compiled-snippets module is deferred to a follow-up — see Sync gates §1.)
