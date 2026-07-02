@@ -32,6 +32,10 @@ theme:
     - content.tabs.link
     - search.suggest
 
+plugins:
+  - search
+  - macros
+
 extra_css:
   - stylesheets/pipeline.css
 
