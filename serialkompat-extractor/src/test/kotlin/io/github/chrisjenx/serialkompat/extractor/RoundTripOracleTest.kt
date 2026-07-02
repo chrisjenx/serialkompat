@@ -248,6 +248,30 @@ class RoundTripOracleTest {
     )
 
     @Serializable
+    @SerialName("FloatWiden")
+    private data class FloatWidenV1(
+        val v: Float,
+    )
+
+    @Serializable
+    @SerialName("FloatWiden")
+    private data class FloatWidenV2(
+        val v: Double,
+    )
+
+    @Serializable
+    @SerialName("ByteWiden")
+    private data class ByteWidenV1(
+        val v: Byte,
+    )
+
+    @Serializable
+    @SerialName("ByteWiden")
+    private data class ByteWidenV2(
+        val v: Int,
+    )
+
+    @Serializable
     @SerialName("EnumStatus")
     private enum class EnumStatusV1 { A, B }
 
@@ -397,6 +421,50 @@ class RoundTripOracleTest {
             WidenV1(5),
             serializer<WidenV2>(),
             WidenV2(Long.MAX_VALUE),
+        )
+    }
+
+    @Test
+    fun `numeric widening (Float to Double)`() {
+        assertOracleAgrees(
+            serializer<FloatWidenV1>(),
+            FloatWidenV1(0.5f),
+            serializer<FloatWidenV2>(),
+            FloatWidenV2(Double.MAX_VALUE),
+        )
+    }
+
+    @Test
+    fun `numeric widening (Byte to Int)`() {
+        assertOracleAgrees(
+            serializer<ByteWidenV1>(),
+            ByteWidenV1(7),
+            serializer<ByteWidenV2>(),
+            ByteWidenV2(Int.MAX_VALUE),
+        )
+    }
+
+    @Test
+    fun `numeric narrowing (Long to Int) breaks both ways`() {
+        // Not a widening pair, so the classifier predicts BREAK both directions. Backward overflows
+        // an old Int reader with a large Long value — the real decode must throw where BREAK is claimed.
+        assertOracleAgrees(
+            serializer<WidenV2>(),
+            WidenV2(Long.MAX_VALUE),
+            serializer<WidenV1>(),
+            WidenV1(1),
+        )
+    }
+
+    @Test
+    fun `widening non-null to nullable — an emitted null breaks an old non-null reader`() {
+        // old (non-null) -> new (nullable). Forward: the new writer emits `null` (explicitNulls
+        // defaults true) and the old non-null reader chokes, so it must be predicted BREAK forward.
+        assertOracleAgrees(
+            serializer<NullabilityV2>(),
+            NullabilityV2("x"),
+            serializer<NullabilityV1>(),
+            NullabilityV1(null),
         )
     }
 
