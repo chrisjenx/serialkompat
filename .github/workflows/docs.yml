@@ -34,6 +34,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          # Non-default requirements filename; without this, setup-python's pip
+          # cache errors with "No file matched to **/requirements.txt".
+          cache-dependency-path: requirements-docs.txt
       - run: pip install -r requirements-docs.txt
       - name: Generate API docs
         run: ./gradlew dokkaGenerate --stacktrace
