@@ -103,6 +103,15 @@ jobs:
           else
             gh release create "v$VERSION" --title "v$VERSION" --generate-notes
           fi
+          # Maintain the floating major tag that Action consumers pin
+          # (uses: chrisjenx/serialkompat@v1). Stable releases only — never
+          # move v<major> onto a prerelease. This is the tag; the one-time
+          # Marketplace *listing* is a manual step (see README → Publishing).
+          if [[ "$VERSION" != *-* ]]; then
+            MAJOR="v${VERSION%%.*}"
+            git tag -f -a "$MAJOR" -m "serialkompat $MAJOR → v$VERSION"
+            git push -f origin "$MAJOR"
+          fi
 
   bump-version:
     needs: tag-and-release
