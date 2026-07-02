@@ -34,6 +34,7 @@ CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport` on JDK 17 
 | `serialkompat-core` | `Snapshot` model, `Differ`, `Classifier`, rule set, `Report` | Pure Kotlin, **no I/O**, no kotlinx-serialization runtime. `explicitApi()`. |
 | `serialkompat-extractor` | Runtime `SerialDescriptor` → `Snapshot` | JVM. `explicitApi()`. Applies the serialization plugin for test fixtures. |
 | `serialkompat-gradle` | The Gradle plugin (`serialkompatCheck`) | `java-gradle-plugin`. |
+| `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` (non-Gradle / cross-repo) | Application; excluded from `apiCheck`. |
 
 Keep the diff/classify engine (`-core`) decoupled from extraction and from where baselines come from — that decoupling is load-bearing (see design §3).
 
@@ -49,7 +50,7 @@ Keep the diff/classify engine (`-core`) decoupled from extraction and from where
 
 ## Deferred (tracked as issues)
 
-- `detekt` static analysis (pending Kotlin 2.3 compatibility check).
+- `detekt` static analysis (pending Kotlin 2.4 compatibility check).
 - Dokka API-docs site.
 - Publishing to Maven Central + Gradle Plugin Portal (needs CI secrets).
 
