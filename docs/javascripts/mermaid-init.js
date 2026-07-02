@@ -33,7 +33,8 @@
     var nodes = [];
     blocks.forEach(function (block) {
       var code = block.querySelector("code");
-      var source = code ? code.textContent : block.textContent;
+      var source = (code ? code.textContent : block.textContent) || "";
+      if (!source.trim()) return; // nothing to render; leave it alone (no console noise)
       block.textContent = source;
       block.classList.add("mermaid");
       block.setAttribute("data-mermaid-rendered", "true");

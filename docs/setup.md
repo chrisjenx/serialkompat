@@ -86,7 +86,7 @@ Install serialkompat as a Gradle plugin, a standalone CLI, or a GitHub Action.
 
     | Flag | Effect |
     |---|---|
-    | `--direction=<FULL, BACKWARD, or FORWARD>` | Compatibility direction to enforce (default `FULL`) |
+    | `--direction=FULL\|BACKWARD\|FORWARD` | Compatibility direction to enforce (default `FULL`) |
     | `--no-fail` | Exit `0` even if the diff finds breaking changes (report still prints) |
     | `--help`, `-h` | Print usage and exit `0` |
 
