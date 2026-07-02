@@ -3,6 +3,9 @@
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
+# MkDocs output
+site/
+
 # Kotlin
 .kotlin/
 
