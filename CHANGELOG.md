@@ -53,6 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Runtime descriptor reference extractor (reads element names and optionality from a `SerialDescriptor`).
 - `SerialkompatPlugin` registering `serialkompatCheck` and wiring it into the `check` lifecycle.
 - Tooling: Spotless (ktlint), Kover, binary-compatibility-validator, CI.
-- Design document ([`docs/design`](docs/design)).
+- Design document ([`docs/design`](https://github.com/chrisjenx/serialkompat/tree/main/docs/design)).
 
 [Unreleased]: https://github.com/chrisjenx/serialkompat/commits/main

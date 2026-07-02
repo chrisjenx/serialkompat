@@ -32,6 +32,13 @@ theme:
     - content.tabs.link
     - search.suggest
 
+extra_css:
+  - stylesheets/pipeline.css
+
+extra_javascript:
+  - javascripts/mermaid.min.js
+  - javascripts/mermaid-init.js
+
 markdown_extensions:
   - admonition
   - attr_list
@@ -41,7 +48,7 @@ markdown_extensions:
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
-          class: mermaid
+          class: mermaid-diagram
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true

@@ -1,0 +1,171 @@
+/*
+ * serialkompat animated pipeline.
+ * Pure CSS, no JS, no external assets. Dark-mode aware via Material for
+ * MkDocs CSS custom properties. Honors prefers-reduced-motion.
+ */
+
+.sk-pipeline {
+  --sk-stage-bg: var(--md-code-bg-color);
+  --sk-stage-border: var(--md-default-fg-color--lightest);
+  --sk-stage-fg: var(--md-default-fg-color);
+  --sk-accent: var(--md-primary-fg-color);
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: var(--md-default-bg-color);
+  overflow-x: auto;
+}
+
+.sk-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 6.5rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--sk-stage-border);
+  background: var(--sk-stage-bg);
+  color: var(--sk-stage-fg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.sk-stage code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.85em;
+}
+
+.sk-connector {
+  position: relative;
+  flex: 1 0 1.5rem;
+  min-width: 1.5rem;
+  height: 2px;
+  background: var(--sk-stage-border);
+  overflow: hidden;
+}
+
+/* Traveling pulse: a small gradient dot that sweeps left-to-right along
+   each connector, staggered per connector for a left-to-right flow read. */
+.sk-connector::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -20%;
+  width: 20%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: var(--sk-accent);
+  animation: sk-flow 2.4s ease-in-out infinite;
+}
+
+/* .sk-stage and .sk-connector are both <div>s and alternate as siblings,
+   so :nth-of-type counts position among ALL divs, not just connectors.
+   The 5 connectors sit at div positions 2, 4, 6, 8, 10 (stages take the
+   odd positions 1, 3, 5, 7, 9, 11) — target those positions directly so
+   the stagger increases left-to-right in document order. */
+.sk-connector:nth-of-type(2)::after {
+  animation-delay: 0s;
+}
+.sk-connector:nth-of-type(4)::after {
+  animation-delay: 0.4s;
+}
+.sk-connector:nth-of-type(6)::after {
+  animation-delay: 0.8s;
+}
+.sk-connector:nth-of-type(8)::after {
+  animation-delay: 1.2s;
+}
+.sk-connector:nth-of-type(10)::after {
+  animation-delay: 1.6s;
+}
+
+@keyframes sk-flow {
+  0% {
+    left: -20%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+/* Narrow screens: stack stages vertically, connectors become short
+   vertical rules instead of horizontal flow lines. */
+@media (max-width: 30rem) {
+  .sk-pipeline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sk-stage {
+    width: 100%;
+  }
+
+  .sk-connector {
+    width: 2px;
+    height: 1.25rem;
+    flex: none;
+    margin: 0 auto;
+  }
+
+  .sk-connector::after {
+    top: -20%;
+    left: 50%;
+    width: 4px;
+    height: 20%;
+    transform: translateX(-50%);
+    animation-name: sk-flow-vertical;
+  }
+
+  @keyframes sk-flow-vertical {
+    0% {
+      top: -20%;
+      opacity: 0;
+    }
+    15% {
+      opacity: 1;
+    }
+    85% {
+      opacity: 1;
+    }
+    100% {
+      top: 100%;
+      opacity: 0;
+    }
+  }
+}
+
+/* Respect user motion preference: freeze the pulse, keep the static
+   pipeline fully visible and legible. */
+@media (prefers-reduced-motion: reduce) {
+  .sk-connector::after {
+    animation: none;
+    left: 40%;
+    opacity: 1;
+  }
+
+  @media (max-width: 30rem) {
+    .sk-connector::after {
+      top: 40%;
+      left: 50%;
+    }
+  }
+}
