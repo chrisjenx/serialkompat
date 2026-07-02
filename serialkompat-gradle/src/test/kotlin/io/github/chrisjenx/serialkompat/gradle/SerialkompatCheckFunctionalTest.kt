@@ -239,6 +239,24 @@ class SerialkompatCheckFunctionalTest {
     }
 
     @Test
+    fun `serialkompatCheck fails closed when the baseline has no contracts`() {
+        settings()
+        buildFile(baselineRef = "HEAD")
+        orderModel("val id: String")
+        val sha = initCommit()
+        // A degenerate baseline (zero contracts) must not read as "everything added -> safe" (#78).
+        seedBaseline(sha, Snapshot(emptyList(), SnapshotConfig()))
+
+        val result = runner("serialkompatCheck").buildAndFail()
+
+        assertEquals(TaskOutcome.FAILED, result.task(":serialkompatCheck")?.outcome)
+        assertTrue(
+            result.output.contains("0 contracts"),
+            "expected the empty-baseline guard message; output:\n${result.output}",
+        )
+    }
+
+    @Test
     fun `applying the plugin without configuring types is a safe no-op`() {
         settings()
         write(
