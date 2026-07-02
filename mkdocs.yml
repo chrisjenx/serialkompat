@@ -32,6 +32,9 @@ theme:
     - content.tabs.link
     - search.suggest
 
+extra_css:
+  - stylesheets/pipeline.css
+
 markdown_extensions:
   - admonition
   - attr_list
