@@ -44,21 +44,36 @@ public object SerialkompatCli {
             return EXIT_USAGE
         }
 
-        val positional = args.filterNot { it.startsWith("--") }
+        // The value a space-form `--direction VALUE` consumes, so it is not mistaken for a
+        // positional (which would silently shift the file arguments).
+        val directionValueIndex =
+            args.indexOf("--direction").let { i ->
+                if (i >= 0 && i + 1 < args.size && !args[i + 1].startsWith("--")) i + 1 else -1
+            }
+        val positional = args.filterIndexed { i, a -> i != directionValueIndex && !a.startsWith("--") }
         if (positional.firstOrNull() != "diff" || positional.size < 3) {
             out.appendLine(USAGE)
             return EXIT_USAGE
         }
 
+        // Distinguish "no --direction" (default FULL) from "--direction with no value" (an error) —
+        // the latter must not silently fall back to FULL. Both `--direction=X` and `--direction X` work.
+        val directionPresent = args.any { it == "--direction" || it.startsWith("--direction=") }
         val directionArg = optionValue(args, "--direction")
         val direction =
-            if (directionArg == null) {
-                CompatibilityDirection.FULL
-            } else {
-                runCatching { CompatibilityDirection.valueOf(directionArg) }.getOrElse {
-                    out.appendLine("error: invalid --direction '$directionArg' (expected FULL, BACKWARD, or FORWARD)")
+            when {
+                !directionPresent -> CompatibilityDirection.FULL
+                directionArg == null -> {
+                    out.appendLine("error: --direction requires a value (FULL, BACKWARD, or FORWARD)")
                     return EXIT_USAGE
                 }
+                else ->
+                    runCatching { CompatibilityDirection.valueOf(directionArg) }.getOrElse {
+                        out.appendLine(
+                            "error: invalid --direction '$directionArg' (expected FULL, BACKWARD, or FORWARD)",
+                        )
+                        return EXIT_USAGE
+                    }
             }
         val failOnBreaking = !args.contains("--no-fail")
 
@@ -81,10 +96,15 @@ public object SerialkompatCli {
                 null
             }
 
+    /** Resolves an option's value in either `--name=value` or `--name value` form (null if absent/valueless). */
     private fun optionValue(
         args: Array<String>,
         name: String,
-    ): String? = args.firstOrNull { it.startsWith("$name=") }?.substringAfter("=")
+    ): String? {
+        args.firstOrNull { it.startsWith("$name=") }?.let { return it.substringAfter("=") }
+        val i = args.indexOf(name)
+        return if (i >= 0 && i + 1 < args.size && !args[i + 1].startsWith("--")) args[i + 1] else null
+    }
 
     private val KNOWN_OPTIONS = setOf("--direction", "--no-fail", "--help", "-h")
 
