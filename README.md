@@ -1,12 +1,15 @@
 # serialkompat
 
 [![CI](https://github.com/chrisjenx/serialkompat/actions/workflows/ci.yml/badge.svg)](https://github.com/chrisjenx/serialkompat/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-chrisjenx.github.io-blue.svg)](https://chrisjenx.github.io/serialkompat/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/kotlin-2.4-blue.svg?logo=kotlin)](https://kotlinlang.org)
 
 **A backward/forward compatibility gate for [kotlinx-serialization](https://github.com/Kotlin/kotlinx.serialization) `@Serializable` models — like [`buf breaking`](https://buf.build/docs/breaking/), but for JSON.**
 
-> 🚧 **Status: early development.** The design is settled ([docs/design](docs/design)) and the project is being built in the open, one reviewed PR at a time. The public API is not yet published. Watch the [issues](https://github.com/chrisjenx/serialkompat/issues) and [milestones](https://github.com/chrisjenx/serialkompat/milestones) to follow along.
+📖 **[Full documentation → chrisjenx.github.io/serialkompat](https://chrisjenx.github.io/serialkompat/)** — [quick start](https://chrisjenx.github.io/serialkompat/quickstart/) · [rules](https://chrisjenx.github.io/serialkompat/rules/) · [CI setup](https://chrisjenx.github.io/serialkompat/ci/) · [API](https://chrisjenx.github.io/serialkompat/api/)
+
+> 🚧 **Status: early development, built in the open one reviewed PR at a time.** `-SNAPSHOT`s publish to Maven Central on every push to `main`; there is no stable release yet and the plugin is not on the Gradle Plugin Portal ([resolve via `mavenCentral()`](https://chrisjenx.github.io/serialkompat/setup/#gradle-plugin)). Follow along in the [issues](https://github.com/chrisjenx/serialkompat/issues) and [milestones](https://github.com/chrisjenx/serialkompat/milestones).
 
 ## Why
 
@@ -28,7 +31,9 @@
 - **Classification** is direction-aware (`BACKWARD` / `FORWARD` / `FULL`) and **config-aware** — it reads your actual `Json { }` settings, because whether a change is safe depends on `ignoreUnknownKeys`, `namingStrategy`, `encodeDefaults`, and friends.
 - **Every rule is verified against real kotlinx-serialization** via a round-trip oracle: serialize with the old model, decode with the new one, and assert the classifier predicted what actually happened.
 
-## Usage (implemented; not yet published to the Gradle Plugin Portal)
+## Usage
+
+See the [quick start](https://chrisjenx.github.io/serialkompat/quickstart/) for the 5-minute path and [setup](https://chrisjenx.github.io/serialkompat/setup/) for the CLI and GitHub Action. Until the plugin is on the Gradle Plugin Portal, resolve it via `mavenCentral()` in `pluginManagement` — see [setup](https://chrisjenx.github.io/serialkompat/setup/#gradle-plugin).
 
 ```kotlin
 // build.gradle.kts of a module holding @Serializable wire/persisted contracts
@@ -75,7 +80,7 @@ jobs:
   serialkompat:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }        # git-ref-live needs history for the baseline
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: 17 }
@@ -95,7 +100,7 @@ A change's severity depends on **direction** and your **reader config**. A few e
 | Enum: add value | ✅ safe | ⚠️ old readers reject it |
 | Enum: remove value | ❌ break | ✅ safe |
 
-See the [design doc](docs/design) for the full rule matrix and semantics.
+See the [rules reference](https://chrisjenx.github.io/serialkompat/rules/) for the full 21-rule matrix and config-aware semantics, and the [deep dive](https://chrisjenx.github.io/serialkompat/deep-dive/) for how extraction, classification, and the git-ref baseline work.
 
 ## Modules
 
