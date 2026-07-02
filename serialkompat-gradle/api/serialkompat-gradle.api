@@ -16,7 +16,10 @@ public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatExtension {
 
 public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatHistory {
 	public fun <init> ()V
+	public abstract fun getDepth ()Lorg/gradle/api/provider/Property;
 	public abstract fun getDir ()Lorg/gradle/api/file/DirectoryProperty;
+	public abstract fun getMaxAge ()Lorg/gradle/api/provider/Property;
+	public abstract fun getSinceVersion ()Lorg/gradle/api/provider/Property;
 }
 
 public final class com/chrisjenx/serialkompat/gradle/SerialkompatPlugin : org/gradle/api/Plugin {

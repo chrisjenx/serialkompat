@@ -18,6 +18,10 @@ what it controls. See [Quick start](quickstart.md) for the minimal version and
 | `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded |
 | `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION]"` |
 | `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break) |
+| `history.dir` | `DirectoryProperty` | `serialkompat/history` | Source-controlled dir of recorded per-version snapshots for the transitive check ([Recipes](recipes.md#persisted-data-horizon-multi-version-history)) |
+| `history.sinceVersion` | `Property<String>` | unset | Retention: only check against versions `>=` this (semver) |
+| `history.depth` | `Property<Int>` | unset | Retention: only check against the newest N recorded versions |
+| `history.maxAge` | `Property<Duration>` | unset | Retention: only check against versions recorded within this window. Combining bounds is most-permissive (union) |
 
 The extension is config-cache safe — everything above is captured at configuration
 time. `baselineRef` isn't a file on disk: the baseline schema is recomputed live

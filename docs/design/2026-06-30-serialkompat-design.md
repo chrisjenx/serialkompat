@@ -240,11 +240,18 @@ version, atomically and append-only (refuses to overwrite). Each entry carries a
 emits, so it can't collide with schema content — and load validates every entry,
 failing closed on a torn/corrupt one rather than under-reporting. Entries load in
 **semver** order (not lexicographic, so `1.9.0` < `1.10.0`).
-`serialkompatCheckHistory` runs `TransitiveCompatibility` over the whole history
-and is wired into `check`, but no-ops until a version is recorded. Recording is
-decoupled from Maven publishing (#24): a consumer can record + commit manually or
-from any release step. *(Retention — bounding the horizon by version/depth/age —
-is #121; the `recordedAt` timestamp is already stored for the age bound.)*
+`serialkompatCheckHistory` runs `TransitiveCompatibility` over the history and is
+wired into `check`, but no-ops until a version is recorded. Recording is decoupled
+from Maven publishing (#24): a consumer can record + commit manually or from any
+release step.
+
+**Retention (#121):** `history { sinceVersion / depth / maxAge }` bounds how far
+back the check reaches (the persisted-data horizon isn't "forever"). Each bound
+keeps a window; combining is **most-permissive** (union — a second bound never
+silently narrows coverage). `maxAge` uses the stored `recordedAt`. When a horizon
+drops versions, the check logs it, so "compatible" is never read as "compatible
+with all history". The shared `VersionOrder` (semver, total order) is used by both
+load ordering and the `sinceVersion` bound.
 
 ---
 

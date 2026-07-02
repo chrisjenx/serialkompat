@@ -50,17 +50,20 @@ class SerialkompatHistoryFunctionalTest {
             """,
         )
 
-    private fun buildFile(direction: String = "FULL") =
-        write(
-            "build.gradle.kts",
-            """
-            plugins { id("com.chrisjenx.serialkompat") }
-            serialkompat {
-                types.set(listOf("com.example.Order"))
-                direction.set(com.chrisjenx.serialkompat.core.CompatibilityDirection.$direction)
-            }
-            """,
-        )
+    private fun buildFile(
+        direction: String = "FULL",
+        historyBlock: String = "",
+    ) = write(
+        "build.gradle.kts",
+        """
+        plugins { id("com.chrisjenx.serialkompat") }
+        serialkompat {
+            types.set(listOf("com.example.Order"))
+            direction.set(com.chrisjenx.serialkompat.core.CompatibilityDirection.$direction)
+            $historyBlock
+        }
+        """,
+    )
 
     private fun order(vararg elements: Element) =
         Snapshot(listOf(Contract("com.example.Order", ContractKind.CLASS, elements = elements.toList())))
@@ -123,6 +126,33 @@ class SerialkompatHistoryFunctionalTest {
 
         val result = runner("serialkompatCheckHistory", "-x", "serialkompatExtract").build()
         assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheckHistory")?.outcome)
+    }
+
+    @Test
+    fun `history retention narrows the horizon so an old-version break outside the window is not checked`() {
+        settings()
+        // depth=1 checks only the newest recorded version (2.0.0), dropping 1.0.0 from the horizon.
+        buildFile(direction = "FORWARD", historyBlock = "history { depth.set(1) }")
+        // 1.0.0 required 'note' (a forward break vs current), 2.0.0 dropped it (matches current).
+        seedHistory("1.0.0", order(Element("id", "kotlin.String"), Element("note", "kotlin.String")))
+        seedHistory("2.0.0", order(Element("id", "kotlin.String")))
+        seedCurrent(order(Element("id", "kotlin.String")))
+
+        // With the full history this would fail vs 1.0.0; depth=1 keeps only 2.0.0 -> passes.
+        val result = runner("serialkompatCheckHistory", "-x", "serialkompatExtract").build()
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheckHistory")?.outcome)
+    }
+
+    @Test
+    fun `without retention the same old-version break is caught`() {
+        settings()
+        buildFile(direction = "FORWARD") // no history block -> full horizon
+        seedHistory("1.0.0", order(Element("id", "kotlin.String"), Element("note", "kotlin.String")))
+        seedHistory("2.0.0", order(Element("id", "kotlin.String")))
+        seedCurrent(order(Element("id", "kotlin.String")))
+
+        val result = runner("serialkompatCheckHistory", "-x", "serialkompatExtract").buildAndFail()
+        assertEquals(TaskOutcome.FAILED, result.task(":serialkompatCheckHistory")?.outcome)
     }
 
     @Test
