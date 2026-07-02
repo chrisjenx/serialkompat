@@ -129,6 +129,24 @@ class SerialkompatCliTest {
     }
 
     @Test
+    fun `space-separated --direction is honored, not silently FULL`() {
+        // required -> optional breaks only forward; a BACKWARD check must ignore it (exit 0).
+        // Space form must behave exactly like `--direction=BACKWARD`, not silently fall back to FULL.
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String", optional = false))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String", optional = true))
+        assertEquals(0, run("diff", baseline, current, "--direction", "BACKWARD").first)
+    }
+
+    @Test
+    fun `a valueless --direction exits 2 rather than silently defaulting to FULL`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current, "--direction")
+        assertEquals(2, code)
+        assertTrue(output.contains("direction", ignoreCase = true), "expected a direction error, got: $output")
+    }
+
+    @Test
     fun `an unknown flag exits 2`() {
         val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
         val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
