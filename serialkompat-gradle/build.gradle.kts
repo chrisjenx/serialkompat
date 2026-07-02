@@ -22,8 +22,8 @@ gradlePlugin {
     vcsUrl = "https://github.com/chrisjenx/serialkompat"
     plugins {
         create("serialkompat") {
-            id = "io.github.chrisjenx.serialkompat"
-            implementationClass = "io.github.chrisjenx.serialkompat.gradle.SerialkompatPlugin"
+            id = "com.chrisjenx.serialkompat"
+            implementationClass = "com.chrisjenx.serialkompat.gradle.SerialkompatPlugin"
             displayName = "serialkompat"
             description = "Backward/forward compatibility gate for kotlinx-serialization @Serializable models."
             tags = listOf("kotlin", "kotlinx-serialization", "compatibility", "breaking-changes", "ci")

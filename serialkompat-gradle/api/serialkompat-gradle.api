@@ -1,4 +1,4 @@
-public abstract class io/github/chrisjenx/serialkompat/gradle/SerialkompatExtension {
+public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatExtension {
 	public fun <init> ()V
 	public abstract fun getAcceptedBreaks ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getBaselineRef ()Lorg/gradle/api/provider/Property;
@@ -12,44 +12,44 @@ public abstract class io/github/chrisjenx/serialkompat/gradle/SerialkompatExtens
 	public abstract fun getTypes ()Lorg/gradle/api/provider/ListProperty;
 }
 
-public final class io/github/chrisjenx/serialkompat/gradle/SerialkompatPlugin : org/gradle/api/Plugin {
+public final class com/chrisjenx/serialkompat/gradle/SerialkompatPlugin : org/gradle/api/Plugin {
 	public static final field CHECK_AGAINST_TASK_NAME Ljava/lang/String;
 	public static final field CHECK_TASK_NAME Ljava/lang/String;
-	public static final field Companion Lio/github/chrisjenx/serialkompat/gradle/SerialkompatPlugin$Companion;
+	public static final field Companion Lcom/chrisjenx/serialkompat/gradle/SerialkompatPlugin$Companion;
 	public static final field EXTRACT_TASK_NAME Ljava/lang/String;
 	public fun <init> ()V
 	public synthetic fun apply (Ljava/lang/Object;)V
 	public fun apply (Lorg/gradle/api/Project;)V
 }
 
-public final class io/github/chrisjenx/serialkompat/gradle/SerialkompatPlugin$Companion {
+public final class com/chrisjenx/serialkompat/gradle/SerialkompatPlugin$Companion {
 }
 
-public abstract interface class io/github/chrisjenx/serialkompat/gradle/git/GitCommands {
+public abstract interface class com/chrisjenx/serialkompat/gradle/git/GitCommands {
 	public abstract fun run ([Ljava/lang/String;)Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/gradle/git/GitRefBaseline {
-	public fun <init> (Lio/github/chrisjenx/serialkompat/gradle/git/GitCommands;)V
+public final class com/chrisjenx/serialkompat/gradle/git/GitRefBaseline {
+	public fun <init> (Lcom/chrisjenx/serialkompat/gradle/git/GitCommands;)V
 	public final fun resolveSha (Ljava/lang/String;)Ljava/lang/String;
-	public final fun snapshotAt (Ljava/lang/String;Ljava/io/File;Lio/github/chrisjenx/serialkompat/gradle/git/SnapshotCache;Lkotlin/jvm/functions/Function1;)Ljava/lang/String;
+	public final fun snapshotAt (Ljava/lang/String;Ljava/io/File;Lcom/chrisjenx/serialkompat/gradle/git/SnapshotCache;Lkotlin/jvm/functions/Function1;)Ljava/lang/String;
 	public final fun withWorktree (Ljava/lang/String;Ljava/io/File;Lkotlin/jvm/functions/Function1;)Ljava/lang/Object;
 }
 
-public final class io/github/chrisjenx/serialkompat/gradle/git/SnapshotCache {
+public final class com/chrisjenx/serialkompat/gradle/git/SnapshotCache {
 	public fun <init> (Ljava/io/File;)V
 	public final fun get (Ljava/lang/String;)Ljava/lang/String;
 	public final fun put (Ljava/lang/String;Ljava/lang/String;)V
 }
 
-public final class io/github/chrisjenx/serialkompat/gradle/git/SystemGit : io/github/chrisjenx/serialkompat/gradle/git/GitCommands {
+public final class com/chrisjenx/serialkompat/gradle/git/SystemGit : com/chrisjenx/serialkompat/gradle/git/GitCommands {
 	public fun <init> (Ljava/io/File;)V
 	public fun run ([Ljava/lang/String;)Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/gradle/history/PublishedHistory {
+public final class com/chrisjenx/serialkompat/gradle/history/PublishedHistory {
 	public fun <init> (Ljava/io/File;)V
 	public final fun load ()Ljava/util/List;
-	public final fun record (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Snapshot;)V
+	public final fun record (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Snapshot;)V
 }
 

@@ -1,16 +1,16 @@
-public final class io/github/chrisjenx/serialkompat/core/AcceptedBreak {
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Ljava/lang/String;Ljava/lang/String;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+public final class com/chrisjenx/serialkompat/core/AcceptedBreak {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
-	public final fun component3 ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun component3 ()Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
 	public final fun component4 ()Ljava/lang/String;
 	public final fun component5 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Ljava/lang/String;Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/AcceptedBreak;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/AcceptedBreak;Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/AcceptedBreak;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Ljava/lang/String;Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/AcceptedBreak;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/AcceptedBreak;Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/AcceptedBreak;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAcceptedBy ()Ljava/lang/String;
-	public final fun getDirection ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun getDirection ()Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
 	public final fun getReason ()Ljava/lang/String;
 	public final fun getRule ()Ljava/lang/String;
 	public final fun getType ()Ljava/lang/String;
@@ -18,20 +18,20 @@ public final class io/github/chrisjenx/serialkompat/core/AcceptedBreak {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/AcceptedBreakKt {
-	public static final fun isAcceptedBy (Lio/github/chrisjenx/serialkompat/core/Finding;Ljava/util/List;)Z
+public final class com/chrisjenx/serialkompat/core/AcceptedBreakKt {
+	public static final fun isAcceptedBy (Lcom/chrisjenx/serialkompat/core/Finding;Ljava/util/List;)Z
 }
 
-public abstract interface class io/github/chrisjenx/serialkompat/core/Change {
+public abstract interface class com/chrisjenx/serialkompat/core/Change {
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ConfigChanged : io/github/chrisjenx/serialkompat/core/Change {
+public final class com/chrisjenx/serialkompat/core/Change$ConfigChanged : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Change$ConfigChanged;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ConfigChanged;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ConfigChanged;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Change$ConfigChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ConfigChanged;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ConfigChanged;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getField ()Ljava/lang/String;
 	public final fun getNewValue ()Ljava/lang/String;
@@ -40,65 +40,65 @@ public final class io/github/chrisjenx/serialkompat/core/Change$ConfigChanged : 
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ContractAdded : io/github/chrisjenx/serialkompat/core/Change {
-	public fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;)V
+public final class com/chrisjenx/serialkompat/core/Change$ContractAdded : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/ContractKind;
-	public final fun copy (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;)Lio/github/chrisjenx/serialkompat/core/Change$ContractAdded;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ContractAdded;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ContractAdded;
+	public final fun component2 ()Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public final fun copy (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;)Lcom/chrisjenx/serialkompat/core/Change$ContractAdded;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ContractAdded;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ContractAdded;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getKind ()Lio/github/chrisjenx/serialkompat/core/ContractKind;
+	public final fun getKind ()Lcom/chrisjenx/serialkompat/core/ContractKind;
 	public final fun getSerialName ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ContractMoved : io/github/chrisjenx/serialkompat/core/Change {
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;)V
+public final class com/chrisjenx/serialkompat/core/Change$ContractMoved : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
-	public final fun component3 ()Lio/github/chrisjenx/serialkompat/core/ContractKind;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;)Lio/github/chrisjenx/serialkompat/core/Change$ContractMoved;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ContractMoved;Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ContractMoved;
+	public final fun component3 ()Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;)Lcom/chrisjenx/serialkompat/core/Change$ContractMoved;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ContractMoved;Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ContractMoved;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getKind ()Lio/github/chrisjenx/serialkompat/core/ContractKind;
+	public final fun getKind ()Lcom/chrisjenx/serialkompat/core/ContractKind;
 	public final fun getNewSerialName ()Ljava/lang/String;
 	public final fun getOldSerialName ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ContractRemoved : io/github/chrisjenx/serialkompat/core/Change {
-	public fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;)V
+public final class com/chrisjenx/serialkompat/core/Change$ContractRemoved : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/ContractKind;
-	public final fun copy (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;)Lio/github/chrisjenx/serialkompat/core/Change$ContractRemoved;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ContractRemoved;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ContractRemoved;
+	public final fun component2 ()Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public final fun copy (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;)Lcom/chrisjenx/serialkompat/core/Change$ContractRemoved;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ContractRemoved;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ContractRemoved;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getKind ()Lio/github/chrisjenx/serialkompat/core/ContractKind;
+	public final fun getKind ()Lcom/chrisjenx/serialkompat/core/ContractKind;
 	public final fun getSerialName ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$CoverageGap : io/github/chrisjenx/serialkompat/core/Change {
+public final class com/chrisjenx/serialkompat/core/Change$CoverageGap : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Change$CoverageGap;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$CoverageGap;Ljava/lang/String;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$CoverageGap;
+	public final fun copy (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Change$CoverageGap;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$CoverageGap;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$CoverageGap;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getSerialName ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$DiscriminatorChanged : io/github/chrisjenx/serialkompat/core/Change {
+public final class com/chrisjenx/serialkompat/core/Change$DiscriminatorChanged : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Change$DiscriminatorChanged;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$DiscriminatorChanged;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$DiscriminatorChanged;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Change$DiscriminatorChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$DiscriminatorChanged;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$DiscriminatorChanged;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getNewDiscriminator ()Ljava/lang/String;
@@ -107,27 +107,27 @@ public final class io/github/chrisjenx/serialkompat/core/Change$DiscriminatorCha
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ElementAdded : io/github/chrisjenx/serialkompat/core/Change {
-	public fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Element;)V
+public final class com/chrisjenx/serialkompat/core/Change$ElementAdded : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Element;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/Element;
-	public final fun copy (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Element;)Lio/github/chrisjenx/serialkompat/core/Change$ElementAdded;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ElementAdded;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Element;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ElementAdded;
+	public final fun component2 ()Lcom/chrisjenx/serialkompat/core/Element;
+	public final fun copy (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Element;)Lcom/chrisjenx/serialkompat/core/Change$ElementAdded;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementAdded;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Element;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementAdded;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
-	public final fun getElement ()Lio/github/chrisjenx/serialkompat/core/Element;
+	public final fun getElement ()Lcom/chrisjenx/serialkompat/core/Element;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ElementJsonNamesChanged : io/github/chrisjenx/serialkompat/core/Change {
+public final class com/chrisjenx/serialkompat/core/Change$ElementJsonNamesChanged : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/util/List;
 	public final fun component4 ()Ljava/util/List;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;)Lio/github/chrisjenx/serialkompat/core/Change$ElementJsonNamesChanged;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ElementJsonNamesChanged;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ElementJsonNamesChanged;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/Change$ElementJsonNamesChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementJsonNamesChanged;Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementJsonNamesChanged;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getElement ()Ljava/lang/String;
@@ -137,14 +137,14 @@ public final class io/github/chrisjenx/serialkompat/core/Change$ElementJsonNames
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ElementNullabilityChanged : io/github/chrisjenx/serialkompat/core/Change {
+public final class com/chrisjenx/serialkompat/core/Change$ElementNullabilityChanged : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZZ)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Z
 	public final fun component4 ()Z
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZZ)Lio/github/chrisjenx/serialkompat/core/Change$ElementNullabilityChanged;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ElementNullabilityChanged;Ljava/lang/String;Ljava/lang/String;ZZILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ElementNullabilityChanged;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZZ)Lcom/chrisjenx/serialkompat/core/Change$ElementNullabilityChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementNullabilityChanged;Ljava/lang/String;Ljava/lang/String;ZZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementNullabilityChanged;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getElement ()Ljava/lang/String;
@@ -154,14 +154,14 @@ public final class io/github/chrisjenx/serialkompat/core/Change$ElementNullabili
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged : io/github/chrisjenx/serialkompat/core/Change {
+public final class com/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZZ)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Z
 	public final fun component4 ()Z
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZZ)Lio/github/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;Ljava/lang/String;Ljava/lang/String;ZZILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZZ)Lcom/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;Ljava/lang/String;Ljava/lang/String;ZZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getElement ()Ljava/lang/String;
@@ -171,27 +171,27 @@ public final class io/github/chrisjenx/serialkompat/core/Change$ElementOptionali
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ElementRemoved : io/github/chrisjenx/serialkompat/core/Change {
-	public fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Element;)V
+public final class com/chrisjenx/serialkompat/core/Change$ElementRemoved : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Element;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/Element;
-	public final fun copy (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Element;)Lio/github/chrisjenx/serialkompat/core/Change$ElementRemoved;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ElementRemoved;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Element;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ElementRemoved;
+	public final fun component2 ()Lcom/chrisjenx/serialkompat/core/Element;
+	public final fun copy (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Element;)Lcom/chrisjenx/serialkompat/core/Change$ElementRemoved;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementRemoved;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Element;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementRemoved;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
-	public final fun getElement ()Lio/github/chrisjenx/serialkompat/core/Element;
+	public final fun getElement ()Lcom/chrisjenx/serialkompat/core/Element;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$ElementTypeChanged : io/github/chrisjenx/serialkompat/core/Change {
+public final class com/chrisjenx/serialkompat/core/Change$ElementTypeChanged : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
 	public final fun component4 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Change$ElementTypeChanged;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$ElementTypeChanged;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$ElementTypeChanged;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Change$ElementTypeChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementTypeChanged;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementTypeChanged;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getElement ()Ljava/lang/String;
@@ -201,12 +201,12 @@ public final class io/github/chrisjenx/serialkompat/core/Change$ElementTypeChang
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$EnumValueAdded : io/github/chrisjenx/serialkompat/core/Change {
+public final class com/chrisjenx/serialkompat/core/Change$EnumValueAdded : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Change$EnumValueAdded;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$EnumValueAdded;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$EnumValueAdded;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Change$EnumValueAdded;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$EnumValueAdded;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$EnumValueAdded;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getValue ()Ljava/lang/String;
@@ -214,12 +214,12 @@ public final class io/github/chrisjenx/serialkompat/core/Change$EnumValueAdded :
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$EnumValueRemoved : io/github/chrisjenx/serialkompat/core/Change {
+public final class com/chrisjenx/serialkompat/core/Change$EnumValueRemoved : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Change$EnumValueRemoved;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$EnumValueRemoved;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$EnumValueRemoved;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Change$EnumValueRemoved;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$EnumValueRemoved;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$EnumValueRemoved;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getValue ()Ljava/lang/String;
@@ -227,121 +227,121 @@ public final class io/github/chrisjenx/serialkompat/core/Change$EnumValueRemoved
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$SubtypeAdded : io/github/chrisjenx/serialkompat/core/Change {
-	public fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Subtype;)V
+public final class com/chrisjenx/serialkompat/core/Change$SubtypeAdded : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Subtype;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/Subtype;
-	public final fun copy (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Subtype;)Lio/github/chrisjenx/serialkompat/core/Change$SubtypeAdded;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$SubtypeAdded;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Subtype;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$SubtypeAdded;
+	public final fun component2 ()Lcom/chrisjenx/serialkompat/core/Subtype;
+	public final fun copy (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Subtype;)Lcom/chrisjenx/serialkompat/core/Change$SubtypeAdded;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$SubtypeAdded;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Subtype;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$SubtypeAdded;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
-	public final fun getSubtype ()Lio/github/chrisjenx/serialkompat/core/Subtype;
+	public final fun getSubtype ()Lcom/chrisjenx/serialkompat/core/Subtype;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Change$SubtypeRemoved : io/github/chrisjenx/serialkompat/core/Change {
-	public fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Subtype;)V
+public final class com/chrisjenx/serialkompat/core/Change$SubtypeRemoved : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Subtype;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/Subtype;
-	public final fun copy (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Subtype;)Lio/github/chrisjenx/serialkompat/core/Change$SubtypeRemoved;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Change$SubtypeRemoved;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Subtype;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Change$SubtypeRemoved;
+	public final fun component2 ()Lcom/chrisjenx/serialkompat/core/Subtype;
+	public final fun copy (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Subtype;)Lcom/chrisjenx/serialkompat/core/Change$SubtypeRemoved;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$SubtypeRemoved;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Subtype;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$SubtypeRemoved;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
-	public final fun getSubtype ()Lio/github/chrisjenx/serialkompat/core/Subtype;
+	public final fun getSubtype ()Lcom/chrisjenx/serialkompat/core/Subtype;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Classifier {
+public final class com/chrisjenx/serialkompat/core/Classifier {
 	public fun <init> ()V
-	public fun <init> (Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;)V
-	public synthetic fun <init> (Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun classify (Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;)Ljava/util/List;
-	public static synthetic fun classify$default (Lio/github/chrisjenx/serialkompat/core/Classifier;Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Ljava/util/List;
+	public fun <init> (Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;)V
+	public synthetic fun <init> (Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun classify (Ljava/util/List;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;)Ljava/util/List;
+	public static synthetic fun classify$default (Lcom/chrisjenx/serialkompat/core/Classifier;Ljava/util/List;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;ILjava/lang/Object;)Ljava/util/List;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/CompatibilityDirection : java/lang/Enum {
-	public static final field BACKWARD Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
-	public static final field FORWARD Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
-	public static final field FULL Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+public final class com/chrisjenx/serialkompat/core/CompatibilityDirection : java/lang/Enum {
+	public static final field BACKWARD Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public static final field FORWARD Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public static final field FULL Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
 	public final fun getChecksBackward ()Z
 	public final fun getChecksForward ()Z
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
-	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public static fun valueOf (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public static fun values ()[Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/CompatibilityEngine {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/CompatibilityEngine;
-	public final fun check (Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/Map;)Lio/github/chrisjenx/serialkompat/core/Report;
-	public static synthetic fun check$default (Lio/github/chrisjenx/serialkompat/core/CompatibilityEngine;Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Report;
+public final class com/chrisjenx/serialkompat/core/CompatibilityEngine {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/CompatibilityEngine;
+	public final fun check (Lcom/chrisjenx/serialkompat/core/Snapshot;Lcom/chrisjenx/serialkompat/core/Snapshot;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/Map;)Lcom/chrisjenx/serialkompat/core/Report;
+	public static synthetic fun check$default (Lcom/chrisjenx/serialkompat/core/CompatibilityEngine;Lcom/chrisjenx/serialkompat/core/Snapshot;Lcom/chrisjenx/serialkompat/core/Snapshot;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Report;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/CompatibilityProfile {
+public final class com/chrisjenx/serialkompat/core/CompatibilityProfile {
 	public fun <init> ()V
-	public fun <init> (Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;)V
-	public synthetic fun <init> (Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
-	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
-	public final fun copy (Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;)Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;
+	public fun <init> (Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Lcom/chrisjenx/serialkompat/core/ReaderTolerance;)V
+	public synthetic fun <init> (Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Lcom/chrisjenx/serialkompat/core/ReaderTolerance;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun component2 ()Lcom/chrisjenx/serialkompat/core/ReaderTolerance;
+	public final fun copy (Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Lcom/chrisjenx/serialkompat/core/ReaderTolerance;)Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Lcom/chrisjenx/serialkompat/core/ReaderTolerance;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getDirection ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
-	public final fun getReaderTolerance ()Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
+	public final fun getDirection ()Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun getReaderTolerance ()Lcom/chrisjenx/serialkompat/core/ReaderTolerance;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/ConsoleReporter {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/ConsoleReporter;
-	public final fun render (Lio/github/chrisjenx/serialkompat/core/Report;)Ljava/lang/String;
+public final class com/chrisjenx/serialkompat/core/ConsoleReporter {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/ConsoleReporter;
+	public final fun render (Lcom/chrisjenx/serialkompat/core/Report;)Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Contract {
-	public fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;)V
-	public synthetic fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+public final class com/chrisjenx/serialkompat/core/Contract {
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDiscriminator ()Ljava/lang/String;
 	public final fun getElements ()Ljava/util/List;
 	public final fun getEnumValues ()Ljava/util/List;
-	public final fun getKind ()Lio/github/chrisjenx/serialkompat/core/ContractKind;
+	public final fun getKind ()Lcom/chrisjenx/serialkompat/core/ContractKind;
 	public final fun getSerialName ()Ljava/lang/String;
 	public final fun getSubtypes ()Ljava/util/List;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/ContractKind : java/lang/Enum {
-	public static final field CLASS Lio/github/chrisjenx/serialkompat/core/ContractKind;
-	public static final field ENUM Lio/github/chrisjenx/serialkompat/core/ContractKind;
-	public static final field OBJECT Lio/github/chrisjenx/serialkompat/core/ContractKind;
-	public static final field OPAQUE Lio/github/chrisjenx/serialkompat/core/ContractKind;
-	public static final field POLYMORPHIC Lio/github/chrisjenx/serialkompat/core/ContractKind;
-	public static final field SEALED Lio/github/chrisjenx/serialkompat/core/ContractKind;
+public final class com/chrisjenx/serialkompat/core/ContractKind : java/lang/Enum {
+	public static final field CLASS Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public static final field ENUM Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public static final field OBJECT Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public static final field OPAQUE Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public static final field POLYMORPHIC Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public static final field SEALED Lcom/chrisjenx/serialkompat/core/ContractKind;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/ContractKind;
-	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/ContractKind;
+	public static fun valueOf (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public static fun values ()[Lcom/chrisjenx/serialkompat/core/ContractKind;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Coverage {
-	public fun <init> (Lio/github/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;)V
-	public final fun component1 ()Lio/github/chrisjenx/serialkompat/core/Snapshot;
+public final class com/chrisjenx/serialkompat/core/Coverage {
+	public fun <init> (Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;)V
+	public final fun component1 ()Lcom/chrisjenx/serialkompat/core/Snapshot;
 	public final fun component2 ()Ljava/util/List;
-	public final fun copy (Lio/github/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;)Lio/github/chrisjenx/serialkompat/core/Coverage;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Coverage;Lio/github/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Coverage;
+	public final fun copy (Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/Coverage;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Coverage;Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Coverage;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getExcluded ()Ljava/util/List;
-	public final fun getInScope ()Lio/github/chrisjenx/serialkompat/core/Snapshot;
+	public final fun getInScope ()Lcom/chrisjenx/serialkompat/core/Snapshot;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Element {
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLjava/util/List;Lio/github/chrisjenx/serialkompat/core/EncodeDefaultMode;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLjava/util/List;Lio/github/chrisjenx/serialkompat/core/EncodeDefaultMode;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+public final class com/chrisjenx/serialkompat/core/Element {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLjava/util/List;Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLjava/util/List;Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getEncodeDefault ()Lio/github/chrisjenx/serialkompat/core/EncodeDefaultMode;
+	public final fun getEncodeDefault ()Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
 	public final fun getJsonNames ()Ljava/util/List;
 	public final fun getName ()Ljava/lang/String;
 	public final fun getNullable ()Z
@@ -351,70 +351,70 @@ public final class io/github/chrisjenx/serialkompat/core/Element {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/EncodeDefaultMode : java/lang/Enum {
-	public static final field ALWAYS Lio/github/chrisjenx/serialkompat/core/EncodeDefaultMode;
-	public static final field NEVER Lio/github/chrisjenx/serialkompat/core/EncodeDefaultMode;
+public final class com/chrisjenx/serialkompat/core/EncodeDefaultMode : java/lang/Enum {
+	public static final field ALWAYS Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
+	public static final field NEVER Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/EncodeDefaultMode;
-	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/EncodeDefaultMode;
+	public static fun valueOf (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
+	public static fun values ()[Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Finding {
-	public fun <init> (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/Severity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Change;)V
+public final class com/chrisjenx/serialkompat/core/Finding {
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Lcom/chrisjenx/serialkompat/core/Severity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Change;)V
 	public final fun component1 ()Ljava/lang/String;
-	public final fun component2 ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
-	public final fun component3 ()Lio/github/chrisjenx/serialkompat/core/Severity;
+	public final fun component2 ()Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun component3 ()Lcom/chrisjenx/serialkompat/core/Severity;
 	public final fun component4 ()Ljava/lang/String;
 	public final fun component5 ()Ljava/lang/String;
 	public final fun component6 ()Ljava/lang/String;
 	public final fun component7 ()Ljava/lang/String;
-	public final fun component8 ()Lio/github/chrisjenx/serialkompat/core/Change;
-	public final fun copy (Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/Severity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Change;)Lio/github/chrisjenx/serialkompat/core/Finding;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Finding;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;Lio/github/chrisjenx/serialkompat/core/Severity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lio/github/chrisjenx/serialkompat/core/Change;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Finding;
+	public final fun component8 ()Lcom/chrisjenx/serialkompat/core/Change;
+	public final fun copy (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Lcom/chrisjenx/serialkompat/core/Severity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Change;)Lcom/chrisjenx/serialkompat/core/Finding;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Finding;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;Lcom/chrisjenx/serialkompat/core/Severity;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Change;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Finding;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getChange ()Lio/github/chrisjenx/serialkompat/core/Change;
+	public final fun getChange ()Lcom/chrisjenx/serialkompat/core/Change;
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getDetail ()Ljava/lang/String;
-	public final fun getDirection ()Lio/github/chrisjenx/serialkompat/core/CompatibilityDirection;
+	public final fun getDirection ()Lcom/chrisjenx/serialkompat/core/CompatibilityDirection;
 	public final fun getFixHint ()Ljava/lang/String;
 	public final fun getMessage ()Ljava/lang/String;
 	public final fun getRule ()Ljava/lang/String;
-	public final fun getSeverity ()Lio/github/chrisjenx/serialkompat/core/Severity;
+	public final fun getSeverity ()Lcom/chrisjenx/serialkompat/core/Severity;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/JsonReporter {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/JsonReporter;
-	public final fun render (Lio/github/chrisjenx/serialkompat/core/Report;)Ljava/lang/String;
+public final class com/chrisjenx/serialkompat/core/JsonReporter {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/JsonReporter;
+	public final fun render (Lcom/chrisjenx/serialkompat/core/Report;)Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/ReaderTolerance : java/lang/Enum {
-	public static final field FROM_CONFIG Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
-	public static final field STRICT Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
+public final class com/chrisjenx/serialkompat/core/ReaderTolerance : java/lang/Enum {
+	public static final field FROM_CONFIG Lcom/chrisjenx/serialkompat/core/ReaderTolerance;
+	public static final field STRICT Lcom/chrisjenx/serialkompat/core/ReaderTolerance;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
-	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/ReaderTolerance;
+	public static fun valueOf (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/ReaderTolerance;
+	public static fun values ()[Lcom/chrisjenx/serialkompat/core/ReaderTolerance;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Report {
+public final class com/chrisjenx/serialkompat/core/Report {
 	public fun <init> (Ljava/util/List;Ljava/util/List;)V
 	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/util/List;
 	public final fun component2 ()Ljava/util/List;
-	public final fun copy (Ljava/util/List;Ljava/util/List;)Lio/github/chrisjenx/serialkompat/core/Report;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Report;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Report;
+	public final fun copy (Ljava/util/List;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/Report;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Report;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Report;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAccepted ()Ljava/util/List;
 	public final fun getAcknowledged ()Ljava/util/List;
 	public final fun getActive ()Ljava/util/List;
 	public final fun getFindings ()Ljava/util/List;
 	public fun hashCode ()I
-	public final fun shouldFail (Lio/github/chrisjenx/serialkompat/core/Severity;)Z
+	public final fun shouldFail (Lcom/chrisjenx/serialkompat/core/Severity;)Z
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Rules {
+public final class com/chrisjenx/serialkompat/core/Rules {
 	public static final field CONFIG_CHANGED Ljava/lang/String;
 	public static final field CONFIG_COERCE_INPUT Ljava/lang/String;
 	public static final field CONFIG_DISCRIMINATOR Ljava/lang/String;
@@ -428,7 +428,7 @@ public final class io/github/chrisjenx/serialkompat/core/Rules {
 	public static final field DISCRIMINATOR_VALUE_CHANGED Ljava/lang/String;
 	public static final field ENUM_VALUE_ADDED Ljava/lang/String;
 	public static final field ENUM_VALUE_REMOVED Ljava/lang/String;
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/Rules;
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/Rules;
 	public static final field PROPERTY_ADDED Ljava/lang/String;
 	public static final field PROPERTY_JSON_NAMES Ljava/lang/String;
 	public static final field PROPERTY_NULLABILITY Ljava/lang/String;
@@ -439,15 +439,15 @@ public final class io/github/chrisjenx/serialkompat/core/Rules {
 	public static final field SUBTYPE_REMOVED Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Scope {
+public final class com/chrisjenx/serialkompat/core/Scope {
 	public fun <init> ()V
 	public fun <init> (Ljava/util/List;Ljava/util/List;)V
 	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/util/List;
 	public final fun component2 ()Ljava/util/List;
 	public final fun contains (Ljava/lang/String;)Z
-	public final fun copy (Ljava/util/List;Ljava/util/List;)Lio/github/chrisjenx/serialkompat/core/Scope;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Scope;
+	public final fun copy (Ljava/util/List;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/Scope;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Scope;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getExclude ()Ljava/util/List;
 	public final fun getInclude ()Ljava/util/List;
@@ -455,32 +455,32 @@ public final class io/github/chrisjenx/serialkompat/core/Scope {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/ScopeKt {
-	public static final fun applyScope (Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/Scope;)Lio/github/chrisjenx/serialkompat/core/Coverage;
+public final class com/chrisjenx/serialkompat/core/ScopeKt {
+	public static final fun applyScope (Lcom/chrisjenx/serialkompat/core/Snapshot;Lcom/chrisjenx/serialkompat/core/Scope;)Lcom/chrisjenx/serialkompat/core/Coverage;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Severity : java/lang/Enum {
-	public static final field BREAK Lio/github/chrisjenx/serialkompat/core/Severity;
-	public static final field SAFE Lio/github/chrisjenx/serialkompat/core/Severity;
-	public static final field WARN Lio/github/chrisjenx/serialkompat/core/Severity;
+public final class com/chrisjenx/serialkompat/core/Severity : java/lang/Enum {
+	public static final field BREAK Lcom/chrisjenx/serialkompat/core/Severity;
+	public static final field SAFE Lcom/chrisjenx/serialkompat/core/Severity;
+	public static final field WARN Lcom/chrisjenx/serialkompat/core/Severity;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public final fun isAtLeast (Lio/github/chrisjenx/serialkompat/core/Severity;)Z
-	public static fun valueOf (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Severity;
-	public static fun values ()[Lio/github/chrisjenx/serialkompat/core/Severity;
+	public final fun isAtLeast (Lcom/chrisjenx/serialkompat/core/Severity;)Z
+	public static fun valueOf (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Severity;
+	public static fun values ()[Lcom/chrisjenx/serialkompat/core/Severity;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Snapshot {
+public final class com/chrisjenx/serialkompat/core/Snapshot {
 	public fun <init> ()V
-	public fun <init> (Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;)V
-	public synthetic fun <init> (Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/util/List;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;)V
+	public synthetic fun <init> (Ljava/util/List;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getConfig ()Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;
+	public final fun getConfig ()Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
 	public final fun getContracts ()Ljava/util/List;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/SnapshotConfig {
+public final class com/chrisjenx/serialkompat/core/SnapshotConfig {
 	public fun <init> ()V
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZ)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -492,8 +492,8 @@ public final class io/github/chrisjenx/serialkompat/core/SnapshotConfig {
 	public final fun component6 ()Z
 	public final fun component7 ()Z
 	public final fun component8 ()Z
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZ)Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/SnapshotConfig;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZ)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/SnapshotConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getClassDiscriminator ()Ljava/lang/String;
 	public final fun getClassDiscriminatorMode ()Ljava/lang/String;
@@ -507,24 +507,24 @@ public final class io/github/chrisjenx/serialkompat/core/SnapshotConfig {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/SnapshotDiffer {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/SnapshotDiffer;
-	public final fun diff (Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/Snapshot;Ljava/util/Map;)Ljava/util/List;
-	public static synthetic fun diff$default (Lio/github/chrisjenx/serialkompat/core/SnapshotDiffer;Lio/github/chrisjenx/serialkompat/core/Snapshot;Lio/github/chrisjenx/serialkompat/core/Snapshot;Ljava/util/Map;ILjava/lang/Object;)Ljava/util/List;
+public final class com/chrisjenx/serialkompat/core/SnapshotDiffer {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/SnapshotDiffer;
+	public final fun diff (Lcom/chrisjenx/serialkompat/core/Snapshot;Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/Map;)Ljava/util/List;
+	public static synthetic fun diff$default (Lcom/chrisjenx/serialkompat/core/SnapshotDiffer;Lcom/chrisjenx/serialkompat/core/Snapshot;Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/Map;ILjava/lang/Object;)Ljava/util/List;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/SnapshotFormat {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/SnapshotFormat;
-	public final fun parse (Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Snapshot;
-	public final fun serialize (Lio/github/chrisjenx/serialkompat/core/Snapshot;)Ljava/lang/String;
+public final class com/chrisjenx/serialkompat/core/SnapshotFormat {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/SnapshotFormat;
+	public final fun parse (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Snapshot;
+	public final fun serialize (Lcom/chrisjenx/serialkompat/core/Snapshot;)Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/Subtype {
+public final class com/chrisjenx/serialkompat/core/Subtype {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lio/github/chrisjenx/serialkompat/core/Subtype;
-	public static synthetic fun copy$default (Lio/github/chrisjenx/serialkompat/core/Subtype;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Subtype;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Subtype;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Subtype;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Subtype;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getDiscriminatorValue ()Ljava/lang/String;
 	public final fun getSerialName ()Ljava/lang/String;
@@ -532,9 +532,9 @@ public final class io/github/chrisjenx/serialkompat/core/Subtype {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class io/github/chrisjenx/serialkompat/core/TransitiveCompatibility {
-	public static final field INSTANCE Lio/github/chrisjenx/serialkompat/core/TransitiveCompatibility;
-	public final fun checkAgainstHistory (Lio/github/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/Scope;Ljava/util/List;)Lio/github/chrisjenx/serialkompat/core/Report;
-	public static synthetic fun checkAgainstHistory$default (Lio/github/chrisjenx/serialkompat/core/TransitiveCompatibility;Lio/github/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lio/github/chrisjenx/serialkompat/core/CompatibilityProfile;Lio/github/chrisjenx/serialkompat/core/Scope;Ljava/util/List;ILjava/lang/Object;)Lio/github/chrisjenx/serialkompat/core/Report;
+public final class com/chrisjenx/serialkompat/core/TransitiveCompatibility {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/TransitiveCompatibility;
+	public final fun checkAgainstHistory (Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/Report;
+	public static synthetic fun checkAgainstHistory$default (Lcom/chrisjenx/serialkompat/core/TransitiveCompatibility;Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Report;
 }
 

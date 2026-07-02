@@ -13,7 +13,7 @@ plugins {
 }
 
 allprojects {
-    group = "io.github.chrisjenx"
+    group = "com.chrisjenx"
     // Version comes from `version=` in gradle.properties, overridable via `-Pversion=<x>` on release.
     version = rootProject.findProperty("version") as String
 
