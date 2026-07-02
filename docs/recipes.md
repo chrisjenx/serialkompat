@@ -97,13 +97,61 @@ its own `types`, `baselineRef`, and scope — there's no repo-wide config to
 share, so a change in one module's wire types can't accidentally widen or
 narrow another module's check.
 
-## Roadmap: multi-version history
+## Persisted-data horizon: multi-version history
 
 Checking only against `baselineRef` catches a break against the *last*
-version — not against every version still in the field. An append-only
-published-schema history (checking a change against every prior release, not
-just the latest) is on the roadmap but not implemented; there's no recipe for
-it yet.
+version — not against every version whose data might still be sitting in a
+database or a queue. For persisted data, the current schema has to stay
+readable against **every** release it might have been written under, not just
+the latest (Confluent's `*_TRANSITIVE` semantics).
+
+serialkompat records an **append-only, source-controlled schema history** and
+checks transitively against it:
+
+```console
+# On each release (from CI or by hand), record the released schema and commit it.
+$ ./gradlew serialkompatRecord -Pserialkompat.recordVersion=1.4.0
+serialkompat: recorded schema for version '1.4.0' into serialkompat/history
+
+$ git add serialkompat/history/1.4.0.snapshot && git commit -m "record wire schema 1.4.0"
+```
+
+Each entry (`serialkompat/history/<version>.snapshot`) is written once and
+never mutated — an append-only record is what makes the horizon trustworthy
+(you can't quietly rewrite history to dodge the gate). The directory is
+configurable:
+
+```kotlin title="build.gradle.kts"
+serialkompat {
+    types.set(listOf("com.example.wire.OrderEvent"))
+    history {
+        dir.set(layout.projectDirectory.dir("serialkompat/history")) // the default
+    }
+}
+```
+
+`serialkompatCheckHistory` then verifies the current schema against every
+recorded version at once and fails on a break with **any** of them — so a
+change that's fine against the latest release but would orphan data written by
+an older one is still caught:
+
+```console
+$ ./gradlew serialkompatCheckHistory
+serialkompat: transitive check vs 3 published version(s).
+  BREAK  PROPERTY_REMOVED  com.example.wire.OrderEvent  (forward)
+    field 'note' was removed from com.example.wire.OrderEvent
+```
+
+It's wired into `check`, but it's a **no-op until you've recorded at least one
+version** — a repo that hasn't opted into history never sees it fail. This is
+pairwise-independent: `serialkompatCheck` (vs `baselineRef`) still covers
+live-service compatibility; history covers the persisted-data horizon.
+
+!!! note "Recording from the release flow"
+    `serialkompatRecord` uses the project `version` by default, or
+    `-Pserialkompat.recordVersion=X.Y.Z`. Wire it into your release job right
+    after publishing, and commit the new `serialkompat/history/*.snapshot` file
+    so it's there for the next run's transitive check.
 
 ## Next
 

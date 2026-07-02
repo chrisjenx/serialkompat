@@ -1,22 +1,31 @@
 public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatExtension {
-	public fun <init> ()V
+	public fun <init> (Lorg/gradle/api/model/ObjectFactory;)V
 	public abstract fun getAcceptedBreaks ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getBaselineRef ()Lorg/gradle/api/provider/Property;
 	public abstract fun getDirection ()Lorg/gradle/api/provider/Property;
 	public abstract fun getExclude ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getFailOnBreaking ()Lorg/gradle/api/provider/Property;
 	public abstract fun getFailOnEmptyBaseline ()Lorg/gradle/api/provider/Property;
+	public final fun getHistory ()Lcom/chrisjenx/serialkompat/gradle/SerialkompatHistory;
 	public abstract fun getInclude ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getJsonInstance ()Lorg/gradle/api/provider/Property;
 	public abstract fun getRenames ()Lorg/gradle/api/provider/MapProperty;
 	public abstract fun getTypes ()Lorg/gradle/api/provider/ListProperty;
+	public final fun history (Lorg/gradle/api/Action;)V
+}
+
+public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatHistory {
+	public fun <init> ()V
+	public abstract fun getDir ()Lorg/gradle/api/file/DirectoryProperty;
 }
 
 public final class com/chrisjenx/serialkompat/gradle/SerialkompatPlugin : org/gradle/api/Plugin {
 	public static final field CHECK_AGAINST_TASK_NAME Ljava/lang/String;
+	public static final field CHECK_HISTORY_TASK_NAME Ljava/lang/String;
 	public static final field CHECK_TASK_NAME Ljava/lang/String;
 	public static final field Companion Lcom/chrisjenx/serialkompat/gradle/SerialkompatPlugin$Companion;
 	public static final field EXTRACT_TASK_NAME Ljava/lang/String;
+	public static final field RECORD_TASK_NAME Ljava/lang/String;
 	public fun <init> ()V
 	public synthetic fun apply (Ljava/lang/Object;)V
 	public fun apply (Lorg/gradle/api/Project;)V
@@ -47,9 +56,25 @@ public final class com/chrisjenx/serialkompat/gradle/git/SystemGit : com/chrisje
 	public fun run ([Ljava/lang/String;)Ljava/lang/String;
 }
 
+public final class com/chrisjenx/serialkompat/gradle/history/HistoryEntry {
+	public fun <init> (Ljava/lang/String;Ljava/time/Instant;Lcom/chrisjenx/serialkompat/core/Snapshot;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/time/Instant;
+	public final fun component3 ()Lcom/chrisjenx/serialkompat/core/Snapshot;
+	public final fun copy (Ljava/lang/String;Ljava/time/Instant;Lcom/chrisjenx/serialkompat/core/Snapshot;)Lcom/chrisjenx/serialkompat/gradle/history/HistoryEntry;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/gradle/history/HistoryEntry;Ljava/lang/String;Ljava/time/Instant;Lcom/chrisjenx/serialkompat/core/Snapshot;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/gradle/history/HistoryEntry;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getRecordedAt ()Ljava/time/Instant;
+	public final fun getSnapshot ()Lcom/chrisjenx/serialkompat/core/Snapshot;
+	public final fun getVersion ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class com/chrisjenx/serialkompat/gradle/history/PublishedHistory {
 	public fun <init> (Ljava/io/File;)V
 	public final fun load ()Ljava/util/List;
-	public final fun record (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Snapshot;)V
+	public final fun record (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/time/Instant;)V
+	public final fun snapshots ()Ljava/util/List;
 }
 

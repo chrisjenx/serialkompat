@@ -119,6 +119,64 @@ class CheckExecutorTest {
         Snapshot(listOf(Contract(serialName, ContractKind.CLASS, elements = elements.toList()))),
     )
 
+    // --- transitive history check (issue #88) ---
+
+    private fun orderSnapshot(vararg elements: Element) =
+        Snapshot(listOf(Contract("com.example.Order", ContractKind.CLASS, elements = elements.toList())))
+
+    @Test
+    fun `history check passes when the current schema is compatible with every published version`() {
+        val v1 = orderSnapshot(Element("id", "kotlin.String"))
+        // Adding an optional field is backward-safe (a new reader reads old data): the transitive
+        // check must pass against the published version under BACKWARD.
+        val current = snapshot(Element("id", "kotlin.String"), Element("note", "kotlin.String", optional = true))
+        val outcome =
+            CheckExecutor.executeHistory(
+                currentText = current,
+                history = listOf(v1),
+                direction = CompatibilityDirection.BACKWARD,
+                include = listOf(""),
+                exclude = emptyList(),
+                failOnBreaking = true,
+            )
+        assertFalse(outcome.failed, "adding an optional field is backward-compatible with the published version")
+    }
+
+    @Test
+    fun `history check catches a break against an OLD version even when the latest looks fine`() {
+        // v1 had 'note'; v2 dropped it (already released that way); current also lacks it.
+        // Pairwise vs v2 (latest) is clean, but transitively the current schema still can't read
+        // data written under v1 -> the break must surface.
+        val v1 = orderSnapshot(Element("id", "kotlin.String"), Element("note", "kotlin.String"))
+        val v2 = orderSnapshot(Element("id", "kotlin.String"))
+        val current = snapshot(Element("id", "kotlin.String")) // == v2
+
+        val outcome =
+            CheckExecutor.executeHistory(
+                currentText = current,
+                history = listOf(v1, v2),
+                direction = CompatibilityDirection.FORWARD,
+                include = listOf(""),
+                exclude = emptyList(),
+                failOnBreaking = true,
+            )
+        assertTrue(outcome.failed, "a break vs an old published version must fail even if the latest is clean")
+    }
+
+    @Test
+    fun `history check with no published versions is a no-op pass`() {
+        val outcome =
+            CheckExecutor.executeHistory(
+                currentText = snapshot(Element("id", "kotlin.String")),
+                history = emptyList(),
+                direction = CompatibilityDirection.FULL,
+                include = listOf(""),
+                exclude = emptyList(),
+                failOnBreaking = true,
+            )
+        assertFalse(outcome.failed, "nothing published yet -> nothing to check -> pass")
+    }
+
     @Test
     fun `a declared rename is diffed as a move, not a spurious break`() {
         val baseline = named("com.example.Old", Element("id", "kotlin.String"))

@@ -68,6 +68,8 @@ Install serialkompat as a Gradle plugin, a standalone CLI, or a GitHub Action.
     | `serialkompatExtract` | Extracts the current schema to `build/serialkompat/current.snapshot` |
     | `serialkompatCheck` | Extracts + diffs against `baselineRef`; wired into `check` |
     | `serialkompatCheckAgainst` | Same as `serialkompatCheck`; ref overridable via `-Pserialkompat.ref=<ref>` |
+    | `serialkompatRecord` | Records the current schema into the published history (`-Pserialkompat.recordVersion=X.Y.Z`) — see [Recipes](recipes.md#persisted-data-horizon-multi-version-history) |
+    | `serialkompatCheckHistory` | Transitively checks the current schema against every recorded version; wired into `check` (no-op until a version is recorded) |
 
     See [Quick start](quickstart.md) for running the check and reading a report, and
     [Configuration](configuration.md) for `direction`, `acceptedBreaks`, and `renames` in depth.
