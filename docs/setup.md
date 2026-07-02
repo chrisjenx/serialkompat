@@ -3,7 +3,7 @@
 Install serialkompat as a Gradle plugin, a standalone CLI, or a GitHub Action.
 
 !!! warning "Not yet on the Gradle Plugin Portal"
-    serialkompat is `0.1.0-SNAPSHOT`, published to Maven Central (snapshots auto-publish
+    serialkompat is `{{ skversion }}`, published to Maven Central (snapshots auto-publish
     on push to `main`) but **not yet** on the Gradle Plugin Portal. A plain
     `plugins { id("com.chrisjenx.serialkompat") version "..." }` block will not resolve
     until it is. Until then, add `mavenCentral()` to `pluginManagement.repositories` (Gradle
