@@ -1,0 +1,30 @@
+name: Secret Scan
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: secret-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history — a secret in any commit fails the gate, not just the diff
+      - name: Run gitleaks
+        env:
+          # Pinned; the binary is run directly so there is no org-only license requirement.
+          GITLEAKS_VERSION: "8.27.2"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          # --redact: never echo a matched secret into public CI logs. Exit 1 on any finding.
+          ./gitleaks git . --redact --no-banner --exit-code 1
