@@ -96,7 +96,8 @@ in later without touching the rules.
 |---|---|---|
 | `serialkompat-core` | `Snapshot` model + canonical serialize/parse, `Differ`, `Classifier`, rule set, `Report`. **Pure Kotlin, no kotlinx-serialization runtime, no I/O.** | — |
 | `serialkompat-extractor` | Walk `SerialDescriptor` → build `Snapshot`, behind an `Extractor` interface (anti-corruption layer), incl. `SerializersModule` polymorphism. Vendors its own walk (see §12); does **not** depend on `kotlinx-schema`. Runs on JVM. | kotlinx-serialization |
-| `serialkompat-gradle` | `serialkompatCheck` / `serialkompatCheckAgainst` / `serialkompatExtract` / `serialkompatDump` tasks; config extension. | core, extractor |
+| `serialkompat-gradle` | `serialkompatCheck` / `serialkompatCheckAgainst` / `serialkompatExtract` tasks; config extension. | core, extractor |
+| `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` for non-Gradle / cross-repo use. | core |
 | `serialkompat-cli` | Thin CLI for cross-repo / non-Gradle use. v1. | core, extractor |
 
 ### The `Snapshot` format
@@ -107,7 +108,8 @@ reviewable; a machine-readable JSON form may be emitted alongside for tooling.
 
 **Elements are sorted by serial name, not declaration order** — JSON does not care
 about field order, so reordering produces zero diff (and a rename correctly
-surfaces as remove+add). Number/format normalization ensures byte-stability.
+surfaces as remove+add). Sorted emission with token-escaped free-text fields makes the
+text byte-stable across runs.
 
 Canonical form (as implemented in `SnapshotFormat`, issue #5). Separators are
 single spaces and list literals carry no inner spaces, so an element line
@@ -244,8 +246,9 @@ user's actual `Json` instance:
 
 ```kotlin
 serialkompat {
-  json      = "com.mercury.wire.WireJson.instance"   // real config — read, not re-declared
-  direction = FULL                                    // policy; cannot be inferred; stays declared
+  types.set(listOf("com.mercury.wire.OrderEvent"))        // roots to check
+  jsonInstance.set("com.mercury.wire.WireJson.instance")  // real config — read, not re-declared
+  direction.set(CompatibilityDirection.FULL)              // policy; cannot be inferred; stays declared
 }
 ```
 
@@ -328,9 +331,10 @@ remove half only carries the WARN **backward**; the rename's *forward* loss (an 
 dropping the new key) is forward-`SAFE`, identical to any field addition — so a rename is
 surfaced once, as a backward WARN, not flagged in both directions.
 
-Each row is a **named rule** (`PROPERTY_NO_DELETE`, `PROPERTY_SAME_TYPE`,
-`ENUM_VALUE_NO_DELETE`, `NULLABILITY_NO_NARROW`, `DISCRIMINATOR_VALUE_CHANGED`, …)
-so findings are greppable and individually suppressible.
+Each row is a **named rule** (`PROPERTY_REMOVED`, `PROPERTY_TYPE_CHANGED`,
+`ENUM_VALUE_REMOVED`, `PROPERTY_NULLABILITY`, `DISCRIMINATOR_VALUE_CHANGED`, …) — these
+exact strings are the public keys used in `acceptedBreaks` — so findings are greppable and
+individually suppressible.
 
 ### Escape hatches & accepting a break
 
@@ -340,7 +344,7 @@ so findings are greppable and individually suppressible.
   added in the PR that makes the break:
   ```yaml
   - type: com.mercury.orders.OrderEvent
-    rule: PROPERTY_NO_DELETE
+    rule: PROPERTY_REMOVED
     direction: BACKWARD
     reason: "field 'legacyNote' unused since v4; major bump"
     acceptedBy: chrisjenx
@@ -404,22 +408,23 @@ heuristic remain for v0.5.
 
 ```kotlin
 plugins {
-  kotlin("multiplatform")
+  kotlin("jvm")
   kotlin("plugin.serialization")
-  id("io.github.chrisjenx.serialkompat") version "0.1.0"
+  id("io.github.chrisjenx.serialkompat")
 }
 
 serialkompat {
-  json      = "com.mercury.wire.WireJson.instance"
-  direction = FULL
-  baseline  = gitRef("origin/main")            // or mergeBase()
-  failOn    = BREAKING
-  scope {
-    // default = every @Serializable in this module; suppress at any granularity:
-    exclude(package = "com.mercury.internal.**")
-    exclude(path    = "src/**/debug/**")
-    // + @IgnoreCompat on a type; all suppressions logged in the report
-  }
+  types.set(listOf("com.mercury.wire.OrderEvent"))        // roots to check
+  jsonInstance.set("com.mercury.wire.WireJson.instance")  // real Json config — read, not re-declared
+  direction.set(CompatibilityDirection.FULL)
+  baselineRef.set("origin/main")                          // recomputed live from this ref
+  failOnBreaking.set(true)
+  // Scope by serial-name prefix (exclude wins); a module that never crosses the wire can be left out.
+  include.set(listOf(""))                                 // default: everything
+  exclude.set(listOf("com.mercury.internal."))
+  // Escape hatches:
+  acceptedBreaks.set(listOf("com.mercury.wire.OrderEvent PROPERTY_REMOVED"))  // "<serialName> <RULE> [DIRECTION]"
+  renames.set(mapOf("com.mercury.old.Name" to "com.mercury.new.Name"))        // old → new serial name
 }
 ```
 
@@ -430,7 +435,6 @@ serialkompat {
 | `serialkompatCheck` | extract current → resolve baseline → diff → classify → report; non-zero exit on unlisted breaks | **`check` lifecycle** |
 | `serialkompatCheckAgainst -Pref=<ref>` | same, against an arbitrary ref | ad-hoc / local |
 | `serialkompatExtract` | emit current schema to `build/` (internal) | dependency of the above |
-| `serialkompatDump` | write a shareable snapshot (seeds v1 history; debugging) | manual, **not** required |
 
 No "commit the baseline" task in the v0 gate path (that was the staleness trap).
 

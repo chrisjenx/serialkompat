@@ -1,5 +1,12 @@
 # v1 hardening plan — pre-merge audit of the PR stack (#35–#54)
 
+> **⚠️ SUPERSEDED / HISTORICAL (archived).** This was a point-in-time pre-merge audit of the
+> since-merged `#35–#54` stack. That stack has landed on `main`, and its findings were either
+> fixed before merge or re-filed and remediated under the later comprehensive audit (epic **#76**,
+> issues **#77–#88**). Rule names, the DSL, and the classifier severities described below reflect an
+> earlier state and are **not** authoritative — the current design is `2026-06-30-serialkompat-design.md`.
+> Kept for provenance only. Do not treat its open-item lists as current.
+
 **Date:** 2026-07-01
 **Status:** the v0+v0.5+v1 roadmap is fully coded as a linear stack of 20 CI-green PRs
 (#35→#54, tip `feat/22-ksp`), none merged to `main`. Before that stack lands, each PR

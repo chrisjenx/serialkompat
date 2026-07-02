@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/chrisjenx/serialkompat/actions/workflows/ci.yml/badge.svg)](https://github.com/chrisjenx/serialkompat/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Kotlin](https://img.shields.io/badge/kotlin-2.3-blue.svg?logo=kotlin)](https://kotlinlang.org)
+[![Kotlin](https://img.shields.io/badge/kotlin-2.4-blue.svg?logo=kotlin)](https://kotlinlang.org)
 
 **A backward/forward compatibility gate for [kotlinx-serialization](https://github.com/Kotlin/kotlinx.serialization) `@Serializable` models — like [`buf breaking`](https://buf.build/docs/breaking/), but for JSON.**
 
@@ -62,7 +62,7 @@ serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
 
   BREAK  PROPERTY_REMOVED  com.example.wire.OrderEvent  (backward)
     field 'note' was removed from com.example.wire.OrderEvent
-    fix: Set ignoreUnknownKeys, or keep the field until nothing uses it; else bump major.
+    fix: Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.
 ```
 
 ## CI (GitHub Action)
@@ -104,6 +104,7 @@ See the [design doc](docs/design) for the full rule matrix and semantics.
 | `serialkompat-core` | Pure-Kotlin `Snapshot` model, differ, classifier, rule set, report. No I/O. |
 | `serialkompat-extractor` | Runtime `SerialDescriptor` → `Snapshot` extraction (JVM). |
 | `serialkompat-gradle` | The Gradle plugin (`serialkompatCheck`). |
+| `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` for non-Gradle / cross-repo use. |
 
 ## Building
 
@@ -114,7 +115,7 @@ See the [design doc](docs/design) for the full rule matrix and semantics.
 ./gradlew koverHtmlReport
 ```
 
-Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.6.1), Kotlin 2.3.
+Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.6.1), Kotlin 2.4.0, and kotlinx-serialization 1.11.0.
 
 ## Contributing
 
