@@ -1,7 +1,9 @@
 package com.chrisjenx.serialkompat.extractor
 
+import com.chrisjenx.serialkompat.core.Change
 import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.Snapshot
+import com.chrisjenx.serialkompat.core.SnapshotDiffer
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -27,8 +29,10 @@ import kotlin.test.assertTrue
  * Tracked follow-ups:
  *  - #128 — open-polymorphism `defaultDeserializer` tolerance.
  *  - #129 — enum coerce-fallback (`UNKNOWN` sentinel) as a first-class fact.
- *  - #131 — unresolved `@Contextual` should surface as an OPAQUE coverage-gap node.
  *  - #132 — flag `classDiscriminator` / subtype-property collisions statically.
+ *
+ * Landed (test flipped from characterization to real behavior):
+ *  - #131 — unresolved `@Contextual` now surfaces as an OPAQUE coverage-gap node.
  */
 @OptIn(ExperimentalSerializationApi::class)
 class ToleranceGapsTest {
@@ -101,9 +105,9 @@ class ToleranceGapsTest {
         )
     }
 
-    // --- GAP: unresolved @Contextual is not surfaced as a coverage gap ----------
+    // --- #131 (LANDED): unresolved @Contextual surfaces as an OPAQUE coverage gap
     // The complementary "does not crash" invariant for this same shape lives in
-    // GracefulDegradationTest; here we pin the missing coverage-gap node.
+    // GracefulDegradationTest; here we pin that the coverage-gap node IS emitted.
 
     private class Raw
 
@@ -115,21 +119,31 @@ class ToleranceGapsTest {
     )
 
     @Test
-    fun `unresolved @Contextual leaks ContextualSerializer and is not a coverage gap (GAP #131)`() {
+    fun `unresolved @Contextual surfaces as an OPAQUE coverage-gap node (#131)`() {
         val snapshot = DescriptorSnapshotExtractor.extract(listOf(serializer<HasContextual>().descriptor))
         val owner = snapshot.contract("HasContextual")
         // No crash, and the analyzable sibling is captured (golden rule holds).
         assertEquals("kotlin.String", owner.elements.single { it.name == "id" }.type)
-        // GAP: the contextual element's type ref leaks the internal serializer wrapper, and
-        // NO OPAQUE contract is emitted — so SnapshotDiffer never raises a CoverageGap for it,
-        // even though the descriptor walk genuinely cannot see the contextual type's wire shape
-        // ("unanalysable ≠ safe", design §10). #131 walks CONTEXTUAL -> OPAQUE.
+
+        // The descriptor walk cannot see the runtime-resolved serializer's wire shape, so the
+        // contextual type is unanalysable — it must become an OPAQUE node, never a silently-trusted
+        // type ref ("unanalysable ≠ safe", design §10).
         val rawType = owner.elements.single { it.name == "raw" }.type
-        assertTrue(rawType.startsWith("kotlinx.serialization.ContextualSerializer"), "was: $rawType")
+        val opaque = snapshot.contracts.filter { it.kind == ContractKind.OPAQUE }
+        assertTrue(opaque.isNotEmpty(), "expected an OPAQUE node for the unresolved contextual type; got $opaque")
+        // The element's type ref resolves to the emitted OPAQUE node (same serial name).
         assertTrue(
-            snapshot.contracts.none { it.kind == ContractKind.OPAQUE },
-            "today no coverage-gap node is emitted for the unresolved contextual type",
+            opaque.any { it.serialName == rawType },
+            "the contextual element type ref '$rawType' should resolve to an OPAQUE contract; got $opaque",
         )
+
+        // SnapshotDiffer surfaces every OPAQUE contract as a CoverageGap → the classifier's WARN,
+        // so the gate can never pass silently on a contextual type whose wire shape it can't verify.
+        val gaps =
+            SnapshotDiffer
+                .diff(snapshot, snapshot)
+                .filterIsInstance<Change.CoverageGap>()
+        assertTrue(gaps.any { it.serialName == rawType }, "expected a CoverageGap for the contextual type; got $gaps")
     }
 
     // --- GAP: classDiscriminator collides with a real property named the same ---
