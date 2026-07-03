@@ -595,6 +595,10 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
   a `List`/`Map` usage, or a top-level decode has no default and throws → BREAK),
   not on a recorded sentinel value. A compiler-plugin extractor could record the
   actual default (and a designated `UNKNOWN` sentinel) for a tighter verdict.
+  Residual: this is best-effort per snapshot — an enum read *both* by a defaulted
+  direct field *and* at a top level or inside an `OPAQUE` contract (neither visible
+  as a field) is still classified coercible, so that hidden use is not proven sound.
+  It is a narrow gap, and strictly less unsound than the prior config-only rule.
 - **`@JvmInline value class`es are unwrapped to their underlying wire type.** A
   serializable inline class serializes as its single underlying value (never a
   wrapper object), so the extractor reads `descriptor.isInline` and records the
