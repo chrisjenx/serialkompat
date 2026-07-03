@@ -102,6 +102,8 @@ class ToleranceGapsTest {
     }
 
     // --- GAP: unresolved @Contextual is not surfaced as a coverage gap ----------
+    // The complementary "does not crash" invariant for this same shape lives in
+    // GracefulDegradationTest; here we pin the missing coverage-gap node.
 
     private class Raw
 
