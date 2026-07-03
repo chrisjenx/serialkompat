@@ -20,6 +20,8 @@ import kotlinx.serialization.serializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
@@ -30,10 +32,10 @@ import kotlin.test.assertTrue
  * will flip it. Tolerance-shaped items are split out per #123's Output section.
  *
  * Tracked follow-ups:
- *  - #128 — open-polymorphism `defaultDeserializer` tolerance.
  *  - #129 — enum coerce-fallback (`UNKNOWN` sentinel) as a first-class fact.
  *
  * Landed (test flipped from characterization to real behavior):
+ *  - #128 — open-polymorphism `defaultDeserializer` tolerance is now recorded.
  *  - #131 — unresolved `@Contextual` now surfaces as an OPAQUE coverage-gap node.
  *  - #132 — a discriminator / subtype-property collision is now flagged statically.
  */
@@ -41,7 +43,7 @@ import kotlin.test.assertTrue
 class ToleranceGapsTest {
     private fun Snapshot.contract(serialName: String) = contracts.single { it.serialName == serialName }
 
-    // --- GAP #128: open-polymorphism defaultDeserializer tolerance -------------
+    // --- #128 (LANDED): open-polymorphism defaultDeserializer tolerance --------
 
     private interface Animal
 
@@ -58,7 +60,7 @@ class ToleranceGapsTest {
             .single { it.kind == ContractKind.POLYMORPHIC }
 
     @Test
-    fun `open-poly defaultDeserializer tolerance is not yet captured (GAP #128)`() {
+    fun `open-poly defaultDeserializer tolerance is recorded on the contract (#128)`() {
         val withDefault =
             SerializersModule {
                 polymorphic(Animal::class) {
@@ -68,15 +70,15 @@ class ToleranceGapsTest {
             }
         val withoutDefault = SerializersModule { polymorphic(Animal::class) { subclass(Dog::class) } }
 
-        // GAP: a base *with* a registered default deserializer produces a byte-identical
-        // POLYMORPHIC contract to one *without* — the tolerance is dropped in
-        // collectOpenSubtypes (polymorphicDefaultDeserializer = Unit). When #128 lands,
-        // this flips to assert the two differ (a recorded fallback fact).
-        assertEquals(
-            polyContractWith(withDefault),
-            polyContractWith(withoutDefault),
-            "today the default-deserializer tolerance is not recorded; #128 will change this",
+        // The registered default deserializer is a tolerance: an unknown discriminator falls back
+        // to the sentinel instead of throwing. It is now recorded as a distinguishing wire-compat
+        // fact, so a base with a default is no longer byte-identical to one without (#128).
+        assertTrue(
+            polyContractWith(withDefault).hasPolymorphicDefault,
+            "a base with a registered default deserializer must record hasPolymorphicDefault",
         )
+        assertFalse(polyContractWith(withoutDefault).hasPolymorphicDefault)
+        assertNotEquals(polyContractWith(withDefault), polyContractWith(withoutDefault))
     }
 
     // --- GAP #129: enum coerce-fallback (UNKNOWN sentinel) ----------------------

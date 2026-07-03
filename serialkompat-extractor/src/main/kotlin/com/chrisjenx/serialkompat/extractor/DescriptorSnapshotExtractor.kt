@@ -43,7 +43,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         module: SerializersModule,
         config: SnapshotConfig,
     ): Snapshot {
-        val openSubtypes = collectOpenSubtypes(module)
+        val openPoly = collectOpenSubtypes(module)
         val visited = mutableSetOf<String>()
         val queue = ArrayDeque(roots.toList())
         val contracts = mutableListOf<Contract>()
@@ -59,7 +59,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             val referenced = mutableListOf<SerialDescriptor>()
             val contract =
                 try {
-                    contractOf(descriptor, serialName, config, openSubtypes, referenced)
+                    contractOf(descriptor, serialName, config, openPoly, referenced)
                         ?: Contract(serialName, ContractKind.OPAQUE)
                 } catch (
                     @Suppress("TooGenericExceptionCaught") error: Exception,
@@ -82,7 +82,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         descriptor: SerialDescriptor,
         serialName: String,
         config: SnapshotConfig,
-        openSubtypes: Map<KClass<*>, List<SerialDescriptor>>,
+        openPoly: OpenPolymorphism,
         referenced: MutableList<SerialDescriptor>,
     ): Contract? =
         when (descriptor.kind) {
@@ -111,13 +111,17 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             }
 
             PolymorphicKind.OPEN -> {
-                val subtypeDescriptors = descriptor.capturedKClass?.let { openSubtypes[it] }.orEmpty()
+                val baseClass = descriptor.capturedKClass
+                val subtypeDescriptors = baseClass?.let { openPoly.subtypes[it] }.orEmpty()
                 referenced += subtypeDescriptors
                 Contract(
                     serialName,
                     ContractKind.POLYMORPHIC,
                     discriminator = discriminatorOf(descriptor, config),
                     subtypes = subtypeDescriptors.map { Subtype(contractName(it), contractName(it)) },
+                    // A registered default deserializer is a read-side tolerance: an unknown subtype's
+                    // discriminator coerces to the sentinel instead of throwing (#128).
+                    hasPolymorphicDefault = baseClass != null && baseClass in openPoly.defaults,
                 )
             }
 
@@ -200,9 +204,19 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     /** The serial name used as a contract's identity and type ref, less any nullable marker. */
     private fun contractName(descriptor: SerialDescriptor): String = descriptor.serialName.removeSuffix("?")
 
-    /** Flattens a module's polymorphic registrations into base class → subtype descriptors. */
-    private fun collectOpenSubtypes(module: SerializersModule): Map<KClass<*>, List<SerialDescriptor>> {
+    /**
+     * A module's open-polymorphic registrations: base class → subtype descriptors, plus the base
+     * classes that registered a default deserializer (the read-side fallback for an unknown subtype).
+     */
+    private data class OpenPolymorphism(
+        val subtypes: Map<KClass<*>, List<SerialDescriptor>>,
+        val defaults: Set<KClass<*>>,
+    )
+
+    /** Flattens a module's polymorphic registrations into [OpenPolymorphism]. */
+    private fun collectOpenSubtypes(module: SerializersModule): OpenPolymorphism {
         val subtypes = mutableMapOf<KClass<*>, MutableList<SerialDescriptor>>()
+        val defaults = mutableSetOf<KClass<*>>()
         module.dumpTo(
             object : SerializersModuleCollector {
                 override fun <T : Any> contextual(
@@ -226,9 +240,13 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
                 override fun <Base : Any> polymorphicDefaultDeserializer(
                     baseClass: KClass<Base>,
                     defaultDeserializerProvider: (className: String?) -> DeserializationStrategy<Base>?,
-                ) = Unit
+                ) {
+                    // The fallback used on read for an unknown discriminator — captured as a tolerance
+                    // fact on the base's contract (#128), not a walkable subtype descriptor.
+                    defaults += baseClass
+                }
             },
         )
-        return subtypes
+        return OpenPolymorphism(subtypes, defaults)
     }
 }

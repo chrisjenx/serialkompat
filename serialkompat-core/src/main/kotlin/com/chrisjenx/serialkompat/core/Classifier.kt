@@ -190,7 +190,11 @@ public class Classifier(
                     change.contract,
                     "subtype '${change.subtype.serialName}'",
                     backward = Severity.SAFE,
-                    forward = Severity.BREAK, // old reader can't resolve the new subtype
+                    // forward: an old reader meets the new subtype's unknown discriminator. A base with
+                    // a registered default deserializer coerces it to the sentinel (decodes, but not the
+                    // real subtype) — a silent substitution = WARN; without one the decode throws = BREAK
+                    // (#128). Mirrors how coerceInputValues downgrades an added enum value.
+                    forward = if (change.baseHadDefaultDeserializer) Severity.WARN else Severity.BREAK,
                     message = "subtype '${change.subtype.serialName}' was added to ${change.contract}",
                     fixHint = "Register a default deserializer on old readers, or bump major.",
                 )

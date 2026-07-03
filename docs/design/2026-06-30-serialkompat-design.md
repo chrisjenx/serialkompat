@@ -331,7 +331,7 @@ Under `FULL` + **strict reader**:
 | Enum **add** value | SAFE | **WARN→BREAK** | forward SAFE iff `coerceInputValues` + default |
 | Enum **remove** value | **BREAK** | SAFE | |
 | Enum/subtype **rename** (serial name) | **BREAK** | **BREAK** | discriminator/name mismatch |
-| Polymorphic **add** subtype | SAFE | **WARN→BREAK** | forward SAFE iff default deserializer |
+| Polymorphic **add** subtype | SAFE | **BREAK→WARN** | forward WARN (coerced to the sentinel) iff the base registered a default deserializer, else BREAK |
 | Polymorphic **remove** subtype | **BREAK** | SAFE | |
 | Change **discriminator** key | **BREAK** | **BREAK** | |
 | **Delete** a whole contract type | **BREAK** (persisted) | **BREAK** | |
