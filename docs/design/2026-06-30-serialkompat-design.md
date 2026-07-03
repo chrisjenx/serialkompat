@@ -328,7 +328,7 @@ Under `FULL` + **strict reader**:
 | non-null → **nullable** (`T`→`T?`) | SAFE | **WARN→BREAK** | forward: old reader chokes on emitted `null` |
 | nullable → **non-null** (`T?`→`T`) | **BREAK** | SAFE | backward: old `null` can't decode |
 | Change type (`String`↔`Int`, restructure) | **BREAK** | **BREAK** | numeric widen `Int→Long`: B SAFE / F BREAK |
-| Enum **add** value | SAFE | **WARN→BREAK** | forward SAFE iff `coerceInputValues` + default |
+| Enum **add** value | SAFE | **BREAK→WARN** | forward WARN iff `coerceInputValues` AND every reading field has a default (else BREAK) |
 | Enum **remove** value | **BREAK** | SAFE | |
 | Enum/subtype **rename** (serial name) | **BREAK** | **BREAK** | discriminator/name mismatch |
 | Polymorphic **add** subtype | SAFE | **BREAK→WARN** | forward WARN (coerced to the sentinel) iff the base registered a default deserializer, else BREAK |
@@ -587,6 +587,18 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
   `@SerialInfo` annotation, so it never appears in `getElementAnnotations` (#7).
   The `Element.encodeDefault` field stays null from runtime extraction; a
   compiler-plugin extractor (Approach C) could read it from source.
+- A field's **default *value*** is likewise **not recoverable** via Approach A —
+  the descriptor exposes `isElementOptional` (that a default exists) but never the
+  value itself (it lives in the generated `deserialize`). So the enum coerce-fallback
+  fidelity (#129) keys on optionality + *how* the enum is referenced (a defaulted
+  direct property can coerce an added value to its default → WARN; a required field,
+  a `List`/`Map` usage, or a top-level decode has no default and throws → BREAK),
+  not on a recorded sentinel value. A compiler-plugin extractor could record the
+  actual default (and a designated `UNKNOWN` sentinel) for a tighter verdict.
+  Residual: this is best-effort per snapshot — an enum read *both* by a defaulted
+  direct field *and* at a top level or inside an `OPAQUE` contract (neither visible
+  as a field) is still classified coercible, so that hidden use is not proven sound.
+  It is a narrow gap, and strictly less unsound than the prior config-only rule.
 - **`@JvmInline value class`es are unwrapped to their underlying wire type.** A
   serializable inline class serializes as its single underlying value (never a
   wrapper object), so the extractor reads `descriptor.isInline` and records the

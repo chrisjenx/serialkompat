@@ -41,7 +41,7 @@ below for exactly how.
 | `PROPERTY_NULLABILITY` | Nullable ↔ non-null | ✅ SAFE if became nullable, ❌ BREAK if became non-null | ❌ BREAK if nullable & `explicitNulls = true`; ⚠️ WARN if `false` | yes |
 | `PROPERTY_TYPE_CHANGED` | Field type changed | ✅ SAFE if numeric widening, else ❌ BREAK | ❌ BREAK | yes |
 | `PROPERTY_JSON_NAMES` | `@JsonNames` alias dropped | ⚠️ WARN | ✅ SAFE | no |
-| `ENUM_VALUE_ADDED` | Enum value added | ✅ SAFE | ⚠️ WARN unless `coerceInputValues` | yes |
+| `ENUM_VALUE_ADDED` | Enum value added | ✅ SAFE | ❌ BREAK, ⚠️ WARN if the reader coerces **and** every field reading the enum has a default | yes |
 | `ENUM_VALUE_REMOVED` | Enum value removed | ❌ BREAK | ✅ SAFE | no |
 | `SUBTYPE_ADDED` | Polymorphic variant added | ✅ SAFE | ❌ BREAK, ⚠️ WARN if the base registers a default deserializer² | no |
 | `SUBTYPE_REMOVED` | Polymorphic variant removed | ❌ BREAK | ✅ SAFE | no |
@@ -85,7 +85,7 @@ change can be `SAFE` under one config and `BREAK` under another:
 | `ignoreUnknownKeys` | `false` | `PROPERTY_ADDED` forward: `BREAK` → `SAFE` once the reader tolerates unknown keys. `PROPERTY_REMOVED` backward: `BREAK` → `WARN` (data silently dropped instead of an exception). Tightening it from `true` → `false` is itself a `CONFIG_READER_STRICTNESS` `WARN`. |
 | `encodeDefaults` | `false` | `PROPERTY_OPTIONALITY` forward (became optional): `BREAK` → `SAFE`, because the old reader now receives the field instead of missing it. `CONFIG_ENCODE_DEFAULTS` itself is `WARN` forward when disabled. |
 | `explicitNulls` | `true` | `PROPERTY_NULLABILITY` forward (became nullable): `BREAK` when `true` (old reader gets an explicit `null` it must handle), `WARN` when `false` (field just omitted). Toggling the setting itself is `CONFIG_EXPLICIT_NULLS`, `WARN` in both directions. |
-| `coerceInputValues` | `false` | `ENUM_VALUE_ADDED` forward: `WARN` → `SAFE`, since an unrecognized enum constant coerces to the declared default instead of failing. `CONFIG_COERCE_INPUT` itself is `WARN` backward when disabled. |
+| `coerceInputValues` | `false` | `ENUM_VALUE_ADDED` forward: `BREAK` → `WARN`, but **only when the reading field has a default** to coerce to (a recorded fact, not config alone). An unrecognized constant then coerces to that default — decode succeeds but yields the default, not the written value, so it is a `WARN` (silent substitution), never `SAFE`. A required field, a `List`/`Map` usage, or a top-level enum decode has no default and still throws → `BREAK`. `CONFIG_COERCE_INPUT` itself is `WARN` backward when disabled. |
 | `namingStrategy` | none | Any change to the strategy is a blanket `CONFIG_NAMING_STRATEGY` `BREAK` in both directions — every generated JSON key on the wire moves at once. |
 | `classDiscriminator` | `"type"` | Any change is a blanket `CONFIG_DISCRIMINATOR` `BREAK` in both directions — every polymorphic payload's discriminator key moves at once. |
 

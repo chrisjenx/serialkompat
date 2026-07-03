@@ -156,15 +156,30 @@ class ClassifierTest {
     // --- Enums -----------------------------------------------------------------
 
     @Test
-    fun `enum add value — forward breaks a strict reader, only a WARN when coercing`() {
+    fun `enum add value — forward breaks a strict reader, backward safe`() {
         val strictReader = classify(Change.EnumValueAdded("E", "C"))
         assertNull(strictReader.severity(CompatibilityDirection.BACKWARD))
         assertEquals(Severity.BREAK, strictReader.severity(CompatibilityDirection.FORWARD))
+    }
 
-        // coerceInputValues only rescues an unknown value when the *field* has a default —
-        // which the classifier cannot see from the change — so it is conditional (WARN), not SAFE.
-        val coercing = classify(Change.EnumValueAdded("E", "C"), old = SnapshotConfig(coerceInputValues = true))
-        assertEquals(Severity.WARN, coercing.severity(CompatibilityDirection.FORWARD))
+    @Test
+    fun `enum add value — WARN only when coercing AND every reader field can fall back to a default`() {
+        // coerceInputValues rescues an unknown value ONLY for a field with a default. The differ
+        // records whether that holds for every field reading this enum (baselineFieldsCoercible);
+        // the classifier combines it with the reader's coerce setting (#129).
+        val coerce = SnapshotConfig(coerceInputValues = true)
+
+        // Coercing reader + a defaulted direct field → the unknown value coerces to that default: WARN.
+        val coercible = classify(Change.EnumValueAdded("E", "C", baselineFieldsCoercible = true), old = coerce)
+        assertEquals(Severity.WARN, coercible.severity(CompatibilityDirection.FORWARD))
+
+        // Coercing reader but a required / nested / top-level use (nothing to coerce to) → still BREAK.
+        val notCoercible = classify(Change.EnumValueAdded("E", "C", baselineFieldsCoercible = false), old = coerce)
+        assertEquals(Severity.BREAK, notCoercible.severity(CompatibilityDirection.FORWARD))
+
+        // A strict reader never coerces, so even a coercible field is a BREAK.
+        val strict = classify(Change.EnumValueAdded("E", "C", baselineFieldsCoercible = true))
+        assertEquals(Severity.BREAK, strict.severity(CompatibilityDirection.FORWARD))
     }
 
     @Test

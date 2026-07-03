@@ -78,7 +78,19 @@ class TransitiveCompatibilityTest {
     private fun status(
         config: SnapshotConfig,
         vararg values: String,
-    ) = Snapshot(listOf(Contract("com.example.Status", ContractKind.ENUM, enumValues = values.toList())), config)
+    ) = Snapshot(
+        listOf(
+            // A defaulted field reads the enum, so a coercing reader can fall back to that default —
+            // the precondition for an added value to be a forward WARN rather than a BREAK (#129).
+            Contract(
+                "com.example.StatusHolder",
+                ContractKind.CLASS,
+                elements = listOf(Element("status", "com.example.Status", optional = true)),
+            ),
+            Contract("com.example.Status", ContractKind.ENUM, enumValues = values.toList()),
+        ),
+        config,
+    )
 
     @Test
     fun `dedup keeps the worst-case severity when versions classify the same finding differently`() {

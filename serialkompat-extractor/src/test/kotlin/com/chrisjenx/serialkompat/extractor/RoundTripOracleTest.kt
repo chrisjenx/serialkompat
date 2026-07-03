@@ -656,6 +656,85 @@ class RoundTripOracleTest {
         assertEquals(Severity.WARN, coerceForward.severity)
     }
 
+    // --- #129: coerce only rescues an added enum value for a *defaulted* field -----
+
+    @Serializable
+    @SerialName("ReqEnum")
+    private enum class ReqEnumV1 { A, B }
+
+    @Serializable
+    @SerialName("ReqEnum")
+    private enum class ReqEnumV2 { A, B, C }
+
+    @Serializable
+    @SerialName("ReqEnumHolder")
+    private data class ReqEnumHolderV1(
+        val e: ReqEnumV1,
+    )
+
+    @Serializable
+    @SerialName("ReqEnumHolder")
+    private data class ReqEnumHolderV2(
+        val e: ReqEnumV2,
+    )
+
+    @Test
+    fun `an added enum value on a REQUIRED field breaks even a coercing reader (#129)`() {
+        // coerceInputValues coerces an unknown enum only to a field's *default*. A required field has
+        // none, so the decode genuinely throws even when coercing — soundness demands a forward BREAK,
+        // not the config-only WARN a coarser rule would give.
+        val coercing = Json { coerceInputValues = true }
+        val newData = coercing.encodeToString(serializer<ReqEnumHolderV2>(), ReqEnumHolderV2(ReqEnumV2.C))
+        assertFailsWith<Exception> { coercing.decodeFromString(serializer<ReqEnumHolderV1>(), newData) }
+
+        // assertOracleAgrees enforces realThrew ⇒ predictedBreak in this (forward) direction.
+        assertOracleAgrees(
+            serializer<ReqEnumHolderV1>(),
+            ReqEnumHolderV1(ReqEnumV1.A),
+            serializer<ReqEnumHolderV2>(),
+            ReqEnumHolderV2(ReqEnumV2.C),
+            oldJson = coercing,
+            newJson = coercing,
+        )
+    }
+
+    @Serializable
+    @SerialName("OptEnumHolder")
+    private data class OptEnumHolderV1(
+        val e: ReqEnumV1 = ReqEnumV1.A,
+    )
+
+    @Serializable
+    @SerialName("OptEnumHolder")
+    private data class OptEnumHolderV2(
+        val e: ReqEnumV2 = ReqEnumV2.A,
+    )
+
+    @Test
+    fun `an added enum value on a DEFAULTED field is a coercing-reader WARN, a strict-reader BREAK (#129)`() {
+        // The mirror of the required-field case: with a default, a coercing reader falls back (decodes,
+        // no throw → WARN), while a strict reader still throws (→ BREAK). The verdict is decided by the
+        // recorded field fact, not the live config alone.
+        val strictData = strict.encodeToString(serializer<OptEnumHolderV2>(), OptEnumHolderV2(ReqEnumV2.C))
+        assertFailsWith<Exception> { strict.decodeFromString(serializer<OptEnumHolderV1>(), strictData) }
+        val coercing = Json { coerceInputValues = true }
+        assertEquals(ReqEnumV1.A, coercing.decodeFromString(serializer<OptEnumHolderV1>(), strictData).e)
+
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer<OptEnumHolderV1>().descriptor)),
+                DescriptorSnapshotExtractor.extract(listOf(serializer<OptEnumHolderV2>().descriptor)),
+            )
+
+        fun forwardSeverity(json: Json) =
+            Classifier()
+                .classify(changes, JsonConfigReader.read(json), JsonConfigReader.read(json))
+                .single { it.direction == CompatibilityDirection.FORWARD && it.rule == Rules.ENUM_VALUE_ADDED }
+                .severity
+        assertEquals(Severity.BREAK, forwardSeverity(strict))
+        assertEquals(Severity.WARN, forwardSeverity(coercing))
+    }
+
     // --- @JsonNames alias drop -------------------------------------------------
 
     @Serializable
