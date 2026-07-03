@@ -125,4 +125,17 @@ public sealed interface Change {
     public data class CoverageGap(
         val serialName: String,
     ) : Change
+
+    /**
+     * A sealed/polymorphic [contract] whose class [discriminator] key collides with
+     * a property of its [subtype] of the same name. Such a model is **unserializable**
+     * — kotlinx-serialization refuses to encode it — so, like a [CoverageGap], it is a
+     * defect of a single snapshot surfaced on every diff (not a delta between two),
+     * letting the gate catch it statically before the first encode throws (#132).
+     */
+    public data class DiscriminatorCollision(
+        val contract: String,
+        val discriminator: String,
+        val subtype: String,
+    ) : Change
 }
