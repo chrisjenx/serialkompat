@@ -356,6 +356,14 @@ Each row is a **named rule** (`PROPERTY_REMOVED`, `PROPERTY_TYPE_CHANGED`,
 exact strings are the public keys used in `acceptedBreaks` — so findings are greppable and
 individually suppressible.
 
+Beyond version-to-version deltas, the differ also surfaces **static model defects** on
+the *current* snapshot every run — a `COVERAGE_GAP` for an unanalysable type (§10), and a
+`DISCRIMINATOR_COLLISION` when a sealed/polymorphic subtype declares a property whose JSON
+key equals the base's class discriminator. That model is unserializable
+(kotlinx-serialization throws `JsonEncodingException` on encode), so the gate flags it as a
+`BREAK` statically — before the first encode fails — unless `classDiscriminatorMode = NONE`
+means no discriminator is emitted (nothing to collide with).
+
 ### Escape hatches & accepting a break
 
 - **`@JsonNames` understood as mitigation** — a rename bridged by an alias is

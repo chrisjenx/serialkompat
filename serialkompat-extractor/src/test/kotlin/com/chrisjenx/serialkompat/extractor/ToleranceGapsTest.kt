@@ -1,7 +1,10 @@
 package com.chrisjenx.serialkompat.extractor
 
 import com.chrisjenx.serialkompat.core.Change
+import com.chrisjenx.serialkompat.core.Classifier
 import com.chrisjenx.serialkompat.core.ContractKind
+import com.chrisjenx.serialkompat.core.Rules
+import com.chrisjenx.serialkompat.core.Severity
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotDiffer
 import kotlinx.serialization.Contextual
@@ -29,10 +32,10 @@ import kotlin.test.assertTrue
  * Tracked follow-ups:
  *  - #128 — open-polymorphism `defaultDeserializer` tolerance.
  *  - #129 — enum coerce-fallback (`UNKNOWN` sentinel) as a first-class fact.
- *  - #132 — flag `classDiscriminator` / subtype-property collisions statically.
  *
  * Landed (test flipped from characterization to real behavior):
  *  - #131 — unresolved `@Contextual` now surfaces as an OPAQUE coverage-gap node.
+ *  - #132 — a discriminator / subtype-property collision is now flagged statically.
  */
 @OptIn(ExperimentalSerializationApi::class)
 class ToleranceGapsTest {
@@ -146,7 +149,7 @@ class ToleranceGapsTest {
         assertTrue(gaps.any { it.serialName == rawType }, "expected a CoverageGap for the contextual type; got $gaps")
     }
 
-    // --- GAP: classDiscriminator collides with a real property named the same ---
+    // --- #132 (LANDED): classDiscriminator collides with a real property named the same
 
     @Serializable
     @SerialName("Msg")
@@ -161,17 +164,22 @@ class ToleranceGapsTest {
     }
 
     @Test
-    fun `discriminator colliding with a property is extracted but not flagged (GAP #132)`() {
-        val snapshot = DescriptorSnapshotExtractor.extract(listOf(serializer<Msg>().descriptor))
-        // Extraction is faithful: the sealed base records disc="name" and the subtype records
-        // its own "name" element — the collision is visible in the snapshot.
-        assertEquals("name", snapshot.contract("Msg").discriminator)
-        assertTrue(snapshot.contract("hello").elements.any { it.name == "name" })
-
-        // Ground truth: the real library REFUSES to serialize this model — the collision is a
-        // latent runtime failure the gate could catch statically, but no rule does yet.
+    fun `discriminator colliding with a subtype property is flagged as unserializable (#132)`() {
+        // Ground truth: the real library REFUSES to serialize this model.
         assertFailsWith<Exception> {
             Json.encodeToString(serializer<Msg>(), Msg.Hello("n", "hi"))
         }
+
+        val snapshot = DescriptorSnapshotExtractor.extract(listOf(serializer<Msg>().descriptor))
+        // Extraction is faithful: the sealed base records disc="name" and the subtype its "name" element.
+        assertEquals("name", snapshot.contract("Msg").discriminator)
+        assertTrue(snapshot.contract("hello").elements.any { it.name == "name" })
+
+        // Oracle: the classifier flags exactly this unserializable model as a DISCRIMINATOR_COLLISION
+        // BREAK — catching statically what the encode above proves at runtime (#132).
+        val findings = Classifier().classify(SnapshotDiffer.diff(snapshot, snapshot))
+        val collision = findings.filter { it.rule == Rules.DISCRIMINATOR_COLLISION }
+        assertTrue(collision.isNotEmpty(), "expected a DISCRIMINATOR_COLLISION finding; got $findings")
+        assertTrue(collision.all { it.severity == Severity.BREAK }, "got $collision")
     }
 }

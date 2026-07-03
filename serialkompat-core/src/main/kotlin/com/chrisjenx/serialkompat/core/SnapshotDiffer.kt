@@ -68,7 +68,36 @@ public object SnapshotDiffer {
                 .map { it.serialName }
                 .sorted()
                 .forEach { add(Change.CoverageGap(it)) }
+
+            addAll(discriminatorCollisions(new))
         }
+
+    /**
+     * Sealed/polymorphic subtypes whose property key shadows the base's class
+     * discriminator: kotlinx-serialization refuses to encode such a model, so it is
+     * flagged on every diff (like a coverage gap), not as a delta between snapshots
+     * (design §7, #132). Suppressed when the discriminator is not emitted at all
+     * (`classDiscriminatorMode = NONE`), where there is nothing to collide with.
+     * Emitted in a deterministic (base, then subtype) order over the already-sorted
+     * snapshot.
+     */
+    private fun discriminatorCollisions(new: Snapshot): List<Change> {
+        if (new.config.classDiscriminatorMode == "NONE") return emptyList()
+        val byName = new.contracts.associateBy { it.serialName }
+        return new.contracts
+            .filter { it.kind == ContractKind.SEALED || it.kind == ContractKind.POLYMORPHIC }
+            .flatMap { base ->
+                val discriminator = base.discriminator ?: return@flatMap emptyList()
+                base.subtypes.mapNotNull { subtype ->
+                    val subContract = byName[subtype.serialName]
+                    if (subContract != null && subContract.elements.any { it.name == discriminator }) {
+                        Change.DiscriminatorCollision(base.serialName, discriminator, subtype.serialName)
+                    } else {
+                        null
+                    }
+                }
+            }
+    }
 
     private fun diffConfig(
         old: SnapshotConfig,

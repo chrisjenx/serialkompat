@@ -107,6 +107,21 @@ public final class com/chrisjenx/serialkompat/core/Change$DiscriminatorChanged :
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/chrisjenx/serialkompat/core/Change$DiscriminatorCollision : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Change$DiscriminatorCollision;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$DiscriminatorCollision;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$DiscriminatorCollision;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContract ()Ljava/lang/String;
+	public final fun getDiscriminator ()Ljava/lang/String;
+	public final fun getSubtype ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class com/chrisjenx/serialkompat/core/Change$ElementAdded : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/Element;)V
 	public final fun component1 ()Ljava/lang/String;
@@ -425,6 +440,7 @@ public final class com/chrisjenx/serialkompat/core/Rules {
 	public static final field CONTRACT_REMOVED Ljava/lang/String;
 	public static final field COVERAGE_GAP Ljava/lang/String;
 	public static final field DISCRIMINATOR_CHANGED Ljava/lang/String;
+	public static final field DISCRIMINATOR_COLLISION Ljava/lang/String;
 	public static final field DISCRIMINATOR_VALUE_CHANGED Ljava/lang/String;
 	public static final field ENUM_VALUE_ADDED Ljava/lang/String;
 	public static final field ENUM_VALUE_REMOVED Ljava/lang/String;

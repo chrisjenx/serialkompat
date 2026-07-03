@@ -47,6 +47,7 @@ below for exactly how.
 | `SUBTYPE_REMOVED` | Polymorphic variant removed | ❌ BREAK | ✅ SAFE | no |
 | `DISCRIMINATOR_CHANGED` | Discriminator key changed | ❌ BREAK | ❌ BREAK | no |
 | `DISCRIMINATOR_VALUE_CHANGED` | Polymorphic type moved (new FQN) | ❌ BREAK | ❌ BREAK | no |
+| `DISCRIMINATOR_COLLISION` | Subtype property shadows the class discriminator (unserializable model) | ❌ BREAK | ❌ BREAK | no¹ |
 | `CONFIG_NAMING_STRATEGY` | `namingStrategy` changed | ❌ BREAK | ❌ BREAK | — |
 | `CONFIG_DISCRIMINATOR` | `classDiscriminator` changed | ❌ BREAK | ❌ BREAK | — |
 | `CONFIG_READER_STRICTNESS` | `ignoreUnknownKeys` / `useAlternativeNames` changed | ⚠️ WARN if tightened, ✅ SAFE if loosened | ✅ SAFE | — |
@@ -55,6 +56,14 @@ below for exactly how.
 | `CONFIG_COERCE_INPUT` | `coerceInputValues` toggled | ⚠️ WARN if disabled, ✅ SAFE if enabled | ✅ SAFE | — |
 | `CONFIG_CHANGED` | Any other wire-relevant `Json` setting changed (catch-all) | ⚠️ WARN | ⚠️ WARN | — |
 | `COVERAGE_GAP` | Opaque/unanalyzable type | ⚠️ WARN | ⚠️ WARN | — |
+
+¹ `DISCRIMINATOR_COLLISION` is not a delta between two versions — it flags a single
+model that is *already* unserializable: a sealed/polymorphic subtype declares a
+property whose JSON key equals the base's class discriminator, which
+kotlinx-serialization refuses to encode (`JsonEncodingException`). It is surfaced on
+every run until fixed (like `COVERAGE_GAP`), and only when a discriminator is
+actually emitted — `classDiscriminatorMode = NONE` suppresses it (nothing to
+collide with).
 
 ## Config awareness
 

@@ -258,6 +258,23 @@ public class Classifier(
 
             is Change.ConfigChanged -> configVerdict(change)
 
+            // A subtype property that shadows the class discriminator makes the model
+            // unserializable — the real library refuses to encode it — so it breaks both
+            // directions regardless of config (design §7, #132).
+            is Change.DiscriminatorCollision ->
+                Verdict(
+                    Rules.DISCRIMINATOR_COLLISION,
+                    change.contract,
+                    "subtype '${change.subtype}'",
+                    backward = Severity.BREAK,
+                    forward = Severity.BREAK,
+                    message =
+                        "subtype '${change.subtype}' has a property named '${change.discriminator}' that " +
+                            "collides with ${change.contract}'s class discriminator — the model cannot be serialized",
+                    fixHint =
+                        "Rename the colliding property, or set a different @JsonClassDiscriminator on ${change.contract}.",
+                )
+
             // An unanalysable type can't be verified either way — surfaced as a WARN
             // coverage gap so it is never silently assumed compatible (design §10).
             is Change.CoverageGap ->
