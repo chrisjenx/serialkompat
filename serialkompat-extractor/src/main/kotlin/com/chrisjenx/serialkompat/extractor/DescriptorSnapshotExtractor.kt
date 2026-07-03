@@ -178,6 +178,11 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             StructureKind.CLASS, StructureKind.OBJECT, SerialKind.ENUM,
             PolymorphicKind.SEALED, PolymorphicKind.OPEN,
             -> listOf(descriptor)
+            // An unresolved @Contextual serializer's runtime shape is invisible to the descriptor
+            // walk — exactly the "unanalysable ≠ safe" case (design §10). Walk it so contractOf
+            // degrades it to an OPAQUE node and SnapshotDiffer raises a CoverageGap (#131), rather
+            // than trusting the ContextualSerializer<T> type ref as if it were a stable wire shape.
+            SerialKind.CONTEXTUAL -> listOf(descriptor)
             else -> emptyList()
         }
     }
