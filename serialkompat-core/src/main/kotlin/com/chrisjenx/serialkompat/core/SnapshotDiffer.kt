@@ -12,7 +12,10 @@ package com.chrisjenx.serialkompat.core
  * rather than a spurious remove + add (design §8).
  *
  * Output order is deterministic: config changes first, then contracts in serial
- * name order, then each contract's member deltas in a fixed order.
+ * name order, then each contract's member deltas in a fixed order, and finally the
+ * per-snapshot static-defect scans over the current snapshot — [Change.CoverageGap]
+ * for each unanalysable type, then [Change.DiscriminatorCollision] for each
+ * unserializable subtype/discriminator clash.
  */
 public object SnapshotDiffer {
     /**
