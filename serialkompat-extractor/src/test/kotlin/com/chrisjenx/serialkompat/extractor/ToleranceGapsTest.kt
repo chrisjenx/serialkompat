@@ -27,8 +27,8 @@ import kotlin.test.assertTrue
  * Tracked follow-ups:
  *  - #128 — open-polymorphism `defaultDeserializer` tolerance.
  *  - #129 — enum coerce-fallback (`UNKNOWN` sentinel) as a first-class fact.
- *  - `@Contextual` coverage-gap and discriminator/property collision: gaps found by
- *    this audit, pending their own tracking issues.
+ *  - #131 — unresolved `@Contextual` should surface as an OPAQUE coverage-gap node.
+ *  - #132 — flag `classDiscriminator` / subtype-property collisions statically.
  */
 @OptIn(ExperimentalSerializationApi::class)
 class ToleranceGapsTest {
@@ -115,7 +115,7 @@ class ToleranceGapsTest {
     )
 
     @Test
-    fun `unresolved @Contextual leaks ContextualSerializer and is not a coverage gap (GAP)`() {
+    fun `unresolved @Contextual leaks ContextualSerializer and is not a coverage gap (GAP #131)`() {
         val snapshot = DescriptorSnapshotExtractor.extract(listOf(serializer<HasContextual>().descriptor))
         val owner = snapshot.contract("HasContextual")
         // No crash, and the analyzable sibling is captured (golden rule holds).
@@ -123,7 +123,7 @@ class ToleranceGapsTest {
         // GAP: the contextual element's type ref leaks the internal serializer wrapper, and
         // NO OPAQUE contract is emitted — so SnapshotDiffer never raises a CoverageGap for it,
         // even though the descriptor walk genuinely cannot see the contextual type's wire shape
-        // ("unanalysable ≠ safe", design §10). The follow-up walks CONTEXTUAL -> OPAQUE.
+        // ("unanalysable ≠ safe", design §10). #131 walks CONTEXTUAL -> OPAQUE.
         val rawType = owner.elements.single { it.name == "raw" }.type
         assertTrue(rawType.startsWith("kotlinx.serialization.ContextualSerializer"), "was: $rawType")
         assertTrue(
@@ -147,7 +147,7 @@ class ToleranceGapsTest {
     }
 
     @Test
-    fun `discriminator colliding with a property is extracted but not flagged (GAP)`() {
+    fun `discriminator colliding with a property is extracted but not flagged (GAP #132)`() {
         val snapshot = DescriptorSnapshotExtractor.extract(listOf(serializer<Msg>().descriptor))
         // Extraction is faithful: the sealed base records disc="name" and the subtype records
         // its own "name" element — the collision is visible in the snapshot.
