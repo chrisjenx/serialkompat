@@ -12,10 +12,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonNamingStrategy
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
 import kotlinx.serialization.serializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -687,5 +691,86 @@ class RoundTripOracleTest {
             findings.any { it.direction == CompatibilityDirection.BACKWARD && it.severity == Severity.WARN },
             "expected a backward WARN for the dropped alias; got $findings",
         )
+    }
+
+    // --- #128: open-polymorphism default-deserializer tolerance ----------------
+
+    private interface Pet
+
+    @Serializable
+    @SerialName("dog")
+    private data class Dog(
+        val name: String,
+    ) : Pet
+
+    @Serializable
+    @SerialName("cat")
+    private data class Cat(
+        val lives: Int,
+    ) : Pet
+
+    /** The catch-all sentinel a default deserializer coerces an unknown subtype into. */
+    @Serializable
+    @SerialName("unknownPet")
+    private data class UnknownPet(
+        val note: String = "?",
+    ) : Pet
+
+    @Test
+    fun `a registered default deserializer downgrades an added-subtype forward break to WARN`() {
+        // Two old (reader) versions of the same open base: one registers a default deserializer,
+        // one does not. The new (writer) version adds the `cat` subtype.
+        val oldWithDefault =
+            SerializersModule {
+                polymorphic(Pet::class) {
+                    subclass(Dog::class)
+                    defaultDeserializer { UnknownPet.serializer() }
+                }
+            }
+        val oldNoDefault = SerializersModule { polymorphic(Pet::class) { subclass(Dog::class) } }
+        val newModule =
+            SerializersModule {
+                polymorphic(Pet::class) {
+                    subclass(Dog::class)
+                    subclass(Cat::class)
+                    defaultDeserializer { UnknownPet.serializer() }
+                }
+            }
+
+        // Ground truth (forward = old reader ← new writer). The new writer emits a `cat`; the old
+        // reader WITH a default deserializer coerces the unknown discriminator to the sentinel and
+        // decodes without throwing, while the reader WITHOUT one throws. The default is what rescues it.
+        val newData = Json { serializersModule = newModule }.encodeToString(serializer<Pet>(), Cat(9))
+        val readerWithDefault =
+            Json {
+                serializersModule = oldWithDefault
+                ignoreUnknownKeys = true
+            }
+        assertIs<UnknownPet>(
+            readerWithDefault.decodeFromString(serializer<Pet>(), newData),
+            "the default deserializer must coerce the unknown subtype to the sentinel",
+        )
+        assertFailsWith<Exception> {
+            Json {
+                serializersModule = oldNoDefault
+                ignoreUnknownKeys = true
+            }.decodeFromString(serializer<Pet>(), newData)
+        }
+
+        // The classifier must mirror the library: WARN forward when the old base recorded a default
+        // (silent sentinel substitution), BREAK when it did not (a real decode failure).
+        fun forwardAddedSubtype(oldModule: SerializersModule): Severity? =
+            Classifier()
+                .classify(
+                    SnapshotDiffer.diff(
+                        DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), oldModule),
+                        DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), newModule),
+                    ),
+                ).filter { it.direction == CompatibilityDirection.FORWARD && it.rule == Rules.SUBTYPE_ADDED }
+                .map { it.severity }
+                .singleOrNull()
+
+        assertEquals(Severity.WARN, forwardAddedSubtype(oldWithDefault), "default deserializer → forward WARN")
+        assertEquals(Severity.BREAK, forwardAddedSubtype(oldNoDefault), "no default deserializer → forward BREAK")
     }
 }

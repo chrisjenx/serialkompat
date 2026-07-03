@@ -68,6 +68,8 @@ public object SnapshotFormat {
         buildString {
             append(CONTRACT_PREFIX).append(escapeToken(contract.serialName)).append(" kind=").append(contract.kind.name)
             if (contract.discriminator != null) append(" discriminator=").append(escapeToken(contract.discriminator))
+            // Emit only when set, so every existing snapshot stays byte-for-byte identical (#128).
+            if (contract.hasPolymorphicDefault) append(" polymorphicDefault=true")
             when (contract.kind) {
                 ContractKind.ENUM ->
                     appendLineItem("values=" + listLiteral(contract.enumValues))
@@ -128,12 +130,15 @@ public object SnapshotFormat {
         val serialName = unescapeToken(headerTokens.first())
         var kind: ContractKind? = null
         var discriminator: String? = null
+        var hasPolymorphicDefault = false
         for (token in headerTokens.drop(1)) {
             when {
                 token.startsWith("kind=") -> kind = ContractKind.valueOf(token.removePrefix("kind="))
                 token.startsWith("discriminator=") ->
                     discriminator =
                         unescapeToken(token.removePrefix("discriminator="))
+                token.startsWith("polymorphicDefault=") ->
+                    hasPolymorphicDefault = token.removePrefix("polymorphicDefault=").toBooleanStrict()
             }
         }
         requireNotNull(kind) { "serialkompat: contract '$serialName' is missing kind=" }
@@ -153,7 +158,7 @@ public object SnapshotFormat {
                 else -> elements += parseElement(body)
             }
         }
-        return Contract(serialName, kind, elements, enumValues, discriminator, subtypes)
+        return Contract(serialName, kind, elements, enumValues, discriminator, subtypes, hasPolymorphicDefault)
     }
 
     private fun parseElement(body: String): Element {

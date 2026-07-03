@@ -43,7 +43,7 @@ below for exactly how.
 | `PROPERTY_JSON_NAMES` | `@JsonNames` alias dropped | ⚠️ WARN | ✅ SAFE | no |
 | `ENUM_VALUE_ADDED` | Enum value added | ✅ SAFE | ⚠️ WARN unless `coerceInputValues` | yes |
 | `ENUM_VALUE_REMOVED` | Enum value removed | ❌ BREAK | ✅ SAFE | no |
-| `SUBTYPE_ADDED` | Polymorphic variant added | ✅ SAFE | ❌ BREAK | no |
+| `SUBTYPE_ADDED` | Polymorphic variant added | ✅ SAFE | ❌ BREAK, ⚠️ WARN if the base registers a default deserializer² | no |
 | `SUBTYPE_REMOVED` | Polymorphic variant removed | ❌ BREAK | ✅ SAFE | no |
 | `DISCRIMINATOR_CHANGED` | Discriminator key changed | ❌ BREAK | ❌ BREAK | no |
 | `DISCRIMINATOR_VALUE_CHANGED` | Polymorphic type moved (new FQN) | ❌ BREAK | ❌ BREAK | no |
@@ -64,6 +64,15 @@ kotlinx-serialization refuses to encode (`JsonEncodingException`). It is surface
 every run until fixed (like `COVERAGE_GAP`), and only when a discriminator is
 actually emitted — `classDiscriminatorMode = NONE` suppresses it (nothing to
 collide with).
+
+² `SUBTYPE_ADDED`'s forward downgrade is driven by a **recorded model fact**, not a
+`Json` setting: if the (reader-side) base registered an open-polymorphism
+**default deserializer**, an unknown — e.g. newly added — subtype coerces to the
+sentinel instead of throwing. Decode succeeds but yields the sentinel, not the real
+subtype, so it is a `WARN` (silent substitution), not `SAFE`. Without a default
+deserializer the old reader throws, so it stays a `BREAK`. This mirrors how
+`coerceInputValues` downgrades an added enum value, but the deciding fact lives on
+the contract, not in the config.
 
 ## Config awareness
 

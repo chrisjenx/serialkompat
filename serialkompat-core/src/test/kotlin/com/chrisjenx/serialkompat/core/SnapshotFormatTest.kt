@@ -200,6 +200,26 @@ class SnapshotFormatTest {
         assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
     }
 
+    @Test
+    fun `round-trips a POLYMORPHIC contract that records a default deserializer`() {
+        // The open-poly default-deserializer tolerance (#128) is a wire-compat fact; it must survive
+        // the text codec so a persisted-history baseline does not silently lose it — which would flip
+        // a forward add-subtype verdict from WARN back to a spurious BREAK.
+        val s =
+            Snapshot(
+                listOf(
+                    Contract(
+                        "com.example.Event",
+                        ContractKind.POLYMORPHIC,
+                        discriminator = "type",
+                        subtypes = listOf(Subtype("a", "com.example.A")),
+                        hasPolymorphicDefault = true,
+                    ),
+                ),
+            )
+        assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
+    }
+
     // --- adversarial name fields ------------------------------------------------
     // @SerialName / @JsonNames / @JsonClassDiscriminator may legally contain the
     // codec's own structural delimiters (space, ": ", " -> ", "="), newlines, or

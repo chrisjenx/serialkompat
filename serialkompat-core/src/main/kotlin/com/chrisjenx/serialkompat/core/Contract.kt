@@ -9,6 +9,7 @@ package com.chrisjenx.serialkompat.core
  * - [ContractKind.CLASS] / [ContractKind.OBJECT] → [elements]
  * - [ContractKind.ENUM] → [enumValues]
  * - [ContractKind.SEALED] / [ContractKind.POLYMORPHIC] → [discriminator] + [subtypes]
+ *   (plus [hasPolymorphicDefault] for an open [ContractKind.POLYMORPHIC] base)
  */
 public class Contract(
     public val serialName: String,
@@ -17,6 +18,14 @@ public class Contract(
     enumValues: List<String> = emptyList(),
     public val discriminator: String? = null,
     subtypes: List<Subtype> = emptyList(),
+    /**
+     * Whether an open [ContractKind.POLYMORPHIC] base registered a default
+     * deserializer in its `SerializersModule`. That fallback lets a reader coerce an
+     * unknown (e.g. newly-added) subtype's discriminator to a sentinel instead of
+     * throwing, which downgrades an added-subtype forward break to a WARN (#128).
+     * Always `false` for closed/sealed and non-polymorphic contracts.
+     */
+    public val hasPolymorphicDefault: Boolean = false,
 ) {
     /** Class elements, sorted by name. */
     public val elements: List<Element> = elements.sortedBy { it.name }
@@ -35,7 +44,8 @@ public class Contract(
             elements == other.elements &&
             enumValues == other.enumValues &&
             discriminator == other.discriminator &&
-            subtypes == other.subtypes
+            subtypes == other.subtypes &&
+            hasPolymorphicDefault == other.hasPolymorphicDefault
     }
 
     override fun hashCode(): Int {
@@ -45,10 +55,12 @@ public class Contract(
         result = 31 * result + enumValues.hashCode()
         result = 31 * result + (discriminator?.hashCode() ?: 0)
         result = 31 * result + subtypes.hashCode()
+        result = 31 * result + hasPolymorphicDefault.hashCode()
         return result
     }
 
     override fun toString(): String =
         "Contract(serialName=$serialName, kind=$kind, elements=$elements, " +
-            "enumValues=$enumValues, discriminator=$discriminator, subtypes=$subtypes)"
+            "enumValues=$enumValues, discriminator=$discriminator, subtypes=$subtypes, " +
+            "hasPolymorphicDefault=$hasPolymorphicDefault)"
 }

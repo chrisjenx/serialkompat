@@ -199,6 +199,16 @@ class ClassifierTest {
     }
 
     @Test
+    fun `add subtype with a base default deserializer downgrades the forward break to WARN`() {
+        // A base that registered a polymorphic default deserializer lets an old (forward) reader
+        // coerce the new subtype's unknown discriminator to the sentinel instead of throwing — a
+        // silent substitution, so WARN not BREAK; backward stays safe (#128).
+        val f = classify(Change.SubtypeAdded("P", Subtype("b", "B"), baseHadDefaultDeserializer = true))
+        assertNull(f.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.WARN, f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
     fun `remove subtype — backward breaks, forward safe`() {
         val f = classify(Change.SubtypeRemoved("P", Subtype("b", "B")))
         assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))

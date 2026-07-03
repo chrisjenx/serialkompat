@@ -94,6 +94,15 @@ public sealed interface Change {
     public data class SubtypeAdded(
         val contract: String,
         val subtype: Subtype,
+        /**
+         * Whether the base contract in the baseline (old) snapshot registered a
+         * polymorphic default deserializer. That tolerance lets a forward reader
+         * (old code reading new data) coerce this newly-added subtype's unknown
+         * discriminator to the sentinel instead of throwing (#128), so the classifier
+         * uses it to downgrade the forward BREAK to a WARN — silent sentinel
+         * substitution, not a clean pass.
+         */
+        val baseHadDefaultDeserializer: Boolean = false,
     ) : Change
 
     /** A subtype removed from an existing sealed/polymorphic contract. */

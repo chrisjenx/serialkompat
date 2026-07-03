@@ -197,7 +197,12 @@ public object SnapshotDiffer {
             }
             val old = before.subtypes.toSet()
             val new = after.subtypes.toSet()
-            (new - old).sortedWith(SUBTYPE_ORDER).forEach { add(Change.SubtypeAdded(contract, it)) }
+            // Carry the baseline (old) base's default-deserializer tolerance: it is the reader in the
+            // only non-safe direction (forward), so it decides whether an added subtype is a WARN
+            // (coerced to the sentinel) or a BREAK (#128).
+            (new - old).sortedWith(SUBTYPE_ORDER).forEach {
+                add(Change.SubtypeAdded(contract, it, baseHadDefaultDeserializer = before.hasPolymorphicDefault))
+            }
             (old - new).sortedWith(SUBTYPE_ORDER).forEach { add(Change.SubtypeRemoved(contract, it)) }
         }
 
