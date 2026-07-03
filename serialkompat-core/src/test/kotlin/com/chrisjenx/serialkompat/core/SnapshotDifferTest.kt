@@ -2,6 +2,7 @@ package com.chrisjenx.serialkompat.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -117,6 +118,33 @@ class SnapshotDifferTest {
         val old = snapshot(Contract("E", ContractKind.ENUM, enumValues = listOf("A", "B")))
         val new = snapshot(Contract("E", ContractKind.ENUM, enumValues = listOf("A", "B", "C")))
         assertEquals(listOf(Change.EnumValueAdded("E", "C")), diff(old, new))
+    }
+
+    @Test
+    fun `enum value added records whether the baseline fields can coerce a fallback (#129)`() {
+        fun flagWhenReferencedBy(vararg refs: Element): Boolean {
+            val old = snapshot(Contract("E", ContractKind.ENUM, enumValues = listOf("A", "B")), clazz("H", *refs))
+            val new = snapshot(Contract("E", ContractKind.ENUM, enumValues = listOf("A", "B", "C")), clazz("H", *refs))
+            return diff(old, new).filterIsInstance<Change.EnumValueAdded>().single().baselineFieldsCoercible
+        }
+
+        // A defaulted (optional) direct field can coerce an unknown value to its default.
+        assertTrue(flagWhenReferencedBy(Element("e", "E", optional = true)))
+        // A nullable-but-still-defaulted direct field is coercible; nullable != required.
+        assertTrue(flagWhenReferencedBy(Element("e", "E", optional = true, nullable = true)))
+        // A required direct field has no default to coerce to.
+        assertFalse(flagWhenReferencedBy(Element("e", "E", optional = false)))
+        // A nested (List) usage is not coerced element-wise.
+        assertFalse(flagWhenReferencedBy(Element("es", "List<E>", optional = true)))
+        // A required reference disqualifies the enum even alongside an optional one (worst case wins).
+        assertFalse(flagWhenReferencedBy(Element("e", "E", optional = true), Element("e2", "E", optional = false)))
+        // A field whose type merely contains the enum's name as a substring is not a reference.
+        assertFalse(flagWhenReferencedBy(Element("x", "Enclosing", optional = true)))
+
+        // A bare enum with no referencing field (only a top-level decode) is not coercible.
+        val oldBare = snapshot(Contract("E", ContractKind.ENUM, enumValues = listOf("A", "B")))
+        val newBare = snapshot(Contract("E", ContractKind.ENUM, enumValues = listOf("A", "B", "C")))
+        assertFalse(diff(oldBare, newBare).filterIsInstance<Change.EnumValueAdded>().single().baselineFieldsCoercible)
     }
 
     @Test

@@ -165,12 +165,18 @@ public class Classifier(
                     change.contract,
                     "value '${change.value}'",
                     backward = Severity.SAFE,
-                    // forward: old reader meets an unknown value. coerceInputValues only rescues it
-                    // when the *field* also has a default — invisible from this change — so a coercing
-                    // reader is conditionally-safe (WARN), not proven safe; a strict reader BREAKs.
-                    forward = if (oldConfig.coerceInputValues) Severity.WARN else Severity.BREAK,
+                    // forward: old reader meets an unknown value. coerceInputValues rescues it only when
+                    // the reading field has a default (`baselineFieldsCoercible`) — then it coerces to
+                    // that default: decodes, but not the written value → silent substitution = WARN. A
+                    // strict reader, or a required/nested/top-level use with no default, throws = BREAK (#129).
+                    forward =
+                        if (oldConfig.coerceInputValues && change.baselineFieldsCoercible) {
+                            Severity.WARN
+                        } else {
+                            Severity.BREAK
+                        },
                     message = "enum value '${change.value}' was added to ${change.contract}",
-                    fixHint = "Enable coerceInputValues *and* give the field a default on readers, or bump major.",
+                    fixHint = "Enable coerceInputValues *and* give the reading field a default, or bump major.",
                 )
 
             is Change.EnumValueRemoved ->

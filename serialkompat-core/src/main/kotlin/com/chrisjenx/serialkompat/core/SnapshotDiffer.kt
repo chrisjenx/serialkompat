@@ -37,6 +37,10 @@ public object SnapshotDiffer {
             val oldByName = old.contracts.associateBy { it.serialName }
             val newByName = new.contracts.associateBy { it.serialName }
 
+            // Which enums, in the *baseline* (old = the forward reader), are read only by defaulted
+            // direct properties — the precondition for coerceInputValues to rescue an added value (#129).
+            val oldCoercibleEnums = coercibleEnumNames(old)
+
             // Honour a rename only for a genuine move: the source must be gone from `new` and
             // the target new to `old`. Otherwise both endpoints are still present, and treating
             // it as a move would silently drop the diff of a contract that is still on the wire.
@@ -48,7 +52,7 @@ public object SnapshotDiffer {
                 val before = oldByName.getValue(oldName)
                 val after = newByName.getValue(newName)
                 add(Change.ContractMoved(oldName, newName, after.kind))
-                addAll(diffContract(before, after))
+                addAll(diffContract(before, after, oldCoercibleEnums))
             }
 
             val moved = activeRenames.keys + activeRenames.values
@@ -59,7 +63,7 @@ public object SnapshotDiffer {
                 when {
                     before == null && after != null -> add(Change.ContractAdded(serialName, after.kind))
                     before != null && after == null -> add(Change.ContractRemoved(serialName, before.kind))
-                    before != null && after != null -> addAll(diffContract(before, after))
+                    before != null && after != null -> addAll(diffContract(before, after, oldCoercibleEnums))
                 }
             }
 
@@ -125,6 +129,7 @@ public object SnapshotDiffer {
     private fun diffContract(
         before: Contract,
         after: Contract,
+        oldCoercibleEnums: Set<String>,
     ): List<Change> {
         // A change of kind (e.g. CLASS → ENUM) is a different type on the wire;
         // surface it as remove + add rather than a fabricated member diff.
@@ -136,7 +141,7 @@ public object SnapshotDiffer {
         }
         return when (after.kind) {
             ContractKind.CLASS, ContractKind.OBJECT -> diffElements(after.serialName, before, after)
-            ContractKind.ENUM -> diffEnumValues(after.serialName, before, after)
+            ContractKind.ENUM -> diffEnumValues(after.serialName, before, after, oldCoercibleEnums)
             ContractKind.SEALED, ContractKind.POLYMORPHIC -> diffPolymorphic(after.serialName, before, after)
             ContractKind.OPAQUE -> emptyList() // unanalyzable — no internals to diff
         }
@@ -178,12 +183,73 @@ public object SnapshotDiffer {
         contract: String,
         before: Contract,
         after: Contract,
+        oldCoercibleEnums: Set<String>,
     ): List<Change> =
         buildList {
             val old = before.enumValues.toSet()
             val new = after.enumValues.toSet()
-            (new - old).sorted().forEach { add(Change.EnumValueAdded(contract, it)) }
+            // An added value is forward-coercible only if every baseline field reading this enum can
+            // fall back to a default (recorded per enum); the classifier pairs it with the reader's
+            // coerceInputValues setting to decide WARN vs BREAK (#129).
+            val coercible = contract in oldCoercibleEnums
+            (new - old).sorted().forEach {
+                add(
+                    Change.EnumValueAdded(contract, it, baselineFieldsCoercible = coercible),
+                )
+            }
             (old - new).sorted().forEach { add(Change.EnumValueRemoved(contract, it)) }
+        }
+
+    /**
+     * The enums in [snapshot] every reference to which is a **defaulted direct property** — the only
+     * shape `coerceInputValues` can rescue when a value is added (#129). An enum read by a required
+     * direct field, by a nested (`List`/`Map`/generic) usage, or only at the top level (no field) is
+     * disqualified: those decodes throw on an unknown value regardless of the coerce setting.
+     */
+    private fun coercibleEnumNames(snapshot: Snapshot): Set<String> {
+        val enumNames =
+            snapshot.contracts
+                .filterTo(
+                    mutableSetOf(),
+                ) { it.kind == ContractKind.ENUM }
+                .map { it.serialName }
+        if (enumNames.isEmpty()) return emptySet()
+        val hasDefaultedDirect = mutableSetOf<String>()
+        val disqualified = mutableSetOf<String>()
+        for (contract in snapshot.contracts) {
+            for (element in contract.elements) {
+                for (enumName in enumNames) {
+                    when (enumReference(element.type, enumName)) {
+                        EnumRef.DIRECT ->
+                            if (element.optional) {
+                                hasDefaultedDirect += enumName
+                            } else {
+                                disqualified +=
+                                    enumName
+                            }
+                        EnumRef.NESTED -> disqualified += enumName
+                        EnumRef.NONE -> Unit
+                    }
+                }
+            }
+        }
+        return hasDefaultedDirect - disqualified
+    }
+
+    private enum class EnumRef { DIRECT, NESTED, NONE }
+
+    /** How an element of type [type] references the enum [enumName]: as its whole type, nested in a generic, or not. */
+    private fun enumReference(
+        type: String,
+        enumName: String,
+    ): EnumRef =
+        when {
+            type == enumName -> EnumRef.DIRECT
+            // Split on the generic delimiters and strip nullable markers so `List<E>` / `Map<E,V>` /
+            // `List<E?>` count as nested, while a distinct type that merely *contains* the name as a
+            // substring (e.g. `Enclosing`) does not falsely match.
+            type.split('<', '>', ',').any { it.trim().removeSuffix("?") == enumName } -> EnumRef.NESTED
+            else -> EnumRef.NONE
         }
 
     private fun diffPolymorphic(

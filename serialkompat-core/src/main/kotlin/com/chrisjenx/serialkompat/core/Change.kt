@@ -82,6 +82,15 @@ public sealed interface Change {
     public data class EnumValueAdded(
         val contract: String,
         val value: String,
+        /**
+         * Whether, in the baseline (old) snapshot, *every* field that decodes this enum is a
+         * defaulted direct property — the precondition for `coerceInputValues` to rescue an unknown
+         * value in the forward direction (old code reading new data). `coerceInputValues` only
+         * coerces an unknown enum to a field's default, so a required field, a nested (`List`/`Map`)
+         * usage, or a top-level decode still throws. The classifier downgrades the forward BREAK to a
+         * WARN only when this is `true` *and* the reader coerces; otherwise it stays a BREAK (#129).
+         */
+        val baselineFieldsCoercible: Boolean = false,
     ) : Change
 
     /** An enum value removed from an existing enum contract. */
