@@ -85,6 +85,39 @@ class ClassifierTest {
         assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
     }
 
+    @Test
+    fun `add nullable no-default field — backward safe when the new reader omits nulls`() {
+        // #118: with explicitNulls=false a new reader decodes an absent nullable field as null (no
+        // default needed), so adding one is backward-safe. Under the default explicitNulls=true the
+        // absent field is a MissingFieldException → BREAK, and a non-null required add stays BREAK.
+        val added = Change.ElementAdded("T", element("x", nullable = true))
+        val omitsNulls = SnapshotConfig(explicitNulls = false)
+        assertNull(classify(added, new = omitsNulls).severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.BREAK, classify(added).severity(CompatibilityDirection.BACKWARD))
+        val requiredAdd = Change.ElementAdded("T", element("y"))
+        assertEquals(
+            Severity.BREAK,
+            classify(requiredAdd, new = omitsNulls).severity(CompatibilityDirection.BACKWARD),
+        )
+    }
+
+    @Test
+    fun `remove nullable no-default field — forward WARN when the old reader omits nulls`() {
+        // #118: with explicitNulls=false the old reader decodes the absent (now-removed) nullable field
+        // as null — no throw, but it silently sees null where data lived → silent-substitution WARN,
+        // never SAFE. Under the default explicitNulls=true it is a MissingFieldException → BREAK, and a
+        // non-null required remove stays BREAK.
+        val removed = Change.ElementRemoved("T", element("x", nullable = true))
+        val omitsNulls = SnapshotConfig(explicitNulls = false)
+        assertEquals(Severity.WARN, classify(removed, old = omitsNulls).severity(CompatibilityDirection.FORWARD))
+        assertEquals(Severity.BREAK, classify(removed).severity(CompatibilityDirection.FORWARD))
+        val requiredRemove = Change.ElementRemoved("T", element("y"))
+        assertEquals(
+            Severity.BREAK,
+            classify(requiredRemove, old = omitsNulls).severity(CompatibilityDirection.FORWARD),
+        )
+    }
+
     // --- Optionality -----------------------------------------------------------
 
     @Test
