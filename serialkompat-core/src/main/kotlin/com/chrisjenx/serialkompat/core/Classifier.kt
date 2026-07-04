@@ -71,12 +71,21 @@ public class Classifier(
                     Rules.PROPERTY_ADDED,
                     change.contract,
                     "field '${change.element.name}'",
-                    // backward: break unless optional
-                    backward = if (change.element.optional) Severity.SAFE else Severity.BREAK,
+                    // backward: new reader meets old data lacking the field. Fine if it is optional (uses
+                    // its default) OR nullable and the new reader omits nulls (explicitNulls=false), which
+                    // decodes an absent nullable as null (#118); otherwise MissingFieldException = BREAK.
+                    backward =
+                        if (change.element.optional || (change.element.nullable && !newConfig.explicitNulls)) {
+                            Severity.SAFE
+                        } else {
+                            Severity.BREAK
+                        },
                     // forward: old reader meets an unknown key - fine only if it tolerates them.
                     forward = if (readerTolerant(oldConfig)) Severity.SAFE else Severity.BREAK,
                     message = "field '${change.element.name}' was added to ${change.contract}",
-                    fixHint = "Give new fields a default; readers should set ignoreUnknownKeys; else bump major.",
+                    fixHint =
+                        "Give new fields a default (or make them nullable with explicitNulls=false); " +
+                            "readers should set ignoreUnknownKeys; else bump major.",
                 )
 
             is Change.ElementRemoved ->
@@ -89,8 +98,16 @@ public class Classifier(
                     // WARN, never SAFE (design §7: "silent data-loss = WARN"). This is also what surfaces a
                     // field rename, which the differ decomposes into remove + add.
                     backward = if (readerTolerant(newConfig)) Severity.WARN else Severity.BREAK,
-                    // forward: old reader misses the field - fine only if it was optional for it.
-                    forward = if (change.element.optional) Severity.SAFE else Severity.BREAK,
+                    // forward: old reader misses the now-removed field. SAFE if it was optional (uses its
+                    // default). If it was nullable and the old reader omits nulls (explicitNulls=false), the
+                    // absent field decodes as null — no throw, but the old reader silently sees null where
+                    // data once lived, so a silent-substitution WARN, not SAFE (#118). Else MissingField = BREAK.
+                    forward =
+                        when {
+                            change.element.optional -> Severity.SAFE
+                            change.element.nullable && !oldConfig.explicitNulls -> Severity.WARN
+                            else -> Severity.BREAK
+                        },
                     message = "field '${change.element.name}' was removed from ${change.contract}",
                     fixHint =
                         "Removing a field drops its data for tolerant readers; keep it (or bridge a " +

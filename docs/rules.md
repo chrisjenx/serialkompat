@@ -35,8 +35,8 @@ below for exactly how.
 | Rule | Detects | Backward | Forward | Config-aware |
 |---|---|---|---|---|
 | `CONTRACT_REMOVED` | Whole type deleted | ❌ BREAK | ❌ BREAK | — |
-| `PROPERTY_ADDED` | Field added | ✅ SAFE if optional, ❌ BREAK if required | ❌ BREAK unless reader has `ignoreUnknownKeys` | yes |
-| `PROPERTY_REMOVED` | Field deleted | ⚠️ WARN if `ignoreUnknownKeys` (silent drop), else ❌ BREAK | ✅ SAFE if it was optional, ❌ BREAK if required | yes |
+| `PROPERTY_ADDED` | Field added | ✅ SAFE if optional (or nullable & reader `explicitNulls=false`), ❌ BREAK otherwise | ❌ BREAK unless reader has `ignoreUnknownKeys` | yes |
+| `PROPERTY_REMOVED` | Field deleted | ⚠️ WARN if `ignoreUnknownKeys` (silent drop), else ❌ BREAK | ✅ SAFE if it was optional, ⚠️ WARN if nullable & reader `explicitNulls=false` (absent → null), else ❌ BREAK | yes |
 | `PROPERTY_OPTIONALITY` | Optional ↔ required | ❌ BREAK if became required, ✅ SAFE if became optional | ✅ SAFE if became required; ❌ BREAK unless `encodeDefaults` if became optional | yes |
 | `PROPERTY_NULLABILITY` | Nullable ↔ non-null | ✅ SAFE if became nullable, ❌ BREAK if became non-null | ❌ BREAK if nullable & `explicitNulls = true`; ⚠️ WARN if `false` | yes |
 | `PROPERTY_TYPE_CHANGED` | Field type changed | ✅ SAFE if numeric widening, else ❌ BREAK | ❌ BREAK | yes |
@@ -84,7 +84,7 @@ change can be `SAFE` under one config and `BREAK` under another:
 |---|---|---|
 | `ignoreUnknownKeys` | `false` | `PROPERTY_ADDED` forward: `BREAK` → `SAFE` once the reader tolerates unknown keys. `PROPERTY_REMOVED` backward: `BREAK` → `WARN` (data silently dropped instead of an exception). Tightening it from `true` → `false` is itself a `CONFIG_READER_STRICTNESS` `WARN`. |
 | `encodeDefaults` | `false` | `PROPERTY_OPTIONALITY` forward (became optional): `BREAK` → `SAFE`, because the old reader now receives the field instead of missing it. `CONFIG_ENCODE_DEFAULTS` itself is `WARN` forward when disabled. |
-| `explicitNulls` | `true` | `PROPERTY_NULLABILITY` forward (became nullable): `BREAK` when `true` (old reader gets an explicit `null` it must handle), `WARN` when `false` (field just omitted). Toggling the setting itself is `CONFIG_EXPLICIT_NULLS`, `WARN` in both directions. |
+| `explicitNulls` | `true` | `PROPERTY_NULLABILITY` forward (became nullable): `BREAK` when `true` (old reader gets an explicit `null` it must handle), `WARN` when `false` (field just omitted). When `false`, a reader also decodes an *absent* nullable field as `null` (no default needed), so for a **nullable** field `PROPERTY_ADDED` backward flips `BREAK` → `SAFE` (brand-new field, `null` is the correct decode) and `PROPERTY_REMOVED` forward flips `BREAK` → `WARN` (the old reader silently sees `null` where data once lived — silent substitution, not `SAFE`). Toggling the setting itself is `CONFIG_EXPLICIT_NULLS`, `WARN` in both directions. |
 | `coerceInputValues` | `false` | `ENUM_VALUE_ADDED` forward: `BREAK` → `WARN`, but **only when the reading field has a default** to coerce to (a recorded fact, not config alone). An unrecognized constant then coerces to that default — decode succeeds but yields the default, not the written value, so it is a `WARN` (silent substitution), never `SAFE`. A required field, a `List`/`Map` usage, or a top-level enum decode has no default and still throws → `BREAK`. `CONFIG_COERCE_INPUT` itself is `WARN` backward when disabled. |
 | `namingStrategy` | none | Any change to the strategy is a blanket `CONFIG_NAMING_STRATEGY` `BREAK` in both directions — every generated JSON key on the wire moves at once. |
 | `classDiscriminator` | `"type"` | Any change is a blanket `CONFIG_DISCRIMINATOR` `BREAK` in both directions — every polymorphic payload's discriminator key moves at once. |

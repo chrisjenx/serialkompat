@@ -19,6 +19,7 @@ import kotlinx.serialization.serializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -203,6 +204,34 @@ class RoundTripOracleTest {
         val id: String,
     )
 
+    // #118: a nullable field with NO default (not the `= null` optional idiom). Absent, it is a
+    // MissingFieldException under explicitNulls=true but decodes as null under explicitNulls=false.
+    @Serializable
+    @SerialName("AddNullable")
+    private data class AddNullableV1(
+        val id: String,
+    )
+
+    @Serializable
+    @SerialName("AddNullable")
+    private data class AddNullableV2(
+        val id: String,
+        val extra: String?,
+    )
+
+    @Serializable
+    @SerialName("RemoveNullable")
+    private data class RemoveNullableV1(
+        val id: String,
+        val extra: String?,
+    )
+
+    @Serializable
+    @SerialName("RemoveNullable")
+    private data class RemoveNullableV2(
+        val id: String,
+    )
+
     @Serializable
     @SerialName("Rename")
     private data class RenameV1(
@@ -354,6 +383,79 @@ class RoundTripOracleTest {
             serializer<RemoveFieldV2>(),
             RemoveFieldV2("x"),
         )
+    }
+
+    @Test
+    fun `nullable no-default field absence is a real break under explicitNulls=true, tolerated under false (#118)`() {
+        // ADD nullable-no-default, BACKWARD (new reads old data that lacks the field); reader = new cfg.
+        assertAbsenceCell(
+            writer = serializer<AddNullableV1>(),
+            writerVal = AddNullableV1("x"),
+            reader = serializer<AddNullableV2>(),
+            rule = Rules.PROPERTY_ADDED,
+            direction = CompatibilityDirection.BACKWARD,
+        )
+        // REMOVE nullable-no-default, FORWARD (old reads new data that lacks the field); reader = old cfg.
+        assertAbsenceCell(
+            writer = serializer<RemoveNullableV2>(),
+            writerVal = RemoveNullableV2("x"),
+            reader = serializer<RemoveNullableV1>(),
+            rule = Rules.PROPERTY_REMOVED,
+            direction = CompatibilityDirection.FORWARD,
+        )
+    }
+
+    /**
+     * Oracle for the #118 refinement — an "absent field at the reader" scenario, checked against the
+     * real library under both `explicitNulls` settings. [writer]/[reader] are ordered for the probed
+     * round-trip; the (old,new) snapshot pair is built to match [direction] so the sole change is the
+     * added/removed field, and the same [Json] config is used on both sides (no `ConfigChanged` noise).
+     *
+     *  - explicitNulls=true  → the absent field is a `MissingFieldException`: real decode THREW, and
+     *    the classifier must predict a BREAK on [direction] (soundness).
+     *  - explicitNulls=false → the absent nullable field decodes as null: real decode SUCCEEDED, and
+     *    the classifier must NOT over-predict a BREAK on [direction] (the teeth of #118).
+     */
+    private fun <W, R> assertAbsenceCell(
+        writer: KSerializer<W>,
+        writerVal: W,
+        reader: KSerializer<R>,
+        rule: String,
+        direction: CompatibilityDirection,
+    ) {
+        for (explicit in listOf(true, false)) {
+            val json = if (explicit) strict else Json { explicitNulls = false }
+            val cfg = JsonConfigReader.read(json)
+            val (oldDesc, newDesc) =
+                if (direction == CompatibilityDirection.BACKWARD) {
+                    writer.descriptor to reader.descriptor
+                } else {
+                    reader.descriptor to writer.descriptor
+                }
+            val findings =
+                Classifier().classify(
+                    SnapshotDiffer.diff(
+                        DescriptorSnapshotExtractor.extract(listOf(oldDesc), config = cfg),
+                        DescriptorSnapshotExtractor.extract(listOf(newDesc), config = cfg),
+                    ),
+                    cfg,
+                    cfg,
+                )
+            val outcome = roundTrip(json, writer, writerVal, json, reader)
+            val predictedBreak =
+                findings.any { it.rule == rule && it.direction == direction && it.severity == Severity.BREAK }
+            if (explicit) {
+                assertEquals(Outcome.THREW, outcome, "$rule $direction: expected a real throw under explicitNulls=true")
+                assertTrue(predictedBreak, "$rule $direction: a real throw must be predicted as a BREAK")
+            } else {
+                assertEquals(
+                    Outcome.DECODED,
+                    outcome,
+                    "$rule $direction: expected a clean decode under explicitNulls=false",
+                )
+                assertFalse(predictedBreak, "$rule $direction: a clean decode must not be predicted a BREAK (#118)")
+            }
+        }
     }
 
     @Test

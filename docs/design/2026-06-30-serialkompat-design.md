@@ -318,9 +318,9 @@ Under `FULL` + **strict reader**:
 | Change | B (new◄old) | F (old◄new) | What flips it |
 |---|:---:|:---:|---|
 | Add field **with default** (optional) | SAFE | **WARN→BREAK** | `ignoreUnknownKeys`→SAFE forward |
-| Add field **no default / `@Required`** | **BREAK** | **WARN→BREAK** | backward = `MissingFieldException` |
+| Add field **no default / `@Required`** | **BREAK** | **WARN→BREAK** | backward = `MissingFieldException`; nullable + reader `explicitNulls=false`→**SAFE**³ |
 | Remove **optional** field | **WARN→BREAK** | SAFE¹ | `ignoreUnknownKeys`→**WARN** (silent data-loss) backward² |
-| Remove **required** field | WARN→BREAK | **BREAK** | forward = old code needs it |
+| Remove **required** field | WARN→BREAK | **BREAK** | forward = old code needs it; nullable + reader `explicitNulls=false`→**WARN**³ |
 | **Rename** key (no `@JsonNames`) | **BREAK** | **BREAK** | if new field optional: silent data-loss = **WARN** |
 | Rename **with `@JsonNames(old)`** | SAFE | **BREAK** | alias fixes *backward* only |
 | optional → **required** | **BREAK** | SAFE | backward = old payloads omit it |
@@ -350,6 +350,17 @@ lone SAFE would let a rename silently lose data — see the false-SAFE fixed in 
 remove half only carries the WARN **backward**; the rename's *forward* loss (an old reader
 dropping the new key) is forward-`SAFE`, identical to any field addition — so a rename is
 surfaced once, as a backward WARN, not flagged in both directions.
+
+³ For a **nullable** field with no default, `explicitNulls=false` on the reader decodes an
+*absent* field as `null` (no `MissingFieldException`) — the same tolerance the standard
+`val x: T? = null` idiom gets, but without the default. So **adding** such a field is
+backward-**SAFE** (the reader is the *new* config; a brand-new field decodes to `null`, the
+only sensible value — nothing is lost), and **removing** one is forward-**WARN** (the reader
+is the *old* config; the old code silently sees `null` where data once lived — a silent
+substitution, not a clean pass, so `WARN`, never `SAFE`, per the silent-data-loss tier). The
+asymmetry vs. removing an *optional* field (forward-`SAFE`) is deliberate: a declared default
+is an intentional fallback, a config-coerced `null` is not. Under the default
+`explicitNulls=true` both stay **BREAK** (#118).
 
 Each row is a **named rule** (`PROPERTY_REMOVED`, `PROPERTY_TYPE_CHANGED`,
 `ENUM_VALUE_REMOVED`, `PROPERTY_NULLABILITY`, `DISCRIMINATOR_VALUE_CHANGED`, …) — these
