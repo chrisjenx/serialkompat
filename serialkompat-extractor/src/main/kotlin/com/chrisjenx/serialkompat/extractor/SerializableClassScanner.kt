@@ -48,7 +48,7 @@ internal object SerializableClassScanner {
         }
         return ScanResult(
             typeNames = typeNames.distinct().sorted(),
-            unreadable = unreadable.sorted(),
+            unreadable = unreadable.distinct().sorted(),
             skippedGenerics = skippedGenerics.distinct().sorted(),
         )
     }

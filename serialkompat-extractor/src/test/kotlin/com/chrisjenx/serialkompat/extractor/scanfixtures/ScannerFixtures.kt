@@ -65,6 +65,13 @@ class PropertyLevelOnly(
     @Serializable(with = IntAsStringSerializer::class) val count: Int,
 )
 
+@Serializable
+data class ScannedWithGenericSupertype(
+    val id: String,
+) : Comparable<ScannedWithGenericSupertype> {
+    override fun compareTo(other: ScannedWithGenericSupertype): Int = id.compareTo(other.id)
+}
+
 /**
  * Copies this package's compiled class files into [tempRoot] so a scan sees a
  * deterministic set: exactly the fixtures declared in this package.

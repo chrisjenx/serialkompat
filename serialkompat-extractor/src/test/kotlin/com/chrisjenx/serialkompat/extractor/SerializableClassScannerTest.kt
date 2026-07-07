@@ -6,6 +6,7 @@ import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedEvent
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedMarker
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedOrder
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedStatus
+import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedWithGenericSupertype
 import com.chrisjenx.serialkompat.extractor.scanfixtures.scanFixturesRoot
 import java.io.File
 import java.nio.file.Files
@@ -86,6 +87,15 @@ class SerializableClassScannerTest {
         val result = SerializableClassScanner.scan(listOf(fixturesRoot()))
         assertFalse(result.typeNames.any { it.endsWith("PropertyLevelOnly") })
         assertFalse(result.skippedGenerics.any { it.endsWith("PropertyLevelOnly") })
+    }
+
+    @Test
+    fun `a non-generic class with a generic supertype is a normal root, not skipped`() {
+        val result = SerializableClassScanner.scan(listOf(fixturesRoot()))
+        // A generic *supertype* signature starts with `L`, not `<` (JVMS §4.7.9.1),
+        // so the class has no type params of its own and must be a normal root.
+        assertContains(result.typeNames, ScannedWithGenericSupertype::class.java.name)
+        assertFalse(result.skippedGenerics.any { it.endsWith("ScannedWithGenericSupertype") })
     }
 
     @Test
