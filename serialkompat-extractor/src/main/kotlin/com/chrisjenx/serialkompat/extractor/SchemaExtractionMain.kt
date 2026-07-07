@@ -34,12 +34,17 @@ public object SchemaExtractionMain {
      * sites — and logged by name. Unreadable class files degrade to OPAQUE
      * coverage gaps whenever [scanDirs] were scanned, even alongside explicit
      * [typeNames].
+     *
+     * [discovery] refines the *scanned* candidates (issue #115): `OPT_OUT` drops types
+     * carrying `@SerialkompatIgnore`; `OPT_IN` keeps only `@SerialkompatChecked` types.
+     * Manifest entries and explicit [typeNames] are deliberate acts and bypass the filter.
      */
     public fun run(
         typeNames: List<String>,
         jsonInstanceFqn: String?,
         output: File,
         scanDirs: List<File> = emptyList(),
+        discovery: DiscoveryMode = DiscoveryMode.EXPLICIT,
     ) {
         val json = jsonInstanceFqn?.let(::loadJson) ?: Json
         if (jsonInstanceFqn != null && loadJson(jsonInstanceFqn) == null) {
@@ -56,10 +61,33 @@ public object SchemaExtractionMain {
                     scan.skippedGenerics.joinToString(", "),
             )
         }
+        // Discovery-mode filter (issue #115): applies to *scanned* candidates only.
+        // Manifest entries and explicit typeNames are deliberate acts and bypass it.
+        val scannedRoots =
+            when (discovery) {
+                DiscoveryMode.EXPLICIT -> scan.typeNames
+                DiscoveryMode.OPT_OUT -> scan.typeNames.filterNot { it in scan.ignored.toSet() }
+                DiscoveryMode.OPT_IN -> scan.typeNames.filter { it in scan.optedIn.toSet() }
+            }
+        if (discovery == DiscoveryMode.OPT_OUT && scan.ignored.isNotEmpty()) {
+            System.err.println(
+                "serialkompat: ignoring ${scan.ignored.size} type(s) via @SerialkompatIgnore: " +
+                    scan.ignored.joinToString(", "),
+            )
+        }
+        if (discovery == DiscoveryMode.OPT_IN) {
+            val notOptedIn = scan.typeNames.size - scannedRoots.size
+            if (notOptedIn > 0) {
+                System.err.println(
+                    "serialkompat: OPT_IN discovery — $notOptedIn discovered type(s) not yet " +
+                        "@SerialkompatChecked are NOT being checked.",
+                )
+            }
+        }
         // Fall back to discovered types when none are configured explicitly: the
         // classpath manifest (see [TYPES_RESOURCE]) unioned with the class-dir scan.
         val effectiveTypes =
-            typeNames.ifEmpty { (discoverTypeNames() + scan.typeNames).distinct().sorted() }
+            typeNames.ifEmpty { (discoverTypeNames() + scannedRoots).distinct().sorted() }
 
         // Resolve each type independently. A single unresolvable/broken type (stale manifest entry,
         // renamed class, missing transitive dependency, a generic that needs type args) must NEVER
@@ -96,7 +124,8 @@ public object SchemaExtractionMain {
     }
 
     /**
-     * CLI shim: `--types a,b,c | --scan-classes dir1:dir2 --out path [--json fqn]`.
+     * CLI shim: `--types a,b,c | --scan-classes dir1:dir2 --out path [--json fqn]
+     * [--discovery explicit|opt-out|opt-in]`.
      * At least one of `--types` / `--scan-classes` is required; `--scan-classes`
      * takes [File.pathSeparator]-separated class directories.
      */
@@ -120,7 +149,8 @@ public object SchemaExtractionMain {
         require(types.isNotEmpty() || scanDirs.isNotEmpty()) {
             "serialkompat: --types or --scan-classes is required"
         }
-        run(types, options["json"], File(output), scanDirs)
+        val discovery = options["discovery"]?.let(DiscoveryMode::fromCli) ?: DiscoveryMode.EXPLICIT
+        run(types, options["json"], File(output), scanDirs, discovery)
     }
 
     /**
