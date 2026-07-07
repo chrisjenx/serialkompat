@@ -9,6 +9,12 @@ site/
 # Kotlin
 .kotlin/
 
+# Kotlin/JS & Kotlin/Wasm yarn lockfile — regenerated per host by the `js`/`wasmJs`/`wasmWasi`
+# targets on serialkompat-annotations; not part of the published artifact for this
+# annotations-only module (no JS tests), so kept out of VCS to avoid a cross-host lock
+# mismatch (see #115 task 1 report).
+kotlin-js-store/
+
 # IntelliJ / Android Studio
 .idea/
 *.iml

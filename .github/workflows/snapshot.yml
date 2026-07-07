@@ -19,7 +19,11 @@ concurrency:
 
 jobs:
   snapshot:
-    runs-on: ubuntu-latest
+    # macos-latest, not ubuntu-latest: this job's own `build` step must produce every
+    # klib for serialkompat-annotations (Apple targets don't cross-compile from Linux)
+    # before `publish` uploads them. Costs more per push-to-main than ubuntu; accepted
+    # so a snapshot's KMP artifact is never silently incomplete.
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v5

@@ -36,7 +36,7 @@ jobs:
     strategy:
       matrix:
         java: [17, 21]
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     env:
       VERSION: ${{ inputs.version }}
     steps:
@@ -51,7 +51,7 @@ jobs:
 
   publish:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     env:
       VERSION: ${{ inputs.version }}
     steps:

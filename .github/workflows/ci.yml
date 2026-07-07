@@ -33,7 +33,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build, test, format & API check
-        run: ./gradlew build koverXmlReport --stacktrace
+        run: ./gradlew build koverXmlReport -x :serialkompat-annotations:build --stacktrace
 
       - name: Upload reports
         if: always()
@@ -43,3 +43,21 @@ jobs:
           path: '**/build/reports/'
           if-no-files-found: ignore
           retention-days: 7
+
+  build-annotations-macos:
+    name: serialkompat-annotations (macOS, Apple targets)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build & apiCheck (all targets incl. Apple — the only host that builds all of them)
+        run: ./gradlew :serialkompat-annotations:build --stacktrace

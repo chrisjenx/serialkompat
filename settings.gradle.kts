@@ -6,6 +6,7 @@ plugins {
 rootProject.name = "serialkompat"
 
 include(
+    "serialkompat-annotations",
     "serialkompat-core",
     "serialkompat-extractor",
     "serialkompat-gradle",
