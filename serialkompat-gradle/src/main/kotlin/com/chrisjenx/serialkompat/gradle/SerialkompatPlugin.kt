@@ -56,6 +56,15 @@ public class SerialkompatPlugin : Plugin<Project> {
                 val scanDirs = projectClassesDirs(target)
                 task.classpath(toolClasspath(target), projectRuntimeClasspath(target), scanDirs)
                 task.outputs.file(currentSnapshot)
+                // The argumentProviders lambda below is a plain closure, not a declared
+                // CommandLineArgumentProvider with @Input properties, so Gradle can't infer
+                // which extension values feed the command line. Without these explicit
+                // inputs, flipping `discovery`/`types`/`jsonInstance` between builds is
+                // invisible to up-to-date checking and the task wrongly stays UP_TO_DATE,
+                // re-emitting a stale snapshot.
+                task.inputs.property("discoveryMode", extension.discovery)
+                task.inputs.property("types", extension.types)
+                task.inputs.property("jsonInstance", extension.jsonInstance).optional(true)
                 task.onlyIf { hasWorkToDo(extension) }
                 task.argumentProviders.add {
                     buildList {
