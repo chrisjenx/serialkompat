@@ -26,11 +26,20 @@ public object SchemaExtractionMain {
      * snapshot written to [output]. If [jsonInstanceFqn] names a reachable `Json`
      * instance its configuration is read; otherwise a conservative default is
      * assumed with a warning (design §6 resolution order).
+     *
+     * When [typeNames] is empty, types are discovered instead: the classpath
+     * manifest (see [TYPES_RESOURCE]) unioned with a class-dir scan of [scanDirs]
+     * (issue #55). Generic classes found by the scan are skipped as roots — they
+     * have no standalone wire shape; their concrete shapes are covered at use
+     * sites — and logged by name. Unreadable class files degrade to OPAQUE
+     * coverage gaps whenever [scanDirs] were scanned, even alongside explicit
+     * [typeNames].
      */
     public fun run(
         typeNames: List<String>,
         jsonInstanceFqn: String?,
         output: File,
+        scanDirs: List<File> = emptyList(),
     ) {
         val json = jsonInstanceFqn?.let(::loadJson) ?: Json
         if (jsonInstanceFqn != null && loadJson(jsonInstanceFqn) == null) {
@@ -39,8 +48,18 @@ public object SchemaExtractionMain {
             )
         }
         val config = if (json === Json) SnapshotConfig() else JsonConfigReader.read(json)
-        // Fall back to discovered types when none are configured explicitly (see [TYPES_RESOURCE]).
-        val effectiveTypes = typeNames.ifEmpty { discoverTypeNames() }
+        val scan = SerializableClassScanner.scan(scanDirs)
+        if (scan.skippedGenerics.isNotEmpty()) {
+            System.err.println(
+                "serialkompat: skipped ${scan.skippedGenerics.size} generic type(s) as scan roots " +
+                    "(their shapes are checked at concrete use sites): " +
+                    scan.skippedGenerics.joinToString(", "),
+            )
+        }
+        // Fall back to discovered types when none are configured explicitly: the
+        // classpath manifest (see [TYPES_RESOURCE]) unioned with the class-dir scan.
+        val effectiveTypes =
+            typeNames.ifEmpty { (discoverTypeNames() + scan.typeNames).distinct().sorted() }
 
         // Resolve each type independently. A single unresolvable/broken type (stale manifest entry,
         // renamed class, missing transitive dependency, a generic that needs type args) must NEVER
@@ -60,6 +79,14 @@ public object SchemaExtractionMain {
                 )
                 opaque += Contract(name, ContractKind.OPAQUE)
             }
+        }
+        // An unreadable class file is an unanalysable input: unanalysable ≠ safe, so it
+        // surfaces as an OPAQUE gap regardless of whether explicit types were configured.
+        for (path in scan.unreadable) {
+            System.err.println(
+                "serialkompat: could not parse class file '$path'; recording it as an opaque coverage gap.",
+            )
+            opaque += Contract(path, ContractKind.OPAQUE)
         }
 
         val extracted = DescriptorSnapshotExtractor.extract(descriptors, json.serializersModule, config)
