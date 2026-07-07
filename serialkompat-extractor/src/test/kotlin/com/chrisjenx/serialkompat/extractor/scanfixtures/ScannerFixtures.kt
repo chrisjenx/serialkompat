@@ -1,5 +1,7 @@
 package com.chrisjenx.serialkompat.extractor.scanfixtures
 
+import com.chrisjenx.serialkompat.annotations.SerialkompatChecked
+import com.chrisjenx.serialkompat.annotations.SerialkompatIgnore
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -71,6 +73,24 @@ data class ScannedWithGenericSupertype(
 ) : Comparable<ScannedWithGenericSupertype> {
     override fun compareTo(other: ScannedWithGenericSupertype): Int = id.compareTo(other.id)
 }
+
+@Serializable
+@SerialkompatIgnore
+data class ScannedIgnored(
+    val id: String,
+)
+
+@Serializable
+@SerialkompatChecked
+data class ScannedOptedIn(
+    val id: String,
+)
+
+/** `@SerialkompatChecked` without `@Serializable`: never a candidate, so never opted in. */
+@SerialkompatChecked
+class CheckedButNotSerializable(
+    val id: String,
+)
 
 /**
  * Copies this package's compiled class files into [tempRoot] so a scan sees a

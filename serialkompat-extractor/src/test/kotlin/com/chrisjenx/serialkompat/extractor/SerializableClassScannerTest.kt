@@ -3,7 +3,9 @@ package com.chrisjenx.serialkompat.extractor
 import com.chrisjenx.serialkompat.extractor.scanfixtures.Outer
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedBox
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedEvent
+import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedIgnored
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedMarker
+import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedOptedIn
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedOrder
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedStatus
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedWithGenericSupertype
@@ -129,5 +131,28 @@ class SerializableClassScannerTest {
         assertTrue(result.typeNames.isEmpty())
         assertTrue(result.unreadable.isEmpty())
         assertTrue(result.skippedGenerics.isEmpty())
+    }
+
+    @Test
+    fun `records @SerialkompatIgnore types as ignored, still listing them as candidates`() {
+        val result = SerializableClassScanner.scan(listOf(fixturesRoot()))
+        assertContains(result.typeNames, ScannedIgnored::class.java.name)
+        assertContains(result.ignored, ScannedIgnored::class.java.name)
+        assertFalse(result.ignored.contains(ScannedOrder::class.java.name))
+    }
+
+    @Test
+    fun `records @SerialkompatChecked types as opted in`() {
+        val result = SerializableClassScanner.scan(listOf(fixturesRoot()))
+        assertContains(result.typeNames, ScannedOptedIn::class.java.name)
+        assertContains(result.optedIn, ScannedOptedIn::class.java.name)
+        assertFalse(result.optedIn.contains(ScannedOrder::class.java.name))
+    }
+
+    @Test
+    fun `annotation markers on non-Serializable classes are not recorded`() {
+        val result = SerializableClassScanner.scan(listOf(fixturesRoot()))
+        assertFalse(result.typeNames.any { it.endsWith("CheckedButNotSerializable") })
+        assertFalse(result.optedIn.any { it.endsWith("CheckedButNotSerializable") })
     }
 }

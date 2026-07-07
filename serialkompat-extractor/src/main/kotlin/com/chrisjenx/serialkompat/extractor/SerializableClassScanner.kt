@@ -17,6 +17,12 @@ internal object SerializableClassScanner {
     private val CLASS_MAGIC = 0xCAFEBABE.toInt()
     private const val SERIALIZABLE = "Lkotlinx/serialization/Serializable;"
 
+    // Discovery-mode markers (issue #115) — matched in the same class-level
+    // RuntimeVisibleAnnotations walk as @Serializable; RUNTIME retention guaranteed
+    // by the serialkompat-annotations artifact.
+    private const val IGNORE = "Lcom/chrisjenx/serialkompat/annotations/SerialkompatIgnore;"
+    private const val CHECKED = "Lcom/chrisjenx/serialkompat/annotations/SerialkompatChecked;"
+
     // constant_pool entry tags (JVMS §4.4, Table 4.4-B). The format is additive-only:
     // these have never changed size/meaning; an unknown tag → the file is unreadable.
     private const val CP_UTF8 = 1
@@ -50,6 +56,10 @@ internal object SerializableClassScanner {
         val unreadable: List<String>,
         /** Binary names of `@Serializable` classes skipped because they declare type parameters. */
         val skippedGenerics: List<String>,
+        /** Subset of [typeNames] carrying `@SerialkompatIgnore` (OPT_OUT exclusions, #115). */
+        val ignored: List<String> = emptyList(),
+        /** Subset of [typeNames] carrying `@SerialkompatChecked` (OPT_IN inclusions, #115). */
+        val optedIn: List<String> = emptyList(),
     )
 
     /** Scans every `*.class` under each of [roots]; results are sorted + deduped. Never throws. */
@@ -57,6 +67,8 @@ internal object SerializableClassScanner {
         val typeNames = mutableListOf<String>()
         val unreadable = mutableListOf<String>()
         val skippedGenerics = mutableListOf<String>()
+        val ignored = mutableListOf<String>()
+        val optedIn = mutableListOf<String>()
         for (root in roots) {
             val classFiles =
                 root
@@ -69,7 +81,11 @@ internal object SerializableClassScanner {
                     parsed == null -> unreadable += file.relativeTo(root).path
                     !parsed.serializable -> {}
                     parsed.generic -> skippedGenerics += parsed.binaryName
-                    else -> typeNames += parsed.binaryName
+                    else -> {
+                        typeNames += parsed.binaryName
+                        if (IGNORE in parsed.annotations) ignored += parsed.binaryName
+                        if (CHECKED in parsed.annotations) optedIn += parsed.binaryName
+                    }
                 }
             }
         }
@@ -77,14 +93,18 @@ internal object SerializableClassScanner {
             typeNames = typeNames.distinct().sorted(),
             unreadable = unreadable.distinct().sorted(),
             skippedGenerics = skippedGenerics.distinct().sorted(),
+            ignored = ignored.distinct().sorted(),
+            optedIn = optedIn.distinct().sorted(),
         )
     }
 
     private class ParsedClass(
         val binaryName: String,
-        val serializable: Boolean,
+        val annotations: Set<String>,
         val generic: Boolean,
-    )
+    ) {
+        val serializable: Boolean get() = SERIALIZABLE in annotations
+    }
 
     private fun parse(bytes: ByteArray): ParsedClass {
         val input = DataInputStream(bytes.inputStream())
@@ -118,19 +138,19 @@ internal object SerializableClassScanner {
         input.skipNBytes(input.readUnsignedShort() * 2L) // interfaces
         skipMembers(input) // fields
         skipMembers(input) // methods
-        var serializable = false
+        var annotations = emptySet<String>()
         var generic = false
         repeat(input.readUnsignedShort()) {
             val name = utf8[input.readUnsignedShort()]
             val length = input.readInt().toLong() and 0xFFFFFFFFL
             when (name) {
-                "RuntimeVisibleAnnotations" -> serializable = readAnnotations(input, utf8) || serializable
+                "RuntimeVisibleAnnotations" -> annotations = annotations + readAnnotations(input, utf8)
                 // A class signature starting `<` declares type parameters (JVMS §4.7.9.1).
                 "Signature" -> generic = utf8[input.readUnsignedShort()]?.startsWith("<") == true
                 else -> input.skipNBytes(length)
             }
         }
-        return ParsedClass(binaryName, serializable, generic)
+        return ParsedClass(binaryName, annotations, generic)
     }
 
     private fun skipMembers(input: DataInputStream) {
@@ -143,13 +163,15 @@ internal object SerializableClassScanner {
         }
     }
 
+    /** Returns the subset of watched annotation descriptors present at the class level. */
     private fun readAnnotations(
         input: DataInputStream,
         utf8: Map<Int, String>,
-    ): Boolean {
-        var found = false
+    ): Set<String> {
+        val watched = setOf(SERIALIZABLE, IGNORE, CHECKED)
+        val found = mutableSetOf<String>()
         repeat(input.readUnsignedShort()) {
-            if (utf8[input.readUnsignedShort()] == SERIALIZABLE) found = true
+            utf8[input.readUnsignedShort()]?.takeIf(watched::contains)?.let(found::add)
             repeat(input.readUnsignedShort()) {
                 input.skipNBytes(2) // element_name_index
                 skipElementValue(input)
