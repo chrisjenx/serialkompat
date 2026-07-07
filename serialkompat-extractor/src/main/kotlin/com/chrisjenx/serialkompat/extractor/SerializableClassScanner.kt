@@ -19,11 +19,17 @@ internal object SerializableClassScanner {
     internal data class ScanResult(
         /** Binary names (`com.foo.Bar$Baz`) of classes with a class-level `@Serializable`. */
         val typeNames: List<String>,
+        /** Root-relative paths of class files that could not be parsed (→ OPAQUE upstream). */
+        val unreadable: List<String>,
+        /** Binary names of `@Serializable` classes skipped because they declare type parameters. */
+        val skippedGenerics: List<String>,
     )
 
-    /** Scans every `*.class` under each of [roots]; results are sorted + deduped. */
+    /** Scans every `*.class` under each of [roots]; results are sorted + deduped. Never throws. */
     fun scan(roots: List<File>): ScanResult {
         val typeNames = mutableListOf<String>()
+        val unreadable = mutableListOf<String>()
+        val skippedGenerics = mutableListOf<String>()
         for (root in roots) {
             val classFiles =
                 root
@@ -31,16 +37,26 @@ internal object SerializableClassScanner {
                     .filter { it.isFile && it.extension == "class" }
                     .sortedBy(File::getPath)
             for (file in classFiles) {
-                val parsed = runCatching { parse(file.readBytes()) }.getOrNull() ?: continue
-                if (parsed.serializable) typeNames += parsed.binaryName
+                val parsed = runCatching { parse(file.readBytes()) }.getOrNull()
+                when {
+                    parsed == null -> unreadable += file.relativeTo(root).path
+                    !parsed.serializable -> {}
+                    parsed.generic -> skippedGenerics += parsed.binaryName
+                    else -> typeNames += parsed.binaryName
+                }
             }
         }
-        return ScanResult(typeNames.distinct().sorted())
+        return ScanResult(
+            typeNames = typeNames.distinct().sorted(),
+            unreadable = unreadable.sorted(),
+            skippedGenerics = skippedGenerics.distinct().sorted(),
+        )
     }
 
     private class ParsedClass(
         val binaryName: String,
         val serializable: Boolean,
+        val generic: Boolean,
     )
 
     private fun parse(bytes: ByteArray): ParsedClass {
@@ -74,15 +90,18 @@ internal object SerializableClassScanner {
         skipMembers(input) // fields
         skipMembers(input) // methods
         var serializable = false
+        var generic = false
         repeat(input.readUnsignedShort()) {
             val name = utf8[input.readUnsignedShort()]
             val length = input.readInt().toLong() and 0xFFFFFFFFL
             when (name) {
                 "RuntimeVisibleAnnotations" -> serializable = readAnnotations(input, utf8) || serializable
+                // A class signature starting `<` declares type parameters (JVMS §4.7.9.1).
+                "Signature" -> generic = utf8[input.readUnsignedShort()]?.startsWith("<") == true
                 else -> input.skipNBytes(length)
             }
         }
-        return ParsedClass(binaryName, serializable)
+        return ParsedClass(binaryName, serializable, generic)
     }
 
     private fun skipMembers(input: DataInputStream) {

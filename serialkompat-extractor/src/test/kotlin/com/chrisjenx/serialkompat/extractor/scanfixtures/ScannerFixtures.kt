@@ -1,6 +1,12 @@
 package com.chrisjenx.serialkompat.extractor.scanfixtures
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import java.io.File
 
 @Serializable
@@ -32,6 +38,32 @@ sealed interface ScannedEvent {
         val id: String,
     ) : ScannedEvent
 }
+
+@Serializable
+data class ScannedBox<T>(
+    val value: T,
+)
+
+object IntAsStringSerializer : KSerializer<Int> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("IntAsString", PrimitiveKind.STRING)
+
+    override fun serialize(
+        encoder: Encoder,
+        value: Int,
+    ) = encoder.encodeString(value.toString())
+
+    override fun deserialize(decoder: Decoder): Int = decoder.decodeString().toInt()
+}
+
+/**
+ * Carries only a *property-level* `@Serializable(with = …)`: the constant pool
+ * contains the annotation descriptor string, but there is no class-level
+ * annotation — the scanner must not mark this class (false-positive guard).
+ */
+class PropertyLevelOnly(
+    @Serializable(with = IntAsStringSerializer::class) val count: Int,
+)
 
 /**
  * Copies this package's compiled class files into [tempRoot] so a scan sees a
