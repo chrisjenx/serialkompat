@@ -47,3 +47,7 @@ __pycache__/
 # Claude Code local, per-machine state (not committed); keep shareable project settings
 .claude/*
 !.claude/settings.json
+
+# Superpowers scratch — SDD workspace and brainstorm/plan artifacts (per-machine, not committed)
+.superpowers/
+docs/superpowers/
