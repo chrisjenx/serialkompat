@@ -13,8 +13,35 @@ import java.io.IOException
  * string in the constant pool but must not mark the class.
  */
 internal object SerializableClassScanner {
-    private const val CLASS_MAGIC = -0x35014542 // 0xCAFEBABE
+    // `0xCAFEBABE` as a 32-bit int (it overflows a positive Int, hence `.toInt()`).
+    private val CLASS_MAGIC = 0xCAFEBABE.toInt()
     private const val SERIALIZABLE = "Lkotlinx/serialization/Serializable;"
+
+    // constant_pool entry tags (JVMS §4.4, Table 4.4-B). The format is additive-only:
+    // these have never changed size/meaning; an unknown tag → the file is unreadable.
+    private const val CP_UTF8 = 1
+    private const val CP_INTEGER = 3
+    private const val CP_FLOAT = 4
+    private const val CP_LONG = 5
+    private const val CP_DOUBLE = 6
+    private const val CP_CLASS = 7
+    private const val CP_STRING = 8
+    private const val CP_FIELDREF = 9
+    private const val CP_METHODREF = 10
+    private const val CP_INTERFACE_METHODREF = 11
+    private const val CP_NAME_AND_TYPE = 12
+    private const val CP_METHOD_HANDLE = 15
+    private const val CP_METHOD_TYPE = 16
+    private const val CP_DYNAMIC = 17
+    private const val CP_INVOKE_DYNAMIC = 18
+    private const val CP_MODULE = 19
+    private const val CP_PACKAGE = 20
+
+    // element_value tags (JVMS §4.7.16.1). The single-index primitives/String/class all
+    // carry one 2-byte constant_pool index; enum/annotation/array need structural handling.
+    private const val EV_ENUM = 'e'
+    private const val EV_ANNOTATION = '@'
+    private const val EV_ARRAY = '['
 
     internal data class ScanResult(
         /** Binary names (`com.foo.Bar$Baz`) of classes with a class-level `@Serializable`. */
@@ -69,14 +96,16 @@ internal object SerializableClassScanner {
         var slot = 1
         while (slot < constantPoolCount) {
             when (val tag = input.readUnsignedByte()) {
-                1 -> utf8[slot] = input.readUTF()
-                7 -> classNameIndex[slot] = input.readUnsignedShort() // Class → name_index
-                8, 16, 19, 20 -> input.skipNBytes(2) // String, MethodType, Module, Package
-                15 -> input.skipNBytes(3) // MethodHandle
-                3, 4, 9, 10, 11, 12, 17, 18 -> input.skipNBytes(4)
-                5, 6 -> { // Long and Double occupy two constant pool slots
+                CP_UTF8 -> utf8[slot] = input.readUTF()
+                CP_CLASS -> classNameIndex[slot] = input.readUnsignedShort() // → name_index
+                CP_STRING, CP_METHOD_TYPE, CP_MODULE, CP_PACKAGE -> input.skipNBytes(2)
+                CP_METHOD_HANDLE -> input.skipNBytes(3)
+                CP_INTEGER, CP_FLOAT, CP_FIELDREF, CP_METHODREF,
+                CP_INTERFACE_METHODREF, CP_NAME_AND_TYPE, CP_DYNAMIC, CP_INVOKE_DYNAMIC,
+                -> input.skipNBytes(4)
+                CP_LONG, CP_DOUBLE -> {
                     input.skipNBytes(8)
-                    slot++
+                    slot++ // Long/Double occupy two constant_pool slots (JVMS §4.4.5)
                 }
                 else -> throw IOException("unknown constant pool tag $tag")
             }
@@ -131,16 +160,17 @@ internal object SerializableClassScanner {
 
     private fun skipElementValue(input: DataInputStream) {
         when (val tag = input.readUnsignedByte().toChar()) {
+            // Single 2-byte constant_pool index: primitives B/C/D/F/I/J/S/Z, String s, class c.
             'B', 'C', 'D', 'F', 'I', 'J', 'S', 'Z', 's', 'c' -> input.skipNBytes(2)
-            'e' -> input.skipNBytes(4) // enum: type_name_index + const_name_index
-            '@' -> { // nested annotation: type_index + element_value_pairs
+            EV_ENUM -> input.skipNBytes(4) // type_name_index + const_name_index
+            EV_ANNOTATION -> { // nested annotation: type_index + element_value_pairs
                 input.skipNBytes(2)
                 repeat(input.readUnsignedShort()) {
                     input.skipNBytes(2)
                     skipElementValue(input)
                 }
             }
-            '[' -> repeat(input.readUnsignedShort()) { skipElementValue(input) }
+            EV_ARRAY -> repeat(input.readUnsignedShort()) { skipElementValue(input) }
             else -> throw IOException("unknown element_value tag '$tag'")
         }
     }
