@@ -95,7 +95,11 @@ public object SchemaExtractionMain {
         output.writeText(SnapshotFormat.serialize(snapshot))
     }
 
-    /** CLI shim: `--types a,b,c --out path [--json fqn]`. */
+    /**
+     * CLI shim: `--types a,b,c | --scan-classes dir1:dir2 --out path [--json fqn]`.
+     * At least one of `--types` / `--scan-classes` is required; `--scan-classes`
+     * takes [File.pathSeparator]-separated class directories.
+     */
     @JvmStatic
     public fun main(args: Array<String>) {
         val options = parseOptions(args)
@@ -105,9 +109,18 @@ public object SchemaExtractionMain {
                 ?.map(String::trim)
                 ?.filter(String::isNotEmpty)
                 .orEmpty()
+        val scanDirs =
+            options["scan-classes"]
+                ?.split(File.pathSeparator)
+                ?.map(String::trim)
+                ?.filter(String::isNotEmpty)
+                ?.map(::File)
+                .orEmpty()
         val output = options["out"] ?: error("serialkompat: --out is required")
-        require(types.isNotEmpty()) { "serialkompat: --types is required" }
-        run(types, options["json"], File(output))
+        require(types.isNotEmpty() || scanDirs.isNotEmpty()) {
+            "serialkompat: --types or --scan-classes is required"
+        }
+        run(types, options["json"], File(output), scanDirs)
     }
 
     /**

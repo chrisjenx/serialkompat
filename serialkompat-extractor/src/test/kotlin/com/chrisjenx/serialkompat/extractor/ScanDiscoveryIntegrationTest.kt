@@ -14,6 +14,7 @@ import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -115,5 +116,22 @@ class ScanDiscoveryIntegrationTest {
             System.setErr(originalErr)
         }
         assertTrue(captured.toString().contains(ScannedBox::class.java.name))
+    }
+
+    @Test
+    fun `cli runs with --scan-classes and no --types`() {
+        val out = outFile()
+        SchemaExtractionMain.main(arrayOf("--scan-classes", fixturesRoot().path, "--out", out.path))
+        val snapshot = SnapshotFormat.parse(out.readText())
+        assertTrue(snapshot.contracts.any { it.serialName == ScannedOrder::class.java.name })
+    }
+
+    @Test
+    fun `cli requires --types or --scan-classes`() {
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                SchemaExtractionMain.main(arrayOf("--out", outFile().path))
+            }
+        assertTrue(failure.message!!.contains("--types or --scan-classes"))
     }
 }
