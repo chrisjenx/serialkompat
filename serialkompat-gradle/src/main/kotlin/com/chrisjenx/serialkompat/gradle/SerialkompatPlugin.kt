@@ -74,7 +74,11 @@ public class SerialkompatPlugin : Plugin<Project> {
                             add("--types")
                             add(types.joinToString(","))
                         }
-                        if (discovery != DiscoveryMode.EXPLICIT) {
+                        // Discovery is only in play when `types` is empty (docs/configuration.md's
+                        // documented precedence) — matches SchemaExtractionMain's own
+                        // `typeNames.ifEmpty { ... }` filtering, so the plugin never pays for (or
+                        // reports on) a scan whose result would be discarded anyway.
+                        if (discovery != DiscoveryMode.EXPLICIT && types.isEmpty()) {
                             add("--discovery")
                             add(if (discovery == DiscoveryMode.OPT_OUT) "opt-out" else "opt-in")
                             add("--scan-classes")
@@ -292,6 +296,18 @@ public class SerialkompatPlugin : Plugin<Project> {
         version: String,
     ) {
         val snapshot = SnapshotFormat.parse(current.readText())
+        // Fail closed rather than writing an empty entry: the published history is append-only
+        // (PublishedHistory.record never overwrites), so a degenerate snapshot recorded here — an
+        // OPT_IN project with nothing annotated yet, or OPT_OUT with everything @SerialkompatIgnore'd
+        // — would sit there permanently, unlike a bad `serialkompatCheck` run which just fails again
+        // next time.
+        if (snapshot.contracts.isEmpty()) {
+            throw GradleException(
+                "serialkompat: refusing to record version '$version' — the current schema has 0 " +
+                    "contracts (check discovery/types configuration). The published history is " +
+                    "append-only, so an empty entry can't be corrected later, only left in place.",
+            )
+        }
         val history = PublishedHistory(historyDir)
         history.record(version, snapshot, Instant.now())
         logger.lifecycle("serialkompat: recorded schema for version '$version' into ${historyDir.absolutePath}")
