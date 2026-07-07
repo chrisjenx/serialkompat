@@ -126,9 +126,9 @@ public object SchemaExtractionMain {
     /**
      * Classpath manifest of discovered `@Serializable` FQNs, one per line (blank
      * lines and `#` comments ignored). This is a producer-agnostic contract: the
-     * file may be authored by hand or emitted by a build-time discovery step. A
-     * Kotlin compiler plugin producer is the sanctioned automated route and is
-     * tracked separately (design §4, issue #22); KSP is explicitly not used.
+     * file may be authored by hand or emitted by a build-time discovery step. The
+     * extractor's own class-dir scan ([SerializableClassScanner], issue #55) is the
+     * automated producer; KSP is explicitly not used (#22).
      */
     public const val TYPES_RESOURCE: String = "META-INF/serialkompat/serializable-types.txt"
 

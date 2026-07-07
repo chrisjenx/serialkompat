@@ -11,9 +11,9 @@ import kotlin.test.assertEquals
  * When no types are configured, the extractor discovers them from a classpath
  * resource (`META-INF/serialkompat/serializable-types.txt`). The contract is
  * producer-agnostic — the manifest may be authored by hand or emitted by a
- * build-time discovery step (a Kotlin compiler plugin is the sanctioned route,
- * tracked in #22; KSP is not used) — so this test fabricates the resource
- * directly rather than depending on any producer.
+ * build-time discovery step (the extractor's class-dir scan, #55, is the
+ * automated producer; KSP is not used, #22) — so this test fabricates the
+ * resource directly rather than depending on any producer.
  */
 class SchemaDiscoveryTest {
     private val tempDirs = mutableListOf<File>()
