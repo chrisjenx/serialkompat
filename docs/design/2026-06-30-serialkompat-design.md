@@ -180,16 +180,21 @@ optionality — already accounts for `@Required`/`@Transient`/defaults),
 - **Compiler plugin:** most powerful, most fragile, unnecessary given the snapshot
   architecture.
 
-**Build-time discovery (Approach C) — deferred, opt-in.** Extraction (Approach A)
+**Discovery (Approach C) — class-dir scanning (#55).** Extraction (Approach A)
 needs a list of types to reflect on. The primary source is explicit configuration;
-as a convenience the extractor also reads a producer-agnostic classpath manifest
+when no types are configured the extractor discovers them by unioning two
+producer-agnostic sources: the classpath manifest
 (`META-INF/serialkompat/serializable-types.txt`, one `@Serializable` FQN per line)
-when no types are configured. That manifest may be authored by hand or emitted by a
-build-time discovery step. **The automated producer, if built, is a Kotlin compiler
-plugin — not KSP** (a maintainer decision, issue #22): KSP is blind to
-`SerializersModule`-resolved polymorphism, and the compiler-plugin route is the
-sanctioned one. It is not on the v1 critical path — explicit config plus the manifest
-contract cover discovery until then.
+and a scan of compiled class directories (`--scan-classes`). The scan is a
+dependency-free class-file parse — no classloading: `@Serializable` is
+RUNTIME-retained, so annotated classes carry it in `RuntimeVisibleAnnotations`.
+Generic classes are skipped as scan roots, loudly — they have no standalone wire
+shape and their concrete shapes are covered at use sites (a survey of two
+production codebases found 9/9 generics nested in one; the other's 2/2 root-only
+envelopes are the logged, tracked gap). Unreadable class files degrade to OPAQUE
+coverage gaps. **KSP remains rejected** (maintainer decision, issue #22); the
+compiler-plugin producer originally tracked in #55 is retired — #22 only mandated
+a compiler plugin *over KSP*, and scanning proved not-awkward.
 
 ---
 
@@ -585,9 +590,9 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
 - **v0.5:** unified GitHub Action + sticky PR comment; `serialkompatCheckAgainst`;
   rename-detection heuristic.
 - **v1:** append-only published schema history + transitive checks (persisted
-  horizon); standalone CLI. (Automated build-time discovery — a Kotlin compiler
-  plugin, Approach C — is deferred beyond v1; explicit config + the manifest
-  contract suffice.)
+  horizon); standalone CLI. (Automated discovery — Approach C — shipped post-v1
+  as an extractor class-dir scan, #55; explicit config + the manifest contract
+  remain.)
 - **Later (only if needed):** CBOR/ProtoBuf rules (field order / `@ProtoNumber`);
   IDE inspection.
 
@@ -635,9 +640,9 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
 3. **Platform:** KMP; extraction on the JVM target.
 4. **Extractor:** runtime `SerialDescriptor` reflection (Approach A). Spike #6
    resolved: **vendor** the descriptor walk behind an `Extractor` anti-corruption
-   layer — `kotlinx-schema`'s IR is too lossy (see §12). Build-time discovery
-   (Approach C) is deferred and, per maintainer decision (#22), must be a Kotlin
-   compiler plugin — **not KSP**.
+   layer — `kotlinx-schema`'s IR is too lossy (see §12). Discovery (Approach C)
+   shipped as class-dir scanning inside the extractor (#55 re-scope); **KSP
+   rejected** (#22); the compiler-plugin producer is retired.
 5. **Scope:** check-by-default per applied module, with module/package/file/type
    suppression; no-silent-exclusions coverage invariant.
 6. **Config:** read from the real `Json` instance; config is part of the snapshot;

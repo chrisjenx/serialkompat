@@ -14,7 +14,8 @@ public final class com/chrisjenx/serialkompat/extractor/SchemaExtractionMain {
 	public final fun discoverTypeNames (Ljava/lang/ClassLoader;)Ljava/util/List;
 	public static synthetic fun discoverTypeNames$default (Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/lang/ClassLoader;ILjava/lang/Object;)Ljava/util/List;
 	public static final fun main ([Ljava/lang/String;)V
-	public final fun run (Ljava/util/List;Ljava/lang/String;Ljava/io/File;)V
+	public final fun run (Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;)V
+	public static synthetic fun run$default (Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;ILjava/lang/Object;)V
 }
 
 public abstract interface class com/chrisjenx/serialkompat/extractor/SnapshotExtractor {
