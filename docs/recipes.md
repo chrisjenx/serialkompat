@@ -67,7 +67,7 @@ dependencies {
 }
 
 serialkompat {
-    discovery.set(DiscoveryMode.OPT_IN)
+    discovery.set(com.chrisjenx.serialkompat.extractor.DiscoveryMode.OPT_IN)
 }
 ```
 
@@ -82,6 +82,14 @@ data class OrderEvent(val id: String)
 Each newly-annotated type joins the gate on its next run — no plugin
 reconfiguration, no growing `types` list to maintain by hand.
 
+The *first* annotated type is the exception: starting from zero, the baseline
+(still zero contracts on `main`) hits the same empty-baseline guard described
+in [First-time adoption](#first-time-adoption) above — the PR that annotates
+that first type looks like "everything just got added," which is exactly what
+`failOnEmptyBaseline` (default `true`) refuses to pass. The same escape hatch
+applies: temporarily set `failOnEmptyBaseline.set(false)` for that one PR, then
+drop the override once `baselineRef` has moved past it.
+
 Once coverage is effectively complete, flip the direction: switch to
 `DiscoveryMode.OPT_OUT` so every discovered type is checked by default, and
 mark the remaining, intentionally-unstable stragglers with
@@ -89,7 +97,7 @@ mark the remaining, intentionally-unstable stragglers with
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
-    discovery.set(DiscoveryMode.OPT_OUT)
+    discovery.set(com.chrisjenx.serialkompat.extractor.DiscoveryMode.OPT_OUT)
 }
 ```
 

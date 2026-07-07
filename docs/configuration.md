@@ -8,7 +8,7 @@ what it controls. See [Quick start](quickstart.md) for the minimal version and
 
 | Property | Type | Default | Purpose |
 |---|---|---|---|
-| `types` | `ListProperty<String>` | — (required) | FQNs of `@Serializable` root types to check |
+| `types` | `ListProperty<String>` | `[]` (required under `EXPLICIT` discovery) | FQNs of `@Serializable` root types to check |
 | `discovery` | `Property<DiscoveryMode>` | `EXPLICIT` | How checked types are found when `types` is empty: `EXPLICIT` (only `types`), `OPT_OUT` (everything discovered minus `@SerialkompatIgnore`), `OPT_IN` (only `@SerialkompatChecked`) |
 | `jsonInstance` | `Property<String>` | empty | FQN of a `Json` instance describing the wire (e.g. `com.example.WireJson.instance`); empty = default `Json{}` |
 | `baselineRef` | `Property<String>` | auto-detected | Git ref the current schema is checked against. Unset ⇒ auto-detect the default branch (`origin/HEAD` → `origin/main` → `origin/master` → local `main`/`master`) |
@@ -70,7 +70,7 @@ data class OrderEvent(val id: String)
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
-    discovery.set(DiscoveryMode.OPT_OUT)
+    discovery.set(com.chrisjenx.serialkompat.extractor.DiscoveryMode.OPT_OUT)
 }
 ```
 
