@@ -9,6 +9,7 @@ what it controls. See [Quick start](quickstart.md) for the minimal version and
 | Property | Type | Default | Purpose |
 |---|---|---|---|
 | `types` | `ListProperty<String>` | — (required) | FQNs of `@Serializable` root types to check |
+| `discovery` | `Property<DiscoveryMode>` | `EXPLICIT` | How checked types are found when `types` is empty: `EXPLICIT` (only `types`), `OPT_OUT` (everything discovered minus `@SerialkompatIgnore`), `OPT_IN` (only `@SerialkompatChecked`) |
 | `jsonInstance` | `Property<String>` | empty | FQN of a `Json` instance describing the wire (e.g. `com.example.WireJson.instance`); empty = default `Json{}` |
 | `baselineRef` | `Property<String>` | auto-detected | Git ref the current schema is checked against. Unset ⇒ auto-detect the default branch (`origin/HEAD` → `origin/main` → `origin/master` → local `main`/`master`) |
 | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
@@ -27,6 +28,57 @@ The extension is config-cache safe — everything above is captured at configura
 time. `baselineRef` isn't a file on disk: the baseline schema is recomputed live
 from that ref via a temporary git worktree on every run, so there's nothing to
 regenerate or go stale.
+
+## Discovery modes
+
+`discovery` only matters when `types` is empty — it decides which of the
+scanned/discovered `@Serializable` types actually get checked:
+
+| Mode | Checked types | Use when |
+|---|---|---|
+| `EXPLICIT` (default) | Only `types` | You maintain an explicit root-type list — the default, unchanged behavior |
+| `OPT_OUT` | Everything discovered, minus types annotated `@SerialkompatIgnore` | Most types are wire contracts; a few (internal-only, unstable) opt out |
+| `OPT_IN` | Only types annotated `@SerialkompatChecked` | Gradual adoption — nothing is checked until you annotate it |
+
+The annotations live in a small multiplatform artifact:
+
+```kotlin
+dependencies {
+    implementation("com.chrisjenx:serialkompat-annotations:{{ skversion }}")
+}
+```
+
+`com.chrisjenx.serialkompat.annotations.SerialkompatIgnore` and
+`com.chrisjenx.serialkompat.annotations.SerialkompatChecked` go on the
+`@Serializable` class itself:
+
+```kotlin
+@Serializable
+@SerialkompatChecked
+data class OrderEvent(val id: String)
+```
+
+**Precedence**, applied in this order, in every mode:
+
+1. A non-empty `types` list always wins — `discovery` is only consulted when
+   `types` is empty.
+2. Annotations refine the **scanned** set only; classpath-manifest entries
+   (`META-INF/serialkompat/serializable-types.txt`) bypass annotation
+   filtering and are always included in `OPT_OUT`/`OPT_IN`.
+3. `include`/`exclude` serial-name prefixes apply after discovery, in all
+   modes — unchanged from before this feature.
+
+```kotlin title="build.gradle.kts"
+serialkompat {
+    discovery.set(DiscoveryMode.OPT_OUT)
+}
+```
+
+**KMP:** a Kotlin Multiplatform module is supported for discovery/extraction
+when it declares a `jvm()` target — extraction reads compiled JVM descriptors,
+so a JVM target is the floor, not an oversight. Annotate models in
+`commonMain`; `serialkompat-annotations` is itself multiplatform, so the
+annotation is visible there.
 
 ## Annotated example
 

@@ -51,6 +51,63 @@ introduced these types, remove the override — `failOnEmptyBaseline` should go
 back to its default `true` so a real misconfiguration doesn't slip through
 unnoticed.
 
+## Gradual adoption with discovery modes
+
+Maintaining an explicit `types` list up front is friction if you don't yet
+know — or don't yet want to commit to — the full set of wire contracts.
+`discovery` lets you turn the gate on for zero types and grow coverage type
+by type, in either direction.
+
+Start by depending on the annotations artifact and switching to `OPT_IN`,
+with no `types` list:
+
+```kotlin title="build.gradle.kts"
+dependencies {
+    implementation("com.chrisjenx:serialkompat-annotations:{{ skversion }}")
+}
+
+serialkompat {
+    discovery.set(DiscoveryMode.OPT_IN)
+}
+```
+
+Nothing is checked yet. As you review each wire type, annotate it:
+
+```kotlin
+@Serializable
+@SerialkompatChecked
+data class OrderEvent(val id: String)
+```
+
+Each newly-annotated type joins the gate on its next run — no plugin
+reconfiguration, no growing `types` list to maintain by hand.
+
+Once coverage is effectively complete, flip the direction: switch to
+`DiscoveryMode.OPT_OUT` so every discovered type is checked by default, and
+mark the remaining, intentionally-unstable stragglers with
+`@SerialkompatIgnore` instead:
+
+```kotlin title="build.gradle.kts"
+serialkompat {
+    discovery.set(DiscoveryMode.OPT_OUT)
+}
+```
+
+```kotlin
+@Serializable
+@SerialkompatIgnore // internal scratch type, no cross-version contract
+data class DebugDump(val raw: String)
+```
+
+Both directions stay meaningful throughout — `OPT_IN` never checks a type you
+haven't reviewed, `OPT_OUT` never silently drops a type you forgot to
+annotate. The flip between them, and the fact that annotating/un-annotating a
+type moves it in and out of the checked set immediately, is exercised
+end-to-end by `SerialkompatDiscoveryFunctionalTest`.
+
+See [Configuration](configuration.md#discovery-modes) for the full mode
+semantics and precedence rules.
+
 ## Sanctioning a deliberate break
 
 Sometimes a break is intentional — a major version bump, a field you know
