@@ -3,6 +3,7 @@ package com.chrisjenx.serialkompat.gradle
 import com.chrisjenx.serialkompat.core.AcceptedBreak
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
 import com.chrisjenx.serialkompat.core.SnapshotFormat
+import com.chrisjenx.serialkompat.extractor.DiscoveryMode
 import com.chrisjenx.serialkompat.gradle.git.GitRefBaseline
 import com.chrisjenx.serialkompat.gradle.git.SnapshotCache
 import com.chrisjenx.serialkompat.gradle.git.SystemGit
@@ -33,6 +34,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         target.pluginManager.apply("lifecycle-base")
         val extension = target.extensions.create("serialkompat", SerialkompatExtension::class.java)
         extension.direction.convention(CompatibilityDirection.FULL)
+        extension.discovery.convention(DiscoveryMode.EXPLICIT)
         extension.failOnBreaking.convention(true)
         extension.failOnEmptyBaseline.convention(true)
         // No baselineRef convention: an unset ref auto-detects the default branch at execution
@@ -51,13 +53,24 @@ public class SerialkompatPlugin : Plugin<Project> {
                 task.group = VERIFICATION_GROUP
                 task.description = "Extracts the current @Serializable JSON wire schema to a snapshot file."
                 task.mainClass.set("com.chrisjenx.serialkompat.extractor.SchemaExtractionMain")
-                task.classpath(toolClasspath(target), projectRuntimeClasspath(target))
+                val scanDirs = projectClassesDirs(target)
+                task.classpath(toolClasspath(target), projectRuntimeClasspath(target), scanDirs)
                 task.outputs.file(currentSnapshot)
-                task.onlyIf { extension.types.get().isNotEmpty() }
+                task.onlyIf { hasWorkToDo(extension) }
                 task.argumentProviders.add {
                     buildList {
-                        add("--types")
-                        add(extension.types.get().joinToString(","))
+                        val discovery = extension.discovery.get()
+                        val types = extension.types.get()
+                        if (types.isNotEmpty()) {
+                            add("--types")
+                            add(types.joinToString(","))
+                        }
+                        if (discovery != DiscoveryMode.EXPLICIT) {
+                            add("--discovery")
+                            add(if (discovery == DiscoveryMode.OPT_OUT) "opt-out" else "opt-in")
+                            add("--scan-classes")
+                            add(scanDirs.files.joinToString(File.pathSeparator) { it.absolutePath })
+                        }
                         add("--out")
                         add(currentSnapshot.get().asFile.absolutePath)
                         if (extension.jsonInstance.isPresent) {
@@ -103,7 +116,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                 task.dependsOn(extract)
                 // Applying the plugin without declaring what crosses the wire is a no-op,
                 // so `check` never breaks on an unconfigured project.
-                task.onlyIf { extension.types.get().isNotEmpty() }
+                task.onlyIf { hasWorkToDo(extension) }
                 task.doLast { t ->
                     runCheck(
                         logger = t.logger,
@@ -131,7 +144,7 @@ public class SerialkompatPlugin : Plugin<Project> {
             task.group = VERIFICATION_GROUP
             task.description = "Checks against an ad-hoc ref (-Pserialkompat.ref=<ref>), else the configured baseline."
             task.dependsOn(extract)
-            task.onlyIf { extension.types.get().isNotEmpty() }
+            task.onlyIf { hasWorkToDo(extension) }
             task.doLast { t ->
                 runCheck(
                     logger = t.logger,
@@ -161,7 +174,7 @@ public class SerialkompatPlugin : Plugin<Project> {
             task.group = VERIFICATION_GROUP
             task.description = "Records the current schema into the published history (-Pserialkompat.recordVersion=X)."
             task.dependsOn(extract)
-            task.onlyIf { extension.types.get().isNotEmpty() }
+            task.onlyIf { hasWorkToDo(extension) }
             val historyDir =
                 extension.history.dir
                     .get()
@@ -184,7 +197,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                     extension.history.dir
                         .get()
                         .asFile
-                task.onlyIf { extension.types.get().isNotEmpty() && hasHistory(historyDir) }
+                task.onlyIf { hasWorkToDo(extension) && hasHistory(historyDir) }
                 task.doLast { t ->
                     runCheckHistory(
                         logger = t.logger,
@@ -364,14 +377,36 @@ public class SerialkompatPlugin : Plugin<Project> {
         return project.files(jars)
     }
 
+    /**
+     * The dependency classpath the forked extractor resolves types against. Plain-JVM
+     * projects expose `runtimeClasspath`; KMP projects (jvm() target — the supported
+     * floor, since extraction reads compiled JVM descriptors) expose `jvmRuntimeClasspath`.
+     */
     private fun projectRuntimeClasspath(project: Project): FileCollection {
-        val runtime = project.configurations.findByName("runtimeClasspath")
-        val mainOutput =
+        val runtime =
+            project.configurations.findByName("runtimeClasspath")
+                ?: project.configurations.findByName("jvmRuntimeClasspath")
+        return project.files(listOfNotNull(runtime))
+    }
+
+    /**
+     * The module's own compiled class dirs — both scanned (`--scan-classes`) and put on
+     * the JavaExec classpath so `Class.forName` sees them. Java `main` source set when
+     * present, else the KMP jvm target's output by convention (`classes/kotlin/jvm/main`),
+     * built by the `jvmMainClasses` lifecycle task (name-based: no KGP dependency).
+     */
+    private fun projectClassesDirs(project: Project): FileCollection {
+        val javaMain =
             project.extensions
                 .findByType(SourceSetContainer::class.java)
                 ?.findByName("main")
                 ?.output
-        return project.files(listOfNotNull(runtime, mainOutput))
+        if (javaMain != null) return project.files(javaMain)
+        if (!project.pluginManager.hasPlugin("org.jetbrains.kotlin.multiplatform")) {
+            return project.files()
+        }
+        val kmpClasses = project.layout.buildDirectory.dir("classes/kotlin/jvm/main")
+        return project.files(kmpClasses).builtBy("jvmMainClasses")
     }
 
     public companion object {
@@ -383,6 +418,14 @@ public class SerialkompatPlugin : Plugin<Project> {
         private const val REF_PROPERTY: String = "serialkompat.ref"
         private const val RECORD_VERSION_PROPERTY: String = "serialkompat.recordVersion"
         private const val VERIFICATION_GROUP: String = "verification"
+
+        /**
+         * The gate has work when types are listed explicitly OR a non-EXPLICIT discovery
+         * mode is on (the scan supplies the types). Applying the plugin unconfigured
+         * stays a safe no-op.
+         */
+        private fun hasWorkToDo(extension: SerialkompatExtension): Boolean =
+            extension.discovery.get() != DiscoveryMode.EXPLICIT || extension.types.get().isNotEmpty()
 
         /** True if [historyDir] holds at least one recorded `.snapshot` entry. */
         private fun hasHistory(historyDir: File): Boolean =

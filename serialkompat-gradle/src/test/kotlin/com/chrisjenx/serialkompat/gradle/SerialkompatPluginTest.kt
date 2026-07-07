@@ -1,7 +1,9 @@
 package com.chrisjenx.serialkompat.gradle
 
+import com.chrisjenx.serialkompat.extractor.DiscoveryMode
 import org.gradle.testfixtures.ProjectBuilder
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -33,5 +35,24 @@ class SerialkompatPluginTest {
 
         assertNotNull(project.tasks.findByName(SerialkompatPlugin.EXTRACT_TASK_NAME))
         assertNotNull(project.extensions.findByName("serialkompat"))
+    }
+
+    @Test
+    fun `discovery defaults to EXPLICIT`() {
+        val project = ProjectBuilder.builder().build()
+        project.pluginManager.apply("com.chrisjenx.serialkompat")
+
+        val extension = project.extensions.getByType(SerialkompatExtension::class.java)
+        assertEquals(DiscoveryMode.EXPLICIT, extension.discovery.get())
+    }
+
+    @Test
+    fun `discovery mode can be configured`() {
+        val project = ProjectBuilder.builder().build()
+        project.pluginManager.apply("com.chrisjenx.serialkompat")
+
+        val extension = project.extensions.getByType(SerialkompatExtension::class.java)
+        extension.discovery.set(DiscoveryMode.OPT_OUT)
+        assertEquals(DiscoveryMode.OPT_OUT, extension.discovery.get())
     }
 }
