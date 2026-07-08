@@ -203,4 +203,39 @@ class SerialkompatDiscoveryFunctionalTest {
         assertTrue(snapshot.contains("com.example.Customer"))
         assertFalse(snapshot.contains("com.example.InternalEvent"), "ignored type leaked:\n$snapshot")
     }
+
+    @Test
+    fun `check does not crash on a KMP module with no jvm target and zero serialkompat config`() {
+        settings()
+        write(
+            "build.gradle.kts",
+            """
+            plugins {
+                kotlin("multiplatform") version "2.3.21"
+                id("com.chrisjenx.serialkompat")
+            }
+            repositories { mavenCentral() }
+            kotlin {
+                js(IR) { nodejs() }
+            }
+            """,
+        )
+
+        // Zero serialkompat config: `hasWorkToDo()` is false, but the built-in `check` still
+        // transitively depends on `serialkompatExtract` (design: applying the plugin unconfigured
+        // must be a safe no-op, never an UnknownTaskException from a phantom `jvmMainClasses`
+        // builtBy on a module with no jvm() target).
+        val result =
+            GradleRunner
+                .create()
+                .withProjectDir(projectDir)
+                .withPluginClasspath()
+                .withArguments("serialkompatExtract", "--stacktrace")
+                .build()
+
+        assertFalse(
+            result.output.contains("UnknownTaskException"),
+            "expected no UnknownTaskException from a phantom jvmMainClasses builtBy:\n${result.output}",
+        )
+    }
 }

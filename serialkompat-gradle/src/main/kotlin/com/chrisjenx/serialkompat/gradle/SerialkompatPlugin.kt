@@ -430,6 +430,17 @@ public class SerialkompatPlugin : Plugin<Project> {
         if (!project.pluginManager.hasPlugin("org.jetbrains.kotlin.multiplatform")) {
             return project.files()
         }
+        // `builtBy` is resolved at task-graph construction, before any `onlyIf` — a KMP module
+        // with no jvm() target (js()/native-only) has no `jvmMainClasses` task, so wiring it
+        // unconditionally would blow up `check`/`build` with UnknownTaskException even though the
+        // plugin is otherwise a safe no-op. This runs inside the (lazy) `serialkompatExtract`
+        // registration action, which Gradle only realizes once the task is actually needed — by
+        // then the whole build script, including a real `kotlin { jvm() }` block, has already run,
+        // so a plain name lookup (no KGP dependency, matching the rest of this file) sees the
+        // task if and only if a jvm() target actually registered it.
+        if (project.tasks.findByName("jvmMainClasses") == null) {
+            return project.files()
+        }
         val kmpClasses = project.layout.buildDirectory.dir("classes/kotlin/jvm/main")
         return project.files(kmpClasses).builtBy("jvmMainClasses")
     }
