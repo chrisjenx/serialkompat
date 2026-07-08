@@ -35,6 +35,7 @@ CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport` on JDK 17 
 | `serialkompat-extractor` | Runtime `SerialDescriptor` → `Snapshot` | JVM. `explicitApi()`. Applies the serialization plugin for test fixtures. |
 | `serialkompat-gradle` | The Gradle plugin (`serialkompatCheck`) | `java-gradle-plugin`. |
 | `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` (non-Gradle / cross-repo) | Application; excluded from `apiCheck`. |
+| `serialkompat-annotations` | `@SerialkompatIgnore` / `@SerialkompatChecked` discovery markers | **Kotlin Multiplatform** (only KMP module). `explicitApi()`. `RUNTIME` retention so the extractor scanner reads them from bytecode. |
 
 Keep the diff/classify engine (`-core`) decoupled from extraction and from where baselines come from — that decoupling is load-bearing (see design §3).
 
@@ -42,16 +43,17 @@ Keep the diff/classify engine (`-core`) decoupled from extraction and from where
 
 - **JVM target is 17** (set in the root `build.gradle.kts`); the build runs on JDK 17+ with `javac --release 17` — do not add a toolchain that would trigger a JDK download.
 - **Library modules use `explicitApi()`** — declare visibility and public return types. Public declarations get KDoc.
-- **Public API changes** must be reflected by committing the updated `*.api` file (`./gradlew apiDump`). The `.api` diff is part of review.
+- **Public API changes** must be reflected by committing the updated `*.api` file (`./gradlew apiDump`). The `.api` diff is part of review. Run `apiDump` and `apiCheck` as **separate** Gradle invocations — combining them (`./gradlew apiDump apiCheck`) fails with a BCV "implicit dependency" validation error.
 - **Formatting** is Spotless + ktlint (`.editorconfig`). Run `spotlessApply`.
 - **In compiled Gradle plugin code** (not `.gradle.kts`), task-configuration lambdas receive the task as a parameter — use `it`/a named param (`register("x") { task -> task.group = ... }`), not an implicit receiver.
 - **Configuration cache is on.** Avoid capturing `Project` at execution time; be wary of plugins that aren't config-cache compatible.
+- **`serialkompat-annotations` (KMP) builds Apple targets, which need a macOS host.** `ci.yml`'s ubuntu job excludes it (`-x :serialkompat-annotations:build`) and a separate `macos-latest` job is its sole `apiCheck`/native gate; `release`/`snapshot` publish jobs run on macOS so klibs are complete. These are deliberate — don't "simplify" them. Linux silently *disables* Apple targets (no error), so a green ubuntu build never proves that module complete.
 - Never commit secrets. Publishing credentials live in CI secrets only.
 
 ## Deferred (tracked as issues)
 
 - `detekt` static analysis (pending Kotlin 2.4 compatibility check).
 - Dokka API-docs site.
-- Maven Central publishing is **wired** (vanniktech `maven-publish` on the three library modules; `Release`/`Snapshot` workflows). It needs the CI secrets listed in README → Publishing to actually run. Gradle Plugin Portal publishing (for `plugins { id(...) }` resolution) is still pending.
+- Maven Central publishing is **wired** (vanniktech `maven-publish` on the four library modules incl. `serialkompat-annotations`; `Release`/`Snapshot` workflows). It needs the CI secrets listed in README → Publishing to actually run. Gradle Plugin Portal publishing (for `plugins { id(...) }` resolution) is still pending.
 
 See the [issues](https://github.com/chrisjenx/serialkompat/issues) and [milestones](https://github.com/chrisjenx/serialkompat/milestones) for the build order.
