@@ -63,11 +63,13 @@ public object SchemaExtractionMain {
         }
         // Discovery-mode filter (issue #115): applies to *scanned* candidates only.
         // Manifest entries and explicit typeNames are deliberate acts and bypass it.
+        val ignored = scan.ignored.toSet()
+        val optedIn = scan.optedIn.toSet()
         val scannedRoots =
             when (discovery) {
                 DiscoveryMode.EXPLICIT -> scan.typeNames
-                DiscoveryMode.OPT_OUT -> scan.typeNames.filterNot { it in scan.ignored.toSet() }
-                DiscoveryMode.OPT_IN -> scan.typeNames.filter { it in scan.optedIn.toSet() }
+                DiscoveryMode.OPT_OUT -> scan.typeNames.filterNot { it in ignored }
+                DiscoveryMode.OPT_IN -> scan.typeNames.filter { it in optedIn }
             }
         if (discovery == DiscoveryMode.OPT_OUT && scan.ignored.isNotEmpty()) {
             System.err.println(

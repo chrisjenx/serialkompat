@@ -23,6 +23,9 @@ internal object SerializableClassScanner {
     private const val IGNORE = "Lcom/chrisjenx/serialkompat/annotations/SerialkompatIgnore;"
     private const val CHECKED = "Lcom/chrisjenx/serialkompat/annotations/SerialkompatChecked;"
 
+    /** The annotation descriptors [readAnnotations] looks for at the class level. */
+    private val WATCHED_ANNOTATIONS = setOf(SERIALIZABLE, IGNORE, CHECKED)
+
     // constant_pool entry tags (JVMS §4.4, Table 4.4-B). The format is additive-only:
     // these have never changed size/meaning; an unknown tag → the file is unreadable.
     private const val CP_UTF8 = 1
@@ -168,10 +171,9 @@ internal object SerializableClassScanner {
         input: DataInputStream,
         utf8: Map<Int, String>,
     ): Set<String> {
-        val watched = setOf(SERIALIZABLE, IGNORE, CHECKED)
         val found = mutableSetOf<String>()
         repeat(input.readUnsignedShort()) {
-            utf8[input.readUnsignedShort()]?.takeIf(watched::contains)?.let(found::add)
+            utf8[input.readUnsignedShort()]?.takeIf(WATCHED_ANNOTATIONS::contains)?.let(found::add)
             repeat(input.readUnsignedShort()) {
                 input.skipNBytes(2) // element_name_index
                 skipElementValue(input)
