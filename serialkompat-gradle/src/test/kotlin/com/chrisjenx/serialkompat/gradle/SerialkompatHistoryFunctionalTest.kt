@@ -137,6 +137,39 @@ class SerialkompatHistoryFunctionalTest {
     }
 
     @Test
+    fun `serialkompatRecord refuses to record an all-OPAQUE snapshot`() {
+        settings()
+        write(
+            "build.gradle.kts",
+            """
+            plugins { id("com.chrisjenx.serialkompat") }
+            serialkompat {
+                discovery.set(com.chrisjenx.serialkompat.extractor.DiscoveryMode.OPT_IN)
+            }
+            """,
+        )
+        // Non-empty by contract count, but the only entry is an unanalysable placeholder (a stale
+        // unresolvable manifest entry or unreadable class file) -- zero *real* checked types, so
+        // the plain `contracts.isEmpty()` guard doesn't fire.
+        seedCurrent(Snapshot(listOf(Contract("com.example.Unresolvable", ContractKind.OPAQUE))))
+
+        val result =
+            runner("serialkompatRecord", "-Pserialkompat.recordVersion=1.0.0", "-x", "serialkompatExtract")
+                .buildAndFail()
+        assertEquals(TaskOutcome.FAILED, result.task(":serialkompatRecord")?.outcome)
+        assertTrue(
+            result.output.contains("OPAQUE") || result.output.contains("0 contracts"),
+            "expected a clear refusal message:\n${result.output}",
+        )
+
+        val recorded = File(projectDir, "serialkompat/history/1.0.0.snapshot")
+        assertTrue(
+            !recorded.exists(),
+            "must not have written an all-OPAQUE entry into the append-only history: ${recorded.path}",
+        )
+    }
+
+    @Test
     fun `serialkompatCheckHistory fails on a change incompatible with a published version`() {
         settings()
         buildFile(direction = "FORWARD")

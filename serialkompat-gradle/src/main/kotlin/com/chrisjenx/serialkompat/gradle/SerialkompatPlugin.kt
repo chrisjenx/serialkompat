@@ -2,6 +2,7 @@ package com.chrisjenx.serialkompat.gradle
 
 import com.chrisjenx.serialkompat.core.AcceptedBreak
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
+import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.SnapshotFormat
 import com.chrisjenx.serialkompat.extractor.DiscoveryMode
 import com.chrisjenx.serialkompat.gradle.git.GitRefBaseline
@@ -296,15 +297,27 @@ public class SerialkompatPlugin : Plugin<Project> {
         version: String,
     ) {
         val snapshot = SnapshotFormat.parse(current.readText())
-        // Fail closed rather than writing an empty entry: the published history is append-only
-        // (PublishedHistory.record never overwrites), so a degenerate snapshot recorded here — an
-        // OPT_IN project with nothing annotated yet, or OPT_OUT with everything @SerialkompatIgnore'd
-        // — would sit there permanently, unlike a bad `serialkompatCheck` run which just fails again
-        // next time.
-        if (snapshot.contracts.isEmpty()) {
+        // Fail closed rather than writing a degenerate entry: the published history is append-only
+        // (PublishedHistory.record never overwrites), so a snapshot with nothing real recorded here
+        // — an OPT_IN project with nothing annotated yet, OPT_OUT with everything
+        // @SerialkompatIgnore'd, or every contract downgraded to an unanalysable OPAQUE placeholder
+        // (a stale unresolvable manifest entry, an unreadable class file) — would sit there
+        // permanently, unlike a bad `serialkompatCheck` run which just fails again next time. A
+        // plain `contracts.isEmpty()` check misses the all-OPAQUE case: the snapshot is non-empty by
+        // count but has zero contracts that are actually checked.
+        val checkedContracts = snapshot.contracts.count { it.kind != ContractKind.OPAQUE }
+        if (checkedContracts == 0) {
+            val opaqueContracts = snapshot.contracts.size - checkedContracts
+            val detail =
+                if (opaqueContracts > 0) {
+                    "0 checked contracts ($opaqueContracts OPAQUE/unanalysable, " +
+                        "${snapshot.contracts.size} total)"
+                } else {
+                    "0 contracts"
+                }
             throw GradleException(
-                "serialkompat: refusing to record version '$version' — the current schema has 0 " +
-                    "contracts (check discovery/types configuration). The published history is " +
+                "serialkompat: refusing to record version '$version' — the current schema has $detail " +
+                    "(check discovery/types configuration). The published history is " +
                     "append-only, so an empty entry can't be corrected later, only left in place.",
             )
         }
