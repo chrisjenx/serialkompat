@@ -1,6 +1,7 @@
 package com.chrisjenx.serialkompat.gradle
 
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
+import com.chrisjenx.serialkompat.extractor.DiscoveryMode
 import org.gradle.api.Action
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
@@ -20,6 +21,15 @@ public abstract class SerialkompatExtension
     ) {
         /** Fully-qualified names of the `@Serializable` root types to check. */
         public abstract val types: ListProperty<String>
+
+        /**
+         * How checked types are discovered when [types] is empty (issue #115):
+         * `EXPLICIT` (default) checks only [types]; `OPT_OUT` checks every discovered
+         * `@Serializable` type except those carrying `@SerialkompatIgnore`; `OPT_IN`
+         * checks only types carrying `@SerialkompatChecked`. A non-empty [types] list
+         * always wins, in every mode.
+         */
+        public abstract val discovery: Property<DiscoveryMode>
 
         /** FQN of a `Json` instance whose configuration describes the wire (e.g. `com.acme.WireJson.instance`). */
         public abstract val jsonInstance: Property<String>

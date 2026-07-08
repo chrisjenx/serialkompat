@@ -3,6 +3,20 @@ public final class com/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtrac
 	public fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;)Lcom/chrisjenx/serialkompat/core/Snapshot;
 }
 
+public final class com/chrisjenx/serialkompat/extractor/DiscoveryMode : java/lang/Enum {
+	public static final field Companion Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode$Companion;
+	public static final field EXPLICIT Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;
+	public static final field OPT_IN Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;
+	public static final field OPT_OUT Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;
+	public static fun values ()[Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;
+}
+
+public final class com/chrisjenx/serialkompat/extractor/DiscoveryMode$Companion {
+	public final fun fromCli (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;
+}
+
 public final class com/chrisjenx/serialkompat/extractor/JsonConfigReader {
 	public static final field INSTANCE Lcom/chrisjenx/serialkompat/extractor/JsonConfigReader;
 	public final fun read (Lkotlinx/serialization/json/Json;)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
@@ -14,8 +28,8 @@ public final class com/chrisjenx/serialkompat/extractor/SchemaExtractionMain {
 	public final fun discoverTypeNames (Ljava/lang/ClassLoader;)Ljava/util/List;
 	public static synthetic fun discoverTypeNames$default (Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/lang/ClassLoader;ILjava/lang/Object;)Ljava/util/List;
 	public static final fun main ([Ljava/lang/String;)V
-	public final fun run (Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;)V
-	public static synthetic fun run$default (Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;ILjava/lang/Object;)V
+	public final fun run (Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;)V
+	public static synthetic fun run$default (Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;ILjava/lang/Object;)V
 }
 
 public abstract interface class com/chrisjenx/serialkompat/extractor/SnapshotExtractor {

@@ -196,6 +196,46 @@ coverage gaps. **KSP remains rejected** (maintainer decision, issue #22); the
 compiler-plugin producer originally tracked in #55 is retired — #22 only mandated
 a compiler plugin *over KSP*, and scanning proved not-awkward.
 
+### Discovery modes (#115)
+
+Discovery (§4 above) decides *which* types are candidates; `discovery` decides
+*which of those candidates are checked* when `types` is empty:
+
+| Mode | Checked | Rationale |
+|---|---|---|
+| `EXPLICIT` (default) | Only `types` | Unchanged pre-#115 behavior — zero-risk default |
+| `OPT_OUT` | Discovered minus `@SerialkompatIgnore` | Coverage-by-default; escape hatch for the intentionally-unstable few |
+| `OPT_IN` | Only `@SerialkompatChecked` | Gradual adoption — nothing joins the gate until reviewed |
+
+**Precedence**, applied in this order, in every mode:
+
+1. A non-empty `types` list always wins — `discovery` is only consulted when
+   `types` is empty.
+2. Annotations refine the **scanned** set only. Classpath-manifest entries
+   (`META-INF/serialkompat/serializable-types.txt`) are a deliberate,
+   producer-asserted act — like an explicit `types` entry — and bypass
+   annotation filtering entirely: they're unioned into the checked set in
+   `OPT_OUT`/`OPT_IN` regardless of `@SerialkompatIgnore`/`@SerialkompatChecked`.
+3. `include`/`exclude` serial-name prefixes apply after discovery and
+   filtering, in all modes — unchanged from before this feature.
+
+**Why annotations are scanner-detected, not classloaded.** `@SerialkompatIgnore`
+and `@SerialkompatChecked` (new `serialkompat-annotations` KMP artifact) are
+read the same way `@Serializable` itself is detected in the class-dir scan
+(§4): a class-file parse of `RuntimeVisibleAnnotations`, no classloading. This
+keeps the discovery-time guarantee from §4 intact — a broken or unrelated
+classpath entry still can't crash extraction — and means the filter only ever
+sees types the scanner could already parse; it can't fabricate a false
+inclusion/exclusion the scan didn't itself derive from bytecode.
+
+**KMP `jvm()`-target floor.** Extraction runs against compiled JVM descriptors
+(§4), so a Kotlin Multiplatform module only participates in discovery/checking
+when it declares a `jvm()` target — that's a floor imposed by where the
+`SerialDescriptor` bytecode lives, not an arbitrary restriction. Models are
+annotated in `commonMain`; `serialkompat-annotations` is itself multiplatform
+so the annotation type resolves there, but the *scan* still only sees the
+compiled JVM output.
+
 ---
 
 ## 5. Baseline model (git-ref-live)

@@ -1,0 +1,6 @@
+public abstract interface annotation class com/chrisjenx/serialkompat/annotations/SerialkompatChecked : java/lang/annotation/Annotation {
+}
+
+public abstract interface annotation class com/chrisjenx/serialkompat/annotations/SerialkompatIgnore : java/lang/annotation/Annotation {
+}
+

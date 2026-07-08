@@ -21,6 +21,8 @@ dependencies {
     implementation(kotlin("reflect"))
 
     testImplementation(kotlin("test"))
+    // Real marker annotations (not stand-ins): pins the FQNs the scanner matches on.
+    testImplementation(project(":serialkompat-annotations"))
     testImplementation(libs.junit.jupiter.engine)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

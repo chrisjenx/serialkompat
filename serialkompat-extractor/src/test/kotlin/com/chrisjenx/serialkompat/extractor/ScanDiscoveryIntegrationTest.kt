@@ -134,4 +134,15 @@ class ScanDiscoveryIntegrationTest {
             }
         assertTrue(failure.message!!.contains("--types or --scan-classes"))
     }
+
+    @Test
+    fun `cli allows a discovery-only invocation with neither --types nor --scan-classes`() {
+        // A root/aggregator project with no compiled classes of its own to scan still has a
+        // classpath manifest to fall back to (run()'s discoverTypeNames()) -- --discovery alone
+        // must not be rejected upfront by the CLI guard.
+        val out = outFile()
+        SchemaExtractionMain.main(arrayOf("--discovery", "opt-out", "--out", out.path))
+        val snapshot = SnapshotFormat.parse(out.readText())
+        assertTrue(snapshot.contracts.isEmpty(), "expected no contracts with an empty manifest and no scan")
+    }
 }
