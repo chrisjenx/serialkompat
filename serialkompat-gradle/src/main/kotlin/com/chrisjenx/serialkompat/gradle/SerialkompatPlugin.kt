@@ -372,8 +372,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                 .start()
         val log = process.inputStream.bufferedReader().use { it.readText() }
         check(process.waitFor() == 0) { "serialkompat: baseline extraction failed in worktree:\n$log" }
-        val relative = projectDir.relativeTo(rootDir)
-        return File(worktreeDir, "$relative/build/serialkompat/current.snapshot").readText()
+        return readWorktreeSnapshot(rootDir, projectDir, worktreeDir)
     }
 
     private fun toolClasspath(project: Project): FileCollection {
