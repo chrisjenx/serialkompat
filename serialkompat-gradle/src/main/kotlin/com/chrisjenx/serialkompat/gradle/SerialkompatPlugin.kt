@@ -82,8 +82,16 @@ public class SerialkompatPlugin : Plugin<Project> {
                         if (discovery != DiscoveryMode.EXPLICIT && types.isEmpty()) {
                             add("--discovery")
                             add(if (discovery == DiscoveryMode.OPT_OUT) "opt-out" else "opt-in")
-                            add("--scan-classes")
-                            add(scanDirs.files.joinToString(File.pathSeparator) { it.absolutePath })
+                            // No Java `main` source set and no KMP plugin (e.g. a root/aggregator
+                            // project) leaves scanDirs empty; emitting --scan-classes with an empty
+                            // string would make the extractor parse zero scan dirs and, with types
+                            // also empty, hit its `require(types.isNotEmpty() || scanDirs.isNotEmpty())`
+                            // -> a raw IllegalArgumentException. The extractor already degrades to
+                            // manifest-only discovery when --scan-classes is absent, so just omit it.
+                            if (scanDirs.files.isNotEmpty()) {
+                                add("--scan-classes")
+                                add(scanDirs.files.joinToString(File.pathSeparator) { it.absolutePath })
+                            }
                         }
                         add("--out")
                         add(currentSnapshot.get().asFile.absolutePath)

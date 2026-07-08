@@ -146,10 +146,14 @@ public object SchemaExtractionMain {
                 ?.map(::File)
                 .orEmpty()
         val output = options["out"] ?: error("serialkompat: --out is required")
-        require(types.isNotEmpty() || scanDirs.isNotEmpty()) {
+        val discovery = options["discovery"]?.let(DiscoveryMode::fromCli) ?: DiscoveryMode.EXPLICIT
+        // A non-EXPLICIT --discovery falls back to the classpath manifest (TYPES_RESOURCE) even
+        // with no --scan-classes (e.g. a root/aggregator project with no compiled classes of its
+        // own to scan) — `run()` already handles that combination, so the CLI must not reject it
+        // upfront; only a genuinely unconfigured invocation (EXPLICIT, nothing to check) is an error.
+        require(types.isNotEmpty() || scanDirs.isNotEmpty() || discovery != DiscoveryMode.EXPLICIT) {
             "serialkompat: --types or --scan-classes is required"
         }
-        val discovery = options["discovery"]?.let(DiscoveryMode::fromCli) ?: DiscoveryMode.EXPLICIT
         run(types, options["json"], File(output), scanDirs, discovery)
     }
 
