@@ -90,6 +90,14 @@ public object SchemaExtractionMain {
         // classpath manifest (see [TYPES_RESOURCE]) unioned with the class-dir scan.
         val effectiveTypes =
             typeNames.ifEmpty { (discoverTypeNames() + scannedRoots).distinct().sorted() }
+        // Discovery ran but turned up nothing: say so, rather than silently emitting an empty
+        // snapshot that reads downstream as "no checked types" (silence must never read as coverage).
+        if (typeNames.isEmpty() && discovery != DiscoveryMode.EXPLICIT && effectiveTypes.isEmpty()) {
+            System.err.println(
+                "serialkompat: $discovery discovery found 0 types (no manifest entries and no " +
+                    "matching scanned classes); the snapshot will be empty.",
+            )
+        }
 
         // Resolve each type independently. A single unresolvable/broken type (stale manifest entry,
         // renamed class, missing transitive dependency, a generic that needs type args) must NEVER
@@ -128,8 +136,9 @@ public object SchemaExtractionMain {
     /**
      * CLI shim: `--types a,b,c | --scan-classes dir1:dir2 --out path [--json fqn]
      * [--discovery explicit|opt-out|opt-in]`.
-     * At least one of `--types` / `--scan-classes` is required; `--scan-classes`
-     * takes [File.pathSeparator]-separated class directories.
+     * Requires at least one of: `--types`, `--scan-classes`, or a non-`explicit`
+     * `--discovery` (which falls back to the classpath manifest, [TYPES_RESOURCE]).
+     * `--scan-classes` takes [File.pathSeparator]-separated class directories.
      */
     @JvmStatic
     public fun main(args: Array<String>) {
