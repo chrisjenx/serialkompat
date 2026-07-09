@@ -198,4 +198,71 @@ class DescriptorSnapshotExtractorTest {
             extract(serializer<Order>().descriptor),
         )
     }
+
+    @Serializable
+    @SerialName("Box")
+    private data class Box<T>(
+        val value: T,
+        val label: String,
+        val items: List<T>,
+    )
+
+    @Serializable
+    @SerialName("Pair2")
+    private data class Pair2<A, B>(
+        val first: A,
+        val second: B,
+    )
+
+    @Serializable
+    @SerialName("Host")
+    private data class Host(
+        val boxed: Box<String>,
+    )
+
+    private fun holeDescriptor(kClass: kotlin.reflect.KClass<*>): SerialDescriptor {
+        val holes = List(kClass.typeParameters.size) { HoleSerializer(it) }
+        return serializer(kClass, holes, false).descriptor
+    }
+
+    @Test
+    fun `generic root is extracted with hole type refs`() {
+        val snapshot =
+            DescriptorSnapshotExtractor.extract(
+                roots = emptyList(),
+                genericRoots = listOf(holeDescriptor(Box::class)),
+            )
+        val box = snapshot.contracts.single { it.serialName == "Box" }
+        assertEquals(ContractKind.CLASS, box.kind)
+        assertEquals("#0", box.elements.single { it.name == "value" }.type)
+        assertEquals("List<#0>", box.elements.single { it.name == "items" }.type)
+        assertEquals("kotlin.String", box.elements.single { it.name == "label" }.type)
+    }
+
+    @Test
+    fun `arity-2 generic root uses distinct holes`() {
+        val snapshot =
+            DescriptorSnapshotExtractor.extract(
+                roots = emptyList(),
+                genericRoots = listOf(holeDescriptor(Pair2::class)),
+            )
+        val p = snapshot.contracts.single { it.serialName == "Pair2" }
+        assertEquals("#0", p.elements.single { it.name == "first" }.type)
+        assertEquals("#1", p.elements.single { it.name == "second" }.type)
+    }
+
+    @Test
+    fun `a concrete instantiation reached in the walk wins over the hole envelope`() {
+        // Host.boxed : Box<String> is walked first (primary), so Box is concrete; the hole
+        // Box in genericRoots is fill-if-absent and skipped by serial name (no orphaning of String).
+        val host = serializer<Host>().descriptor
+        val snapshot =
+            DescriptorSnapshotExtractor.extract(
+                roots = listOf(host),
+                genericRoots = listOf(holeDescriptor(Box::class)),
+            )
+        val box = snapshot.contracts.single { it.serialName == "Box" }
+        assertEquals("kotlin.String", box.elements.single { it.name == "value" }.type)
+        assertTrue(box.elements.none { it.type.contains("#") }, "concrete instantiation must not carry holes")
+    }
 }
