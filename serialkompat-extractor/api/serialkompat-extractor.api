@@ -2,7 +2,6 @@ public final class com/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtrac
 	public static final field INSTANCE Lcom/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor;
 	public fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;)Lcom/chrisjenx/serialkompat/core/Snapshot;
 	public final fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;Ljava/lang/Iterable;)Lcom/chrisjenx/serialkompat/core/Snapshot;
-	public static synthetic fun extract$default (Lcom/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor;Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;Ljava/lang/Iterable;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Snapshot;
 }
 
 public final class com/chrisjenx/serialkompat/extractor/DiscoveryMode : java/lang/Enum {

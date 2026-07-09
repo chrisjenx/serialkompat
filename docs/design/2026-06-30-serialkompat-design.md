@@ -671,9 +671,15 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
 - Generic/parameterized `@Serializable` roots: envelope (non-type-parameter)
   fields are checked via hole resolution (#139); **per-instantiation** shape
   (`BaseResponse<User>` vs `BaseResponse<Order>` — type args are erased in type
-  refs) and **generic sealed/polymorphic** hierarchies remain gaps. A type change
-  between two hole-bearing shapes that differ only in container/arity
-  (`List<#0>` → `Set<#0>`) is also not flagged this cut.
+  refs) and **generic sealed/polymorphic** hierarchies remain gaps. The classifier
+  suppresses an `ElementTypeChanged` whenever *either* side of the change bears a
+  hole, which is broader than just container/arity flips: **any** concrete-argument
+  change beside a hole is also suppressed this cut, including a real break such as
+  `Map<String,#0>` → `Map<Int,#0>` (a map-key type change, not flagged) alongside
+  the narrower container/arity case (`List<#0>` → `Set<#0>`). A hole-normalized
+  structural compare — diffing only the concrete positions of a hole-bearing type
+  string rather than suppressing the whole change — is a possible follow-up to
+  tighten this.
 - Contextual serializers require the `SerializersModule` (supplied by the `Json`
   instance the user points at).
 - Rebuilding *recent* refs is reliable; *ancient* ones are not (→ old baselines

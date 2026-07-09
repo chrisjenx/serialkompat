@@ -120,7 +120,11 @@ public object SchemaExtractionMain {
         val opaque = mutableListOf<Contract>()
         for (name in effectiveTypes) {
             val kClass = runCatching { Class.forName(name).kotlin }.getOrNull()
-            val generic = kClass != null && kClass.typeParameters.isNotEmpty()
+            // Reading @Metadata (typeParameters) can throw on version-skewed classes (target compiled
+            // with a newer Kotlin than our kotlin-reflect); guard it so such a type degrades to OPAQUE
+            // via the concrete path's own runCatching rather than aborting the whole extraction
+            // (design §10).
+            val generic = runCatching { kClass?.typeParameters?.isNotEmpty() == true }.getOrDefault(false)
             // Concrete: serializer(kType). Generic: resolve with hole placeholders first, then filter
             // to plain classes only — a generic sealed/polymorphic hierarchy is out of scope this cut
             // and degrades to OPAQUE, keyed by its real wire serialName (not its FQN) since the

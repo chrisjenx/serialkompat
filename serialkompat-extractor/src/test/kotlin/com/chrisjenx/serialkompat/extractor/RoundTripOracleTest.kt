@@ -6,6 +6,7 @@ import com.chrisjenx.serialkompat.core.Contract
 import com.chrisjenx.serialkompat.core.Rules
 import com.chrisjenx.serialkompat.core.Severity
 import com.chrisjenx.serialkompat.core.Snapshot
+import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.SnapshotDiffer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -15,6 +16,7 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonNamingStrategy
+import kotlinx.serialization.modules.EmptySerializersModule
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
@@ -979,6 +981,8 @@ class RoundTripOracleTest {
         val holes = List(kClass.typeParameters.size) { HoleSerializer(it) }
         return DescriptorSnapshotExtractor.extract(
             roots = emptyList(),
+            module = EmptySerializersModule(),
+            config = SnapshotConfig(),
             genericRoots = listOf(serializer(kClass, holes, false).descriptor),
         )
     }
@@ -1045,6 +1049,8 @@ class RoundTripOracleTest {
         val current =
             DescriptorSnapshotExtractor.extract(
                 roots = listOf(serializer<HostUsingEnv>().descriptor),
+                module = EmptySerializersModule(),
+                config = SnapshotConfig(),
                 genericRoots =
                     listOf(
                         serializer(EnvV1::class, listOf(HoleSerializer(0)), false).descriptor,

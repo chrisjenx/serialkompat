@@ -410,4 +410,13 @@ class ClassifierTest {
         assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
         assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))
     }
+
+    @Test
+    fun `documented first-cut limitation - a concrete change beside a hole is suppressed`() {
+        // Map<String,#1> -> Map<Int,#1> is a real map-key wire break, but the value position is a
+        // hole, so the whole type change is suppressed this cut (#139 D4). Pins the known boundary;
+        // a future hole-normalized structural compare would tighten this to diff concrete positions.
+        val f = classify(Change.ElementTypeChanged("Env", "meta", "Map<String,#1>", "Map<Int,#1>"))
+        assertTrue(f.isEmpty(), "concrete-beside-hole change is a documented first-cut suppression")
+    }
 }

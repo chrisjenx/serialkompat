@@ -2,6 +2,7 @@ package com.chrisjenx.serialkompat.extractor
 
 import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.Snapshot
+import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.Subtype
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -9,6 +10,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.json.JsonNames
+import kotlinx.serialization.modules.EmptySerializersModule
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
@@ -230,6 +232,8 @@ class DescriptorSnapshotExtractorTest {
         val snapshot =
             DescriptorSnapshotExtractor.extract(
                 roots = emptyList(),
+                module = EmptySerializersModule(),
+                config = SnapshotConfig(),
                 genericRoots = listOf(holeDescriptor(Box::class)),
             )
         val box = snapshot.contracts.single { it.serialName == "Box" }
@@ -244,6 +248,8 @@ class DescriptorSnapshotExtractorTest {
         val snapshot =
             DescriptorSnapshotExtractor.extract(
                 roots = emptyList(),
+                module = EmptySerializersModule(),
+                config = SnapshotConfig(),
                 genericRoots = listOf(holeDescriptor(Pair2::class)),
             )
         val p = snapshot.contracts.single { it.serialName == "Pair2" }
@@ -259,6 +265,8 @@ class DescriptorSnapshotExtractorTest {
         val snapshot =
             DescriptorSnapshotExtractor.extract(
                 roots = listOf(host),
+                module = EmptySerializersModule(),
+                config = SnapshotConfig(),
                 genericRoots = listOf(holeDescriptor(Box::class)),
             )
         val box = snapshot.contracts.single { it.serialName == "Box" }

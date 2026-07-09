@@ -19,7 +19,6 @@ import kotlinx.serialization.descriptors.elementDescriptors
 import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonNames
-import kotlinx.serialization.modules.EmptySerializersModule
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.SerializersModuleCollector
 import kotlin.reflect.KClass
@@ -54,9 +53,9 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
      */
     public fun extract(
         roots: Iterable<SerialDescriptor>,
-        module: SerializersModule = EmptySerializersModule(),
-        config: SnapshotConfig = SnapshotConfig(),
-        genericRoots: Iterable<SerialDescriptor> = emptyList(),
+        module: SerializersModule,
+        config: SnapshotConfig,
+        genericRoots: Iterable<SerialDescriptor>,
     ): Snapshot {
         val openPoly = collectOpenSubtypes(module)
         val visited = mutableSetOf<String>()
