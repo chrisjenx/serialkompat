@@ -383,4 +383,31 @@ class ClassifierTest {
         assertNull(f.severity(CompatibilityDirection.BACKWARD))
         assertEquals(Severity.WARN, f.severity(CompatibilityDirection.FORWARD))
     }
+
+    // --- Hole-bearing type transitions (#139) ---------------------------------
+
+    @Test
+    fun `type change from a hole to a concrete type is not a wire change`() {
+        val f = classify(Change.ElementTypeChanged("BaseResponse", "data", "#0", "com.example.User"))
+        assertTrue(f.isEmpty(), "hole -> concrete must produce no finding")
+    }
+
+    @Test
+    fun `type change from a concrete type to a hole is not a wire change`() {
+        val f = classify(Change.ElementTypeChanged("BaseResponse", "data", "com.example.User", "#0"))
+        assertTrue(f.isEmpty(), "concrete -> hole must produce no finding")
+    }
+
+    @Test
+    fun `hole nested in a container is recognized`() {
+        val f = classify(Change.ElementTypeChanged("BaseResponse", "items", "List<#0>", "List<com.example.User>"))
+        assertTrue(f.isEmpty(), "List<#0> -> List<User> must produce no finding")
+    }
+
+    @Test
+    fun `type change between two concrete types is still classified`() {
+        val f = classify(Change.ElementTypeChanged("T", "x", "kotlin.String", "kotlin.Int"))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))
+    }
 }
