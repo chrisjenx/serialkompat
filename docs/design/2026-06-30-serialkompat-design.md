@@ -188,11 +188,16 @@ producer-agnostic sources: the classpath manifest
 and a scan of compiled class directories (`--scan-classes`). The scan is a
 dependency-free class-file parse — no classloading: `@Serializable` is
 RUNTIME-retained, so annotated classes carry it in `RuntimeVisibleAnnotations`.
-Generic classes are skipped as scan roots, loudly — they have no standalone wire
-shape and their concrete shapes are covered at use sites (a survey of two
-production codebases found 9/9 generics nested in one; the other's 2/2 root-only
-envelopes are the logged, tracked gap). Unreadable class files degrade to OPAQUE
-coverage gaps. **KSP remains rejected** (maintainer decision, issue #22); the
+Generic classes are resolved as scan roots by extracting their descriptor with
+type-parameter *holes* (#139): a root-only generic envelope (`BaseResponse<T>`)
+contributes a `CLASS` contract whose type-parameter positions render as a stable
+sentinel (`#0`, `List<#0>`), so its own envelope fields (`status`, `count`) are
+checked while the holes stay covered at concrete use sites. Resolution is
+fill-if-absent — a concrete instantiation reached in the walk wins over the hole
+envelope, so nested generics keep their existing shape and their type arguments
+are never orphaned. A generic *sealed/polymorphic* hierarchy is out of scope this
+cut and degrades to an OPAQUE coverage gap. Unreadable class files degrade to
+OPAQUE coverage gaps. **KSP remains rejected** (maintainer decision, issue #22); the
 compiler-plugin producer originally tracked in #55 is retired — #22 only mandated
 a compiler plugin *over KSP*, and scanning proved not-awkward.
 
@@ -663,7 +668,12 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
   `UserId` (or back) would surface as a spurious `ElementTypeChanged` and score a
   false `BREAK`. Value classes are transparent: they are not emitted as their own
   contracts, but a value class wrapping a `@Serializable` type still walks that type.
-- Generic/parameterized `@Serializable` descriptors (per-instantiation shape).
+- Generic/parameterized `@Serializable` roots: envelope (non-type-parameter)
+  fields are checked via hole resolution (#139); **per-instantiation** shape
+  (`BaseResponse<User>` vs `BaseResponse<Order>` — type args are erased in type
+  refs) and **generic sealed/polymorphic** hierarchies remain gaps. A type change
+  between two hole-bearing shapes that differ only in container/arity
+  (`List<#0>` → `Set<#0>`) is also not flagged this cut.
 - Contextual serializers require the `SerializersModule` (supplied by the `Json`
   instance the user points at).
 - Rebuilding *recent* refs is reliable; *ancient* ones are not (→ old baselines
