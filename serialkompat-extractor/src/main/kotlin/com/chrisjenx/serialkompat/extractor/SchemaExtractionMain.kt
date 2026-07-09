@@ -31,9 +31,13 @@ public object SchemaExtractionMain {
      *
      * When [typeNames] is empty, types are discovered instead: the classpath
      * manifest (see [TYPES_RESOURCE]) unioned with a class-dir scan of [scanDirs]
-     * (issue #55). Generic classes found by the scan are skipped as roots — they
-     * have no standalone wire shape; their concrete shapes are covered at use
-     * sites — and logged by name. Unreadable class files degrade to OPAQUE
+     * (issue #55). Generic classes found by the scan are resolved as roots by
+     * extracting their descriptor with type-parameter holes (issue #139): each
+     * contributes its own `CLASS` contract whose type-parameter positions render
+     * as a stable sentinel, so its envelope fields are checked while the holes stay
+     * covered at concrete use sites. A generic sealed/polymorphic hierarchy is out
+     * of scope and degrades to an OPAQUE coverage gap. Unreadable class files
+     * degrade to OPAQUE
      * coverage gaps whenever [scanDirs] were scanned, even alongside explicit
      * [typeNames].
      *
@@ -59,8 +63,9 @@ public object SchemaExtractionMain {
         val scan = SerializableClassScanner.scan(scanDirs)
         if (scan.skippedGenerics.isNotEmpty()) {
             System.err.println(
-                "serialkompat: skipped ${scan.skippedGenerics.size} generic type(s) as scan roots " +
-                    "(their shapes are checked at concrete use sites): " +
+                "serialkompat: resolving ${scan.skippedGenerics.size} generic type(s) as scan roots with " +
+                    "type-parameter holes (envelope fields checked; generic sealed/polymorphic degrade to " +
+                    "OPAQUE): " +
                     scan.skippedGenerics.joinToString(", "),
             )
         }
@@ -131,7 +136,8 @@ public object SchemaExtractionMain {
                         }
                     }
                 }.getOrNull()
-            val descriptor = if (generic) rawDescriptor?.takeIf { it.kind == StructureKind.CLASS } else rawDescriptor
+            val descriptor =
+                if (generic) rawDescriptor?.takeIf { it.kind == StructureKind.CLASS } else rawDescriptor
             when {
                 descriptor == null -> {
                     System.err.println(

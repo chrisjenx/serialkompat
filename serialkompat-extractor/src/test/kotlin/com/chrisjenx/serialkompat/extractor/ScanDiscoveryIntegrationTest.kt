@@ -112,7 +112,7 @@ class ScanDiscoveryIntegrationTest {
     }
 
     @Test
-    fun `skipped generics are logged to stderr by name`() {
+    fun `generic roots are logged to stderr by name`() {
         val originalErr = System.err
         val captured = ByteArrayOutputStream()
         System.setErr(PrintStream(captured))
