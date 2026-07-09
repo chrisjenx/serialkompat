@@ -83,9 +83,11 @@ internal object SerializableClassScanner {
                 when {
                     parsed == null -> unreadable += file.relativeTo(root).path
                     !parsed.serializable -> {}
-                    parsed.generic -> skippedGenerics += parsed.binaryName
                     else -> {
-                        typeNames += parsed.binaryName
+                        // A generic class stays a skipped root (no standalone wire shape until the
+                        // extractor resolves it with holes, #139), but its discovery-mode markers are
+                        // recorded either way so OPT_OUT/OPT_IN apply to generic roots too.
+                        if (parsed.generic) skippedGenerics += parsed.binaryName else typeNames += parsed.binaryName
                         if (IGNORE in parsed.annotations) ignored += parsed.binaryName
                         if (CHECKED in parsed.annotations) optedIn += parsed.binaryName
                     }

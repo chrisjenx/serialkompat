@@ -92,6 +92,12 @@ class CheckedButNotSerializable(
     val id: String,
 )
 
+@Serializable
+@SerialkompatIgnore
+data class ScannedIgnoredBox<T>(
+    val value: T,
+)
+
 /**
  * Copies this package's compiled class files into [tempRoot] so a scan sees a
  * deterministic set: exactly the fixtures declared in this package.

@@ -4,6 +4,7 @@ import com.chrisjenx.serialkompat.extractor.scanfixtures.Outer
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedBox
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedEvent
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedIgnored
+import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedIgnoredBox
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedMarker
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedOptedIn
 import com.chrisjenx.serialkompat.extractor.scanfixtures.ScannedOrder
@@ -154,5 +155,14 @@ class SerializableClassScannerTest {
         val result = SerializableClassScanner.scan(listOf(fixturesRoot()))
         assertFalse(result.typeNames.any { it.endsWith("CheckedButNotSerializable") })
         assertFalse(result.optedIn.any { it.endsWith("CheckedButNotSerializable") })
+    }
+
+    @Test
+    fun `records discovery-mode annotations on generic classes`() {
+        val result = SerializableClassScanner.scan(listOf(fixturesRoot()))
+        // The generic stays a skipped root, but its @SerialkompatIgnore is now captured so
+        // OPT_OUT can drop it (#139).
+        assertContains(result.skippedGenerics, ScannedIgnoredBox::class.java.name)
+        assertContains(result.ignored, ScannedIgnoredBox::class.java.name)
     }
 }

@@ -90,6 +90,50 @@ class SchemaExtractionMainTest {
         assertTrue(out.isFile)
     }
 
+    @Serializable
+    @SerialName("RunBox")
+    data class RunBox<T>(
+        val value: T,
+        val label: String,
+    )
+
+    @Serializable
+    @SerialName("RunEnvelope")
+    sealed interface RunEnvelope<T> {
+        @Serializable
+        @SerialName("ok")
+        data class Ok<T>(
+            val body: T,
+        ) : RunEnvelope<T>
+    }
+
+    @Test
+    fun `run resolves an explicit generic type into a hole contract`() {
+        val out = File.createTempFile("skompat", ".txt").also { it.deleteOnExit() }
+        SchemaExtractionMain.run(
+            typeNames = listOf(RunBox::class.java.name),
+            jsonInstanceFqn = null,
+            output = out,
+        )
+        val snapshot = SnapshotFormat.parse(out.readText())
+        val box = snapshot.contracts.single { it.serialName == "RunBox" }
+        assertEquals("#0", box.elements.single { it.name == "value" }.type)
+        assertEquals("kotlin.String", box.elements.single { it.name == "label" }.type)
+    }
+
+    @Test
+    fun `run degrades a generic sealed type to an opaque coverage gap`() {
+        val out = File.createTempFile("skompat", ".txt").also { it.deleteOnExit() }
+        SchemaExtractionMain.run(
+            typeNames = listOf(RunEnvelope::class.java.name),
+            jsonInstanceFqn = null,
+            output = out,
+        )
+        val snapshot = SnapshotFormat.parse(out.readText())
+        val env = snapshot.contracts.single { it.serialName == "RunEnvelope" }
+        assertEquals(ContractKind.OPAQUE, env.kind)
+    }
+
     @Test
     fun `an unresolvable type becomes an opaque coverage gap, not a crash`() {
         val out = File(tempDir, "current.snapshot")

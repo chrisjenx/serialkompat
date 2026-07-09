@@ -20,8 +20,12 @@ import kotlin.test.assertTrue
 
 /**
  * `run(scanDirs = …)` discovery semantics (issue #55): explicit `types` always win;
- * otherwise the classpath manifest unions with the class-dir scan. Generic roots are
- * skipped loudly; unreadable class files degrade to OPAQUE coverage gaps.
+ * otherwise the classpath manifest unions with the class-dir scan. Scanned generic
+ * classes are still logged loudly as skipped *roots*, but (#139) they are now
+ * resolved with hole placeholders and contribute their own hole-typed contract
+ * unless they turn out to be a generic sealed/polymorphic hierarchy, which is out
+ * of scope and degrades to OPAQUE instead. Unreadable class files degrade to
+ * OPAQUE coverage gaps.
  */
 class ScanDiscoveryIntegrationTest {
     private val tempDirs = mutableListOf<File>()
@@ -43,7 +47,9 @@ class ScanDiscoveryIntegrationTest {
         SchemaExtractionMain.run(emptyList(), null, out, scanDirs = listOf(fixturesRoot()))
         val snapshot = SnapshotFormat.parse(out.readText())
         assertTrue(snapshot.contracts.any { it.serialName == ScannedOrder::class.java.name })
-        assertFalse(snapshot.contracts.any { it.serialName.contains("ScannedBox") })
+        // ScannedBox is a plain generic class (kind CLASS): it now resolves via hole
+        // placeholders into its own contract rather than being dropped entirely (#139).
+        assertTrue(snapshot.contracts.any { it.serialName == ScannedBox::class.java.name })
     }
 
     @Test
