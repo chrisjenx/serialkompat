@@ -383,4 +383,40 @@ class ClassifierTest {
         assertNull(f.severity(CompatibilityDirection.BACKWARD))
         assertEquals(Severity.WARN, f.severity(CompatibilityDirection.FORWARD))
     }
+
+    // --- Hole-bearing type transitions (#139) ---------------------------------
+
+    @Test
+    fun `type change from a hole to a concrete type is not a wire change`() {
+        val f = classify(Change.ElementTypeChanged("BaseResponse", "data", "#0", "com.example.User"))
+        assertTrue(f.isEmpty(), "hole -> concrete must produce no finding")
+    }
+
+    @Test
+    fun `type change from a concrete type to a hole is not a wire change`() {
+        val f = classify(Change.ElementTypeChanged("BaseResponse", "data", "com.example.User", "#0"))
+        assertTrue(f.isEmpty(), "concrete -> hole must produce no finding")
+    }
+
+    @Test
+    fun `hole nested in a container is recognized`() {
+        val f = classify(Change.ElementTypeChanged("BaseResponse", "items", "List<#0>", "List<com.example.User>"))
+        assertTrue(f.isEmpty(), "List<#0> -> List<User> must produce no finding")
+    }
+
+    @Test
+    fun `type change between two concrete types is still classified`() {
+        val f = classify(Change.ElementTypeChanged("T", "x", "kotlin.String", "kotlin.Int"))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))
+    }
+
+    @Test
+    fun `documented first-cut limitation - a concrete change beside a hole is suppressed`() {
+        // Map<String,#1> -> Map<Int,#1> is a real map-key wire break, but the value position is a
+        // hole, so the whole type change is suppressed this cut (#139 D4). Pins the known boundary;
+        // a future hole-normalized structural compare would tighten this to diff concrete positions.
+        val f = classify(Change.ElementTypeChanged("Env", "meta", "Map<String,#1>", "Map<Int,#1>"))
+        assertTrue(f.isEmpty(), "concrete-beside-hole change is a documented first-cut suppression")
+    }
 }

@@ -5,7 +5,9 @@ import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.SnapshotFormat
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 import java.io.File
@@ -29,9 +31,13 @@ public object SchemaExtractionMain {
      *
      * When [typeNames] is empty, types are discovered instead: the classpath
      * manifest (see [TYPES_RESOURCE]) unioned with a class-dir scan of [scanDirs]
-     * (issue #55). Generic classes found by the scan are skipped as roots — they
-     * have no standalone wire shape; their concrete shapes are covered at use
-     * sites — and logged by name. Unreadable class files degrade to OPAQUE
+     * (issue #55). Generic classes found by the scan are resolved as roots by
+     * extracting their descriptor with type-parameter holes (issue #139): each
+     * contributes its own `CLASS` contract whose type-parameter positions render
+     * as a stable sentinel, so its envelope fields are checked while the holes stay
+     * covered at concrete use sites. A generic sealed/polymorphic hierarchy is out
+     * of scope and degrades to an OPAQUE coverage gap. Unreadable class files
+     * degrade to OPAQUE
      * coverage gaps whenever [scanDirs] were scanned, even alongside explicit
      * [typeNames].
      *
@@ -39,6 +45,7 @@ public object SchemaExtractionMain {
      * carrying `@SerialkompatIgnore`; `OPT_IN` keeps only `@SerialkompatChecked` types.
      * Manifest entries and explicit [typeNames] are deliberate acts and bypass the filter.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     public fun run(
         typeNames: List<String>,
         jsonInstanceFqn: String?,
@@ -56,8 +63,9 @@ public object SchemaExtractionMain {
         val scan = SerializableClassScanner.scan(scanDirs)
         if (scan.skippedGenerics.isNotEmpty()) {
             System.err.println(
-                "serialkompat: skipped ${scan.skippedGenerics.size} generic type(s) as scan roots " +
-                    "(their shapes are checked at concrete use sites): " +
+                "serialkompat: resolving ${scan.skippedGenerics.size} generic type(s) as scan roots with " +
+                    "type-parameter holes (envelope fields checked; generic sealed/polymorphic degrade to " +
+                    "OPAQUE): " +
                     scan.skippedGenerics.joinToString(", "),
             )
         }
@@ -65,11 +73,14 @@ public object SchemaExtractionMain {
         // Manifest entries and explicit typeNames are deliberate acts and bypass it.
         val ignored = scan.ignored.toSet()
         val optedIn = scan.optedIn.toSet()
+        // Generic roots (skippedGenerics) are candidates too — the extractor resolves them with
+        // holes (#139). Discovery filtering applies to the whole scanned set.
+        val allScanned = scan.typeNames + scan.skippedGenerics
         val scannedRoots =
             when (discovery) {
-                DiscoveryMode.EXPLICIT -> scan.typeNames
-                DiscoveryMode.OPT_OUT -> scan.typeNames.filterNot { it in ignored }
-                DiscoveryMode.OPT_IN -> scan.typeNames.filter { it in optedIn }
+                DiscoveryMode.EXPLICIT -> allScanned
+                DiscoveryMode.OPT_OUT -> allScanned.filterNot { it in ignored }
+                DiscoveryMode.OPT_IN -> allScanned.filter { it in optedIn }
             }
         if (discovery == DiscoveryMode.OPT_OUT && scan.ignored.isNotEmpty()) {
             System.err.println(
@@ -78,7 +89,7 @@ public object SchemaExtractionMain {
             )
         }
         if (discovery == DiscoveryMode.OPT_IN) {
-            val notOptedIn = scan.typeNames.size - scannedRoots.size
+            val notOptedIn = allScanned.size - scannedRoots.size
             if (notOptedIn > 0) {
                 System.err.println(
                     "serialkompat: OPT_IN discovery — $notOptedIn discovered type(s) not yet " +
@@ -105,17 +116,41 @@ public object SchemaExtractionMain {
         // gap keyed by its FQN; the gate then surfaces a WARN rather than crashing or silently
         // dropping the lot ("the extractor must never throw on a model it can't analyse", design §10).
         val descriptors = mutableListOf<SerialDescriptor>()
+        val genericRoots = mutableListOf<SerialDescriptor>()
         val opaque = mutableListOf<Contract>()
         for (name in effectiveTypes) {
+            val kClass = runCatching { Class.forName(name).kotlin }.getOrNull()
+            // Reading @Metadata (typeParameters) can throw on version-skewed classes (target compiled
+            // with a newer Kotlin than our kotlin-reflect); guard it so such a type degrades to OPAQUE
+            // via the concrete path's own runCatching rather than aborting the whole extraction
+            // (design §10).
+            val generic = runCatching { kClass?.typeParameters?.isNotEmpty() == true }.getOrDefault(false)
+            // Concrete: serializer(kType). Generic: resolve with hole placeholders first, then filter
+            // to plain classes only — a generic sealed/polymorphic hierarchy is out of scope this cut
+            // and degrades to OPAQUE, keyed by its real wire serialName (not its FQN) since the
+            // descriptor did resolve (design §10 never-throw: any failure also degrades, never crashes).
+            val rawDescriptor =
+                runCatching {
+                    when {
+                        kClass == null -> null
+                        !generic -> serializer(kClass.createType()).descriptor
+                        else -> {
+                            val holes = List(kClass.typeParameters.size) { HoleSerializer(it) }
+                            serializer(kClass, holes, false).descriptor
+                        }
+                    }
+                }.getOrNull()
             val descriptor =
-                runCatching { serializer(Class.forName(name).kotlin.createType()).descriptor }.getOrNull()
-            if (descriptor != null) {
-                descriptors += descriptor
-            } else {
-                System.err.println(
-                    "serialkompat: could not resolve type '$name'; recording it as an opaque coverage gap.",
-                )
-                opaque += Contract(name, ContractKind.OPAQUE)
+                if (generic) rawDescriptor?.takeIf { it.kind == StructureKind.CLASS } else rawDescriptor
+            when {
+                descriptor == null -> {
+                    System.err.println(
+                        "serialkompat: could not resolve type '$name'; recording it as an opaque coverage gap.",
+                    )
+                    opaque += Contract(rawDescriptor?.serialName ?: name, ContractKind.OPAQUE)
+                }
+                generic -> genericRoots += descriptor
+                else -> descriptors += descriptor
             }
         }
         // An unreadable class file is an unanalysable input: unanalysable ≠ safe, so it
@@ -127,7 +162,8 @@ public object SchemaExtractionMain {
             opaque += Contract(path, ContractKind.OPAQUE)
         }
 
-        val extracted = DescriptorSnapshotExtractor.extract(descriptors, json.serializersModule, config)
+        val extracted =
+            DescriptorSnapshotExtractor.extract(descriptors, json.serializersModule, config, genericRoots)
         val snapshot = Snapshot(extracted.contracts + opaque, config)
         output.absoluteFile.parentFile?.mkdirs()
         output.writeText(SnapshotFormat.serialize(snapshot))

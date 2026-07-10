@@ -42,12 +42,37 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         roots: Iterable<SerialDescriptor>,
         module: SerializersModule,
         config: SnapshotConfig,
+    ): Snapshot = extract(roots, module, config, emptyList())
+
+    /**
+     * As [extract], plus [genericRoots] — descriptors for root-only generic types resolved with
+     * type-parameter holes (#139). They are walked *after* [roots] and share the same visited-set,
+     * so a generic whose serial name was already reached concretely in [roots] is skipped
+     * (fill-if-absent): the concrete instantiation wins, which avoids both snapshot churn and
+     * orphaning the concrete type arguments the primary walk enqueued.
+     */
+    public fun extract(
+        roots: Iterable<SerialDescriptor>,
+        module: SerializersModule,
+        config: SnapshotConfig,
+        genericRoots: Iterable<SerialDescriptor>,
     ): Snapshot {
         val openPoly = collectOpenSubtypes(module)
         val visited = mutableSetOf<String>()
-        val queue = ArrayDeque(roots.toList())
         val contracts = mutableListOf<Contract>()
+        drain(ArrayDeque(roots.toList()), config, openPoly, visited, contracts)
+        drain(ArrayDeque(genericRoots.toList()), config, openPoly, visited, contracts)
+        return Snapshot(contracts, config)
+    }
 
+    /** Walks [queue] breadth-first into [contracts], deduping by serial name via [visited]. */
+    private fun drain(
+        queue: ArrayDeque<SerialDescriptor>,
+        config: SnapshotConfig,
+        openPoly: OpenPolymorphism,
+        visited: MutableSet<String>,
+        contracts: MutableList<Contract>,
+    ) {
         while (queue.isNotEmpty()) {
             val descriptor = queue.removeFirst()
             val serialName = contractName(descriptor)
@@ -70,7 +95,6 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             contracts += contract
             queue += referenced
         }
-        return Snapshot(contracts, config)
     }
 
     /**

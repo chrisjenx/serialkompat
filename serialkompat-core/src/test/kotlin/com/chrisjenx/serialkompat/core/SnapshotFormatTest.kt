@@ -315,4 +315,25 @@ class SnapshotFormatTest {
             ),
         )
     }
+
+    @Test
+    fun `hole sentinel type refs round-trip through the codec`() {
+        val snapshot =
+            Snapshot(
+                listOf(
+                    Contract(
+                        "com.example.BaseResponse",
+                        ContractKind.CLASS,
+                        elements =
+                            listOf(
+                                Element("data", "#0"),
+                                Element("items", "List<#0>"),
+                                Element("status", "kotlin.String"),
+                            ),
+                    ),
+                ),
+                SnapshotConfig(),
+            )
+        assertEquals(snapshot, SnapshotFormat.parse(SnapshotFormat.serialize(snapshot)))
+    }
 }

@@ -2,16 +2,21 @@ package com.chrisjenx.serialkompat.extractor
 
 import com.chrisjenx.serialkompat.core.Classifier
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
+import com.chrisjenx.serialkompat.core.Contract
 import com.chrisjenx.serialkompat.core.Rules
 import com.chrisjenx.serialkompat.core.Severity
+import com.chrisjenx.serialkompat.core.Snapshot
+import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.SnapshotDiffer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonNamingStrategy
+import kotlinx.serialization.modules.EmptySerializersModule
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
@@ -953,5 +958,108 @@ class RoundTripOracleTest {
 
         assertEquals(Severity.WARN, forwardAddedSubtype(oldWithDefault), "default deserializer → forward WARN")
         assertEquals(Severity.BREAK, forwardAddedSubtype(oldNoDefault), "no default deserializer → forward BREAK")
+    }
+
+    // --- #139: generic-root hole resolution -------------------------------------
+
+    @Serializable
+    @SerialName("EnvV1")
+    private data class EnvV1<T>(
+        val data: T,
+        val status: String,
+    )
+
+    @Serializable
+    @SerialName("EnvV2")
+    private data class EnvV2<T>(
+        val data: T,
+        val state: String, // status -> state (envelope-field rename)
+    )
+
+    /** Extract a single generic type as a hole root via the real extraction path (never hand-built). */
+    private fun extractGeneric(kClass: kotlin.reflect.KClass<*>): Snapshot {
+        val holes = List(kClass.typeParameters.size) { HoleSerializer(it) }
+        return DescriptorSnapshotExtractor.extract(
+            roots = emptyList(),
+            module = EmptySerializersModule(),
+            config = SnapshotConfig(),
+            genericRoots = listOf(serializer(kClass, holes, false).descriptor),
+        )
+    }
+
+    /**
+     * Rebuilds [snapshot]'s single contract under a new serial name, identity-of-name only — the
+     * element bodies still come straight from real hole extraction, so the oracle still exercises
+     * #139's code rather than a hand-authored shape.
+     */
+    private fun renameContract(
+        snapshot: Snapshot,
+        old: String,
+        new: String,
+    ): Snapshot {
+        val contract = snapshot.contracts.single { it.serialName == old }
+        val renamed =
+            Contract(
+                serialName = new,
+                kind = contract.kind,
+                elements = contract.elements,
+                enumValues = contract.enumValues,
+                discriminator = contract.discriminator,
+                subtypes = contract.subtypes,
+                hasPolymorphicDefault = contract.hasPolymorphicDefault,
+            )
+        return Snapshot(listOf(renamed), snapshot.config)
+    }
+
+    @Test
+    fun `oracle - renaming a generic envelope field is caught, matching the real library`() {
+        // Both snapshots come from the real hole-extraction path; rename status -> state.
+        val baseline = renameContract(extractGeneric(EnvV1::class), "EnvV1", "EnvV2")
+        val current = extractGeneric(EnvV2::class)
+        val changes = SnapshotDiffer.diff(baseline, current)
+        val findings = Classifier().classify(changes, baseline.config, current.config)
+
+        // Predicted: status removed + state added. Verify against the real library: a payload written
+        // by V1 (has "status", lacks "state") fails to decode into V2 when "state" is required.
+        assertTrue(
+            findings.any { it.rule == "PROPERTY_REMOVED" && it.contract == "EnvV2" },
+            "expected PROPERTY_REMOVED for the dropped 'status' field",
+        )
+        assertTrue(
+            findings.any { it.rule == "PROPERTY_ADDED" && it.contract == "EnvV2" },
+            "expected PROPERTY_ADDED for the new required 'state' field",
+        )
+        val v1Json = Json.encodeToString(EnvV1.serializer(String.serializer()), EnvV1("x", "OPEN"))
+        val decodeFailed =
+            runCatching { Json.decodeFromString(EnvV2.serializer(String.serializer()), v1Json) }.isFailure
+        assertTrue(decodeFailed, "the real library must reject V1 data under V2 (required 'state' missing)")
+    }
+
+    @Serializable
+    @SerialName("HostUsingEnv")
+    private data class HostUsingEnv(
+        val wrapped: EnvV1<String>,
+    )
+
+    @Test
+    fun `oracle - adding a concrete use-site of a root-only generic fires no false BREAK`() {
+        // Baseline: EnvV1 is root-only -> data:#0. Current: a host uses EnvV1<String> concretely ->
+        // fill-if-absent makes data concrete. The hole<->concrete flip must NOT be a finding (#139 D4).
+        val baseline = extractGeneric(EnvV1::class)
+        val current =
+            DescriptorSnapshotExtractor.extract(
+                roots = listOf(serializer<HostUsingEnv>().descriptor),
+                module = EmptySerializersModule(),
+                config = SnapshotConfig(),
+                genericRoots =
+                    listOf(
+                        serializer(EnvV1::class, listOf(HoleSerializer(0)), false).descriptor,
+                    ),
+            )
+        val findings = Classifier().classify(SnapshotDiffer.diff(baseline, current), baseline.config, current.config)
+        assertTrue(
+            findings.none { it.contract == "EnvV1" && it.rule == "PROPERTY_TYPE_CHANGED" },
+            "a hole<->concrete flip on the envelope must not be a wire finding: $findings",
+        )
     }
 }

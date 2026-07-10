@@ -165,16 +165,24 @@ public class Classifier(
                 }
 
             is Change.ElementTypeChanged ->
-                Verdict(
-                    Rules.PROPERTY_TYPE_CHANGED,
-                    change.contract,
-                    "field '${change.element}'",
-                    // A numeric widening reads old->new fine, but old readers can't read the wider value.
-                    backward = if (isWidening(change.oldType, change.newType)) Severity.SAFE else Severity.BREAK,
-                    forward = Severity.BREAK,
-                    message = "field '${change.element}' type changed ${change.oldType} -> ${change.newType}",
-                    fixHint = "Introduce a new field instead of changing a type; bump major.",
-                )
+                // A hole (#n) is a generic type-parameter position, checked at concrete use sites,
+                // not on the envelope. Fill-if-absent extraction (#139) flips a field between a hole
+                // and a concrete type when a use-site is added/removed; that transition is coverage
+                // moving, not the wire shape changing, so it is never a finding (either side hole-bearing).
+                if (isHoleBearing(change.oldType) || isHoleBearing(change.newType)) {
+                    null
+                } else {
+                    Verdict(
+                        Rules.PROPERTY_TYPE_CHANGED,
+                        change.contract,
+                        "field '${change.element}'",
+                        // A numeric widening reads old->new fine, but old readers can't read the wider value.
+                        backward = if (isWidening(change.oldType, change.newType)) Severity.SAFE else Severity.BREAK,
+                        forward = Severity.BREAK,
+                        message = "field '${change.element}' type changed ${change.oldType} -> ${change.newType}",
+                        fixHint = "Introduce a new field instead of changing a type; bump major.",
+                    )
+                }
 
             is Change.EnumValueAdded ->
                 Verdict(
@@ -419,6 +427,15 @@ public class Classifier(
         newType: String,
     ): Boolean = (oldType to newType) in NUMERIC_WIDENINGS
 
+    /**
+     * Whether [typeRef] contains a generic type-parameter hole sentinel (`#0`, `#1`, …) — the
+     * marker the extractor renders for a root-only generic's type-parameter position (#139).
+     * Recognises the sentinel nested in a container (`List<#0>`, `Map<String,#1?>`), so it splits
+     * on the generic delimiters and strips a trailing `?` before matching, exactly `#\d+`.
+     */
+    private fun isHoleBearing(typeRef: String): Boolean =
+        typeRef.split('<', '>', ',').any { HOLE_SENTINEL.matches(it.trim().removeSuffix("?")) }
+
     private class Verdict(
         val rule: String,
         val contract: String,
@@ -447,5 +464,8 @@ public class Classifier(
                 "kotlin.Int" to "kotlin.Long",
                 "kotlin.Float" to "kotlin.Double",
             )
+
+        /** A generic type-parameter hole: `#` followed by the parameter's ordinal (#139). */
+        private val HOLE_SENTINEL = Regex("#\\d+")
     }
 }
