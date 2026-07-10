@@ -239,4 +239,12 @@ class FormatReaderTest {
             FormatReader.readDoc("@contract T kind=CLASS\n  this_line_has_no_colon")
         }
     }
+
+    @Test
+    fun `tolerates CRLF line endings`() {
+        val lf =
+            "@contract com.example.T kind=CLASS\n  id: String\n\n@config\n  classDiscriminator=type"
+        val crlf = lf.replace("\n", "\r\n")
+        assertEquals(FormatReader.readDoc(lf), FormatReader.readDoc(crlf))
+    }
 }

@@ -26,7 +26,12 @@ internal object FormatReader {
     private const val SUBTYPE_ARROW = " -> "
 
     fun readDoc(text: String): FormatDoc {
-        val trimmed = text.trim()
+        // Normalize line endings first: a genuine CR inside a name is stored
+        // token-escaped as the literal two chars `\r`, never as a raw CR byte,
+        // so any raw \r here is a line-ending artifact (e.g. a CRLF baseline
+        // checked out with core.autocrlf=true) — safe to fold into \n.
+        val normalized = text.replace("\r\n", "\n").replace('\r', '\n')
+        val trimmed = normalized.trim()
         if (trimmed.isEmpty()) return FormatDoc(emptyList())
         return FormatDoc(
             trimmed.split(BLANK_LINE).map { block ->
