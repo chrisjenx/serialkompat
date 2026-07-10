@@ -3,8 +3,10 @@ package com.chrisjenx.serialkompat.core.format
 import com.chrisjenx.serialkompat.core.Contract
 import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.Element
+import com.chrisjenx.serialkompat.core.EncodeDefaultMode
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
+import com.chrisjenx.serialkompat.core.Subtype
 
 /*
  * The snapshot↔doc mappers: ALL domain knowledge lives here — which body
@@ -79,3 +81,98 @@ private fun configLine(
     key: String,
     value: String,
 ): Line = Line(1, listOf(Token.KeyValue(key, value)))
+
+/** Maps a classified document back to the model. The reader guarantees kind-correct tokens. */
+internal fun docToSnapshot(doc: FormatDoc): Snapshot {
+    val contracts = mutableListOf<Contract>()
+    var config = SnapshotConfig()
+    for (block in doc.blocks) {
+        when (
+            (
+                block.lines
+                    .first()
+                    .tokens
+                    .first() as Token.Word
+            ).text
+        ) {
+            "@contract" -> contracts += contractOf(block)
+            "@config" -> config = configOf(block)
+        }
+    }
+    return Snapshot(contracts, config)
+}
+
+private fun contractOf(block: Block): Contract {
+    val header = block.lines.first().tokens
+    val serialName = (header[1] as Token.Word).text
+    val kvs =
+        header.filterIsInstance<Token.KeyValue>().associate { it.key to it.value }
+    val kind = ContractKind.valueOf(kvs.getValue("kind")) // reader-validated
+    val elements = mutableListOf<Element>()
+    var enumValues = emptyList<String>()
+    val subtypes = mutableListOf<Subtype>()
+    for (line in block.lines.drop(1)) {
+        when (val first = line.tokens.first()) {
+            is Token.FieldRef -> elements += elementOf(first, line.tokens.drop(1))
+            is Token.KeyList -> if (first.key == "values") enumValues = first.values
+            is Token.ArrowPair -> subtypes += Subtype(first.left, first.right)
+            is Token.Word -> Unit // the `subtypes:` marker
+            is Token.KeyValue -> Unit // unknown fact: tolerated
+        }
+    }
+    return Contract(
+        serialName = serialName,
+        kind = kind,
+        elements = elements,
+        enumValues = enumValues,
+        discriminator = kvs["discriminator"],
+        subtypes = subtypes,
+        hasPolymorphicDefault = kvs["polymorphicDefault"]?.toBooleanStrict() ?: false,
+    )
+}
+
+private fun elementOf(
+    fieldRef: Token.FieldRef,
+    trailing: List<Token>,
+): Element {
+    var optional = false
+    var nullable = false
+    var jsonNames = emptyList<String>()
+    var encodeDefault: EncodeDefaultMode? = null
+    for (token in trailing) {
+        when (token) {
+            is Token.Word ->
+                when (token.text) {
+                    "optional" -> optional = true
+                    "nullable" -> nullable = true
+                    else -> Unit // unknown flag: tolerated
+                }
+            is Token.KeyList -> if (token.key == "jsonNames") jsonNames = token.values
+            is Token.KeyValue ->
+                if (token.key == "encodeDefault") encodeDefault = EncodeDefaultMode.valueOf(token.value)
+            else -> Unit
+        }
+    }
+    return Element(fieldRef.name, fieldRef.type, optional, nullable, jsonNames, encodeDefault)
+}
+
+private fun configOf(block: Block): SnapshotConfig {
+    val values =
+        block.lines
+            .drop(1)
+            .flatMap { it.tokens }
+            .filterIsInstance<Token.KeyValue>()
+            .associate { it.key to it.value }
+    val defaults = SnapshotConfig()
+    return SnapshotConfig(
+        namingStrategy = values["namingStrategy"] ?: defaults.namingStrategy,
+        classDiscriminator = values["classDiscriminator"] ?: defaults.classDiscriminator,
+        classDiscriminatorMode = values["classDiscriminatorMode"] ?: defaults.classDiscriminatorMode,
+        ignoreUnknownKeys = values["ignoreUnknownKeys"]?.toBooleanStrict() ?: defaults.ignoreUnknownKeys,
+        encodeDefaults = values["encodeDefaults"]?.toBooleanStrict() ?: defaults.encodeDefaults,
+        explicitNulls = values["explicitNulls"]?.toBooleanStrict() ?: defaults.explicitNulls,
+        coerceInputValues = values["coerceInputValues"]?.toBooleanStrict() ?: defaults.coerceInputValues,
+        useAlternativeNames =
+            values["useAlternativeNames"]?.toBooleanStrict() ?: defaults.useAlternativeNames,
+    )
+}

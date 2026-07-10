@@ -376,4 +376,42 @@ class SnapshotFormatTest {
             )
         assertNotEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
     }
+
+    @Test
+    fun `round-trips a classDiscriminatorMode containing whitespace and a newline`() {
+        // classDiscriminatorMode is a String; a pathological value was emitted
+        // raw and corrupted on parse. Under uniform escaping it round-trips
+        // like the other free-text config values (#56 disclosed improvement).
+        assertRoundTrips(
+            Snapshot(config = SnapshotConfig(classDiscriminatorMode = " odd\nmode ")),
+        )
+    }
+
+    @Test
+    fun `round-trips a class element literally named values=(x) style`() {
+        // A CLASS element @SerialName'd "values=[x]" was swallowed into
+        // enumValues by the content-driven parser; kind-driven reading parses
+        // it as the field it is (#56 disclosed improvement).
+        assertRoundTrips(
+            Snapshot(
+                listOf(
+                    Contract(
+                        "T",
+                        ContractKind.CLASS,
+                        elements = listOf(Element("values=[x]", "String")),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `rejects kind-inconsistent body lines instead of silently mis-mapping`() {
+        assertFailsWith<IllegalArgumentException> {
+            SnapshotFormat.parse("@contract T kind=CLASS\n  values=[x]")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SnapshotFormat.parse("@contract O kind=OPAQUE\n  stray: body")
+        }
+    }
 }
