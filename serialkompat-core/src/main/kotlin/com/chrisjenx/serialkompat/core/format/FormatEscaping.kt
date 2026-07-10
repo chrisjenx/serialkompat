@@ -1,10 +1,11 @@
 package com.chrisjenx.serialkompat.core.format
 
 /*
- * The codec's two escaping schemes, centralized so emit and parse share one
- * implementation per scheme. They are distinct and must stay separate:
- * token-escaping uses named escapes (`\s` = space) while list-escaping's
- * unescape keeps the char after `\` literally (`\s` would decode to `s`).
+ * The codec's escaping, centralized so emit and parse share one implementation.
+ * There is a single escape alphabet — `\` → `\\`, space/tab/CR/LF → `\s\t\r\n`
+ * (see escapeToken/unescapeToken) — reused by both schemes. List-escaping adds
+ * exactly one thing on top: the `[a,b,c]` separator `,` is escaped to `\,`, so
+ * a list value that legally contains a comma is not mistaken for a delimiter.
  */
 
 /**
@@ -48,28 +49,36 @@ internal fun unescapeToken(value: String): String {
 }
 
 /**
- * Escapes a value for inclusion in a `[a,b,c]` list literal: a `\` becomes
- * `\\` and the `,` separator becomes `\,`, so a value that legally contains a
- * comma (e.g. from `@SerialName`/`@JsonNames`) round-trips without being split.
- * Whitespace stays raw (see the tracked list-whitespace follow-up issue).
+ * Escapes a value for inclusion in a `[a,b,c]` list literal. Reuses the token
+ * escape alphabet ([escapeToken] already doubles every `\` and named-escapes
+ * every whitespace char) and then escapes the list separator `,` to `\,`.
+ * Because every real backslash is already doubled, the introduced `\,` is
+ * unambiguous. It is the identity on a value free of backslash, whitespace,
+ * and comma, so whitespace-free lists serialize byte-identically (#146).
  */
-internal fun escapeListValue(value: String): String = value.replace("\\", "\\\\").replace(",", "\\,")
+internal fun escapeListValue(value: String): String = escapeToken(value).replace(",", "\\,")
 
-/** Splits a list literal's inner text on unescaped `,`, reversing [escapeListValue]. */
+/**
+ * Splits a list literal's inner text on unescaped `,`, then reverses the
+ * per-value escaping with [unescapeToken]. The split copies each `\`+next-char
+ * escape pair through intact (so an escaped separator `\,` is never split on);
+ * the pieces are then decoded — [unescapeToken] maps `\,` back to `,` via its
+ * keep-the-char branch, alongside `\\`, `\s`, `\t`, `\r`, `\n`.
+ */
 internal fun splitEscaped(inner: String): List<String> {
     if (inner.isEmpty()) return emptyList()
-    val tokens = mutableListOf<String>()
+    val pieces = mutableListOf<String>()
     val current = StringBuilder()
     var i = 0
     while (i < inner.length) {
         val c = inner[i]
         when {
             c == '\\' && i + 1 < inner.length -> {
-                current.append(inner[i + 1]) // consume the escape, keep the escaped char literally
+                current.append(c).append(inner[i + 1]) // keep the escape pair intact
                 i += 2
             }
             c == ',' -> {
-                tokens += current.toString()
+                pieces += current.toString()
                 current.clear()
                 i++
             }
@@ -79,8 +88,8 @@ internal fun splitEscaped(inner: String): List<String> {
             }
         }
     }
-    tokens += current.toString()
-    return tokens
+    pieces += current.toString()
+    return pieces.map(::unescapeToken)
 }
 
 /** Builds a `[a,b,c]` list literal with each value [escaped][escapeListValue]. */
