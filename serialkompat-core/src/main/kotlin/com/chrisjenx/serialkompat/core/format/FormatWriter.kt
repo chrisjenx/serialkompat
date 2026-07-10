@@ -21,7 +21,7 @@ internal object FormatWriter {
             is Token.Word -> escapeToken(token.text)
             is Token.KeyValue -> token.key + "=" + escapeToken(token.value)
             is Token.KeyList -> token.key + "=" + listLiteral(token.values)
-            is Token.FieldRef -> escapeToken(token.name) + ": " + escapeToken(token.type)
-            is Token.ArrowPair -> escapeToken(token.left) + " -> " + escapeToken(token.right)
+            is Token.FieldRef -> escapeToken(token.name) + FormatGrammar.FIELD_SEP + escapeToken(token.type)
+            is Token.ArrowPair -> escapeToken(token.left) + FormatGrammar.ARROW + escapeToken(token.right)
         }
 }

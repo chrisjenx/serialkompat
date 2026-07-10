@@ -22,19 +22,21 @@ internal fun snapshotToDoc(snapshot: Snapshot): FormatDoc =
 private fun contractBlock(contract: Contract): Block {
     val header =
         buildList {
-            add(Token.Word("@contract"))
+            add(Token.Word(FormatGrammar.CONTRACT_MARKER))
             add(Token.Word(contract.serialName))
-            add(Token.KeyValue("kind", contract.kind.name))
-            contract.discriminator?.let { add(Token.KeyValue("discriminator", it)) }
+            add(Token.KeyValue(FormatGrammar.KEY_KIND, contract.kind.name))
+            contract.discriminator?.let { add(Token.KeyValue(FormatGrammar.KEY_DISCRIMINATOR, it)) }
             // Emitted only when set, so every existing snapshot round-trips
             // unchanged and old readers never see the token (#128).
-            if (contract.hasPolymorphicDefault) add(Token.KeyValue("polymorphicDefault", "true"))
+            if (contract.hasPolymorphicDefault) {
+                add(Token.KeyValue(FormatGrammar.KEY_POLYMORPHIC_DEFAULT, "true"))
+            }
         }
     val body =
         when (contract.kind) {
             ContractKind.ENUM -> listOf(valuesLine(contract.enumValues))
             ContractKind.SEALED, ContractKind.POLYMORPHIC ->
-                listOf(Line(1, listOf(Token.Word("subtypes:")))) +
+                listOf(Line(1, listOf(Token.Word(FormatGrammar.SUBTYPES_MARKER)))) +
                     contract.subtypes.map { subtypeLine(it.discriminatorValue, it.serialName) }
             ContractKind.CLASS, ContractKind.OBJECT -> contract.elements.map(::elementLine)
             ContractKind.OPAQUE -> emptyList() // no analyzable body
@@ -42,7 +44,8 @@ private fun contractBlock(contract: Contract): Block {
     return Block(listOf(Line(0, header)) + body)
 }
 
-private fun valuesLine(enumValues: List<String>): Line = Line(1, listOf(Token.KeyList("values", enumValues)))
+private fun valuesLine(enumValues: List<String>): Line =
+    Line(1, listOf(Token.KeyList(FormatGrammar.KEY_VALUES, enumValues)))
 
 private fun subtypeLine(
     discriminatorValue: String,
@@ -56,15 +59,17 @@ private fun elementLine(element: Element): Line =
             add(Token.FieldRef(element.name, element.type))
             if (element.optional) add(Token.Word("optional"))
             if (element.nullable) add(Token.Word("nullable"))
-            if (element.jsonNames.isNotEmpty()) add(Token.KeyList("jsonNames", element.jsonNames))
-            element.encodeDefault?.let { add(Token.KeyValue("encodeDefault", it.name)) }
+            if (element.jsonNames.isNotEmpty()) {
+                add(Token.KeyList(FormatGrammar.KEY_JSON_NAMES, element.jsonNames))
+            }
+            element.encodeDefault?.let { add(Token.KeyValue(FormatGrammar.KEY_ENCODE_DEFAULT, it.name)) }
         },
     )
 
 private fun configBlock(config: SnapshotConfig): Block =
     Block(
         listOf(
-            Line(0, listOf(Token.Word("@config"))),
+            Line(0, listOf(Token.Word(FormatGrammar.CONFIG_MARKER))),
             // Fixed alphabetical key order for byte-stability.
             configLine("classDiscriminator", config.classDiscriminator),
             configLine("classDiscriminatorMode", config.classDiscriminatorMode),
@@ -95,8 +100,8 @@ internal fun docToSnapshot(doc: FormatDoc): Snapshot {
                     .first() as Token.Word
             ).text
         ) {
-            "@contract" -> contracts += contractOf(block)
-            "@config" -> config = configOf(block)
+            FormatGrammar.CONTRACT_MARKER -> contracts += contractOf(block)
+            FormatGrammar.CONFIG_MARKER -> config = configOf(block)
         }
     }
     return Snapshot(contracts, config)
@@ -107,14 +112,14 @@ private fun contractOf(block: Block): Contract {
     val serialName = (header[1] as Token.Word).text
     val kvs =
         header.filterIsInstance<Token.KeyValue>().associate { it.key to it.value }
-    val kind = ContractKind.valueOf(kvs.getValue("kind")) // reader-validated
+    val kind = ContractKind.valueOf(kvs.getValue(FormatGrammar.KEY_KIND)) // reader-validated
     val elements = mutableListOf<Element>()
     var enumValues = emptyList<String>()
     val subtypes = mutableListOf<Subtype>()
     for (line in block.lines.drop(1)) {
         when (val first = line.tokens.first()) {
             is Token.FieldRef -> elements += elementOf(first, line.tokens.drop(1))
-            is Token.KeyList -> if (first.key == "values") enumValues = first.values
+            is Token.KeyList -> if (first.key == FormatGrammar.KEY_VALUES) enumValues = first.values
             is Token.ArrowPair -> subtypes += Subtype(first.left, first.right)
             is Token.Word -> Unit // the `subtypes:` marker
             is Token.KeyValue -> Unit // unknown fact: tolerated
@@ -125,9 +130,9 @@ private fun contractOf(block: Block): Contract {
         kind = kind,
         elements = elements,
         enumValues = enumValues,
-        discriminator = kvs["discriminator"],
+        discriminator = kvs[FormatGrammar.KEY_DISCRIMINATOR],
         subtypes = subtypes,
-        hasPolymorphicDefault = kvs["polymorphicDefault"]?.toBooleanStrict() ?: false,
+        hasPolymorphicDefault = kvs[FormatGrammar.KEY_POLYMORPHIC_DEFAULT]?.toBooleanStrict() ?: false,
     )
 }
 
@@ -147,9 +152,11 @@ private fun elementOf(
                     "nullable" -> nullable = true
                     else -> Unit // unknown flag: tolerated
                 }
-            is Token.KeyList -> if (token.key == "jsonNames") jsonNames = token.values
+            is Token.KeyList -> if (token.key == FormatGrammar.KEY_JSON_NAMES) jsonNames = token.values
             is Token.KeyValue ->
-                if (token.key == "encodeDefault") encodeDefault = EncodeDefaultMode.valueOf(token.value)
+                if (token.key == FormatGrammar.KEY_ENCODE_DEFAULT) {
+                    encodeDefault = EncodeDefaultMode.valueOf(token.value)
+                }
             else -> Unit
         }
     }

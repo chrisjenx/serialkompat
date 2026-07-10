@@ -21,9 +21,9 @@ import com.chrisjenx.serialkompat.core.ContractKind
  */
 internal object FormatReader {
     private val BLANK_LINE = Regex("\\n[ \\t]*\\n")
-    private const val CONTRACT_PREFIX = "@contract "
-    private const val CONFIG_HEADER = "@config"
-    private const val SUBTYPE_ARROW = " -> "
+    private const val CONTRACT_PREFIX = "${FormatGrammar.CONTRACT_MARKER} "
+    private const val CONFIG_HEADER = FormatGrammar.CONFIG_MARKER
+    private const val SUBTYPE_ARROW = FormatGrammar.ARROW
 
     fun readDoc(text: String): FormatDoc {
         // Normalize line endings first: a genuine CR inside a name is stored
@@ -66,12 +66,12 @@ internal object FormatReader {
         // lastOrNull: today's parser overwrites on duplicate header keys (last
         // wins), and docToSnapshot's associate() is last-wins — keep them agreeing.
         val kindValue =
-            rest.filterIsInstance<Token.KeyValue>().lastOrNull { it.key == "kind" }?.value
+            rest.filterIsInstance<Token.KeyValue>().lastOrNull { it.key == FormatGrammar.KEY_KIND }?.value
         requireNotNull(kindValue) { "serialkompat: contract '$serialName' is missing kind=" }
         val kind = ContractKind.valueOf(kindValue)
 
         val headerLine =
-            Line(0, listOf(Token.Word("@contract"), Token.Word(serialName)) + rest)
+            Line(0, listOf(Token.Word(FormatGrammar.CONTRACT_MARKER), Token.Word(serialName)) + rest)
         val body =
             bodyLines.map { it.trim() }.filter { it.isNotEmpty() }.map { readBodyLine(kind, serialName, it) }
         return Block(listOf(headerLine) + body)
@@ -85,15 +85,23 @@ internal object FormatReader {
         when (kind) {
             ContractKind.CLASS, ContractKind.OBJECT -> readElementLine(body)
             ContractKind.ENUM -> {
-                require(body.startsWith("values=[")) {
+                require(body.startsWith("${FormatGrammar.KEY_VALUES}=[")) {
                     "serialkompat: malformed ENUM body line '$body' (expected 'values=[…]')"
                 }
                 // Whole-line: enum values legally contain spaces; never space-tokenize.
-                Line(1, listOf(Token.KeyList("values", parseListLiteral(body.substringAfter("values=")))))
+                Line(
+                    1,
+                    listOf(
+                        Token.KeyList(
+                            FormatGrammar.KEY_VALUES,
+                            parseListLiteral(body.substringAfter("${FormatGrammar.KEY_VALUES}=")),
+                        ),
+                    ),
+                )
             }
             ContractKind.SEALED, ContractKind.POLYMORPHIC ->
                 when {
-                    body == "subtypes:" -> Line(1, listOf(Token.Word("subtypes:")))
+                    body == FormatGrammar.SUBTYPES_MARKER -> Line(1, listOf(Token.Word(FormatGrammar.SUBTYPES_MARKER)))
                     SUBTYPE_ARROW in body -> {
                         val (value, name) = body.split(SUBTYPE_ARROW, limit = 2)
                         Line(
@@ -113,18 +121,21 @@ internal object FormatReader {
         }
 
     private fun readElementLine(body: String): Line {
-        require(": " in body) {
+        require(FormatGrammar.FIELD_SEP in body) {
             "serialkompat: malformed element line '$body' (expected 'name: type')"
         }
-        val name = body.substringBefore(": ")
-        val tokens = body.substringAfter(": ").trim().split(" ")
+        val name = body.substringBefore(FormatGrammar.FIELD_SEP)
+        val tokens = body.substringAfter(FormatGrammar.FIELD_SEP).trim().split(" ")
         // Position decides: the first token is ALWAYS the type, even if it
         // looks like a flag or key=value.
         val trailing =
             tokens.drop(1).map { token ->
                 when {
-                    token.startsWith("jsonNames=") ->
-                        Token.KeyList("jsonNames", parseListLiteral(token.removePrefix("jsonNames=")))
+                    token.startsWith("${FormatGrammar.KEY_JSON_NAMES}=") ->
+                        Token.KeyList(
+                            FormatGrammar.KEY_JSON_NAMES,
+                            parseListLiteral(token.removePrefix("${FormatGrammar.KEY_JSON_NAMES}=")),
+                        )
                     else -> {
                         val eq = token.indexOf('=')
                         if (eq >= 0) {
