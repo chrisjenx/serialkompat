@@ -3,6 +3,7 @@ package com.chrisjenx.serialkompat.core
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 
 /**
  * The canonical text form of a [Snapshot] is the diffable, reviewable artifact.
@@ -335,5 +336,82 @@ class SnapshotFormatTest {
                 SnapshotConfig(),
             )
         assertEquals(snapshot, SnapshotFormat.parse(SnapshotFormat.serialize(snapshot)))
+    }
+
+    @Test
+    fun `round-trips enum values containing spaces and tabs`() {
+        // The ENUM values= line is parsed WHOLE-LINE (comma-split only, never
+        // space-tokenized), so an enum value from @SerialName("A B") legally
+        // contains a space and must keep round-tripping (#56 pin).
+        assertRoundTrips(
+            Snapshot(
+                listOf(
+                    Contract("E", ContractKind.ENUM, enumValues = listOf("A B", "C", "tab\there")),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `parses empty and whitespace-only input as an empty snapshot`() {
+        // Production callers feed raw file contents straight to parse.
+        assertEquals(Snapshot(), SnapshotFormat.parse(""))
+        assertEquals(Snapshot(), SnapshotFormat.parse("  \n\t\n  "))
+    }
+
+    @Test
+    fun `jsonNames values containing spaces remain a documented corruption gap`() {
+        // Inverse-pin for the tracked list-whitespace follow-up (#146): element
+        // lines are space-tokenized, so a space in a jsonNames value still
+        // corrupts on parse. When #146 lands, flip this to assertRoundTrips.
+        val s =
+            Snapshot(
+                listOf(
+                    Contract(
+                        "T",
+                        ContractKind.CLASS,
+                        elements = listOf(Element("f", "String", jsonNames = listOf("a b"))),
+                    ),
+                ),
+            )
+        assertNotEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
+    }
+
+    @Test
+    fun `round-trips a classDiscriminatorMode containing whitespace and a newline`() {
+        // classDiscriminatorMode is a String; a pathological value was emitted
+        // raw and corrupted on parse. Under uniform escaping it round-trips
+        // like the other free-text config values (#56 disclosed improvement).
+        assertRoundTrips(
+            Snapshot(config = SnapshotConfig(classDiscriminatorMode = " odd\nmode ")),
+        )
+    }
+
+    @Test
+    fun `round-trips a class element literally named values=(x) style`() {
+        // A CLASS element @SerialName'd "values=[x]" was swallowed into
+        // enumValues by the content-driven parser; kind-driven reading parses
+        // it as the field it is (#56 disclosed improvement).
+        assertRoundTrips(
+            Snapshot(
+                listOf(
+                    Contract(
+                        "T",
+                        ContractKind.CLASS,
+                        elements = listOf(Element("values=[x]", "String")),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `rejects kind-inconsistent body lines instead of silently mis-mapping`() {
+        assertFailsWith<IllegalArgumentException> {
+            SnapshotFormat.parse("@contract T kind=CLASS\n  values=[x]")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            SnapshotFormat.parse("@contract O kind=OPAQUE\n  stray: body")
+        }
     }
 }
