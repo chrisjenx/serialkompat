@@ -56,4 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tooling: Spotless (ktlint), Kover, binary-compatibility-validator, CI.
 - Design document ([`docs/design`](https://github.com/chrisjenx/serialkompat/tree/main/docs/design)).
 
+### Changed
+- `SnapshotFormat` restructured onto a `FormatDoc` document AST (#56): one node tree
+  drives both serialize and parse, centralizing layout and both escaping schemes.
+  On-disk output is byte-identical for every extractor-produced snapshot. Disclosed
+  behaviour improvements: parse is now kind-driven (a body line structurally invalid
+  for the contract's kind is rejected instead of silently mis-mapped), and a
+  `classDiscriminatorMode` containing whitespace now round-trips. List values
+  containing whitespace remain a known gap, tracked as #146.
+
 [Unreleased]: https://github.com/chrisjenx/serialkompat/commits/main
