@@ -57,8 +57,8 @@ private fun elementLine(element: Element): Line =
         1,
         buildList {
             add(Token.FieldRef(element.name, element.type))
-            if (element.optional) add(Token.Word("optional"))
-            if (element.nullable) add(Token.Word("nullable"))
+            if (element.optional) add(Token.Word(FormatGrammar.FLAG_OPTIONAL))
+            if (element.nullable) add(Token.Word(FormatGrammar.FLAG_NULLABLE))
             if (element.jsonNames.isNotEmpty()) {
                 add(Token.KeyList(FormatGrammar.KEY_JSON_NAMES, element.jsonNames))
             }
@@ -92,14 +92,16 @@ internal fun docToSnapshot(doc: FormatDoc): Snapshot {
     val contracts = mutableListOf<Contract>()
     var config = SnapshotConfig()
     for (block in doc.blocks) {
-        when (
+        // readDoc only ever emits @contract / @config blocks (any other marker
+        // throws at parse time), so this cast and the marker match are total.
+        val marker =
             (
                 block.lines
                     .first()
                     .tokens
                     .first() as Token.Word
             ).text
-        ) {
+        when (marker) {
             FormatGrammar.CONTRACT_MARKER -> contracts += contractOf(block)
             FormatGrammar.CONFIG_MARKER -> config = configOf(block)
         }
@@ -148,8 +150,8 @@ private fun elementOf(
         when (token) {
             is Token.Word ->
                 when (token.text) {
-                    "optional" -> optional = true
-                    "nullable" -> nullable = true
+                    FormatGrammar.FLAG_OPTIONAL -> optional = true
+                    FormatGrammar.FLAG_NULLABLE -> nullable = true
                     else -> Unit // unknown flag: tolerated
                 }
             is Token.KeyList -> if (token.key == FormatGrammar.KEY_JSON_NAMES) jsonNames = token.values

@@ -22,8 +22,6 @@ import com.chrisjenx.serialkompat.core.ContractKind
 internal object FormatReader {
     private val BLANK_LINE = Regex("\\n[ \\t]*\\n")
     private const val CONTRACT_PREFIX = "${FormatGrammar.CONTRACT_MARKER} "
-    private const val CONFIG_HEADER = FormatGrammar.CONFIG_MARKER
-    private const val SUBTYPE_ARROW = FormatGrammar.ARROW
 
     fun readDoc(text: String): FormatDoc {
         // Normalize line endings first: a genuine CR inside a name is stored
@@ -39,7 +37,7 @@ internal object FormatReader {
                 val header = lines.first().trim()
                 when {
                     header.startsWith(CONTRACT_PREFIX) -> readContractBlock(header, lines.drop(1))
-                    header == CONFIG_HEADER -> readConfigBlock(lines.drop(1))
+                    header == FormatGrammar.CONFIG_MARKER -> readConfigBlock(lines.drop(1))
                     else -> error("serialkompat: unexpected snapshot block starting with '$header'")
                 }
             },
@@ -54,15 +52,7 @@ internal object FormatReader {
         val serialName = unescapeToken(headerTokens.first())
         // Position decides: token 0 is ALWAYS the name; the rest are key=value
         // (split on the FIRST '='), or bare words kept for the mapper to ignore.
-        val rest =
-            headerTokens.drop(1).map { token ->
-                val eq = token.indexOf('=')
-                if (eq >= 0) {
-                    Token.KeyValue(token.substring(0, eq), unescapeToken(token.substring(eq + 1)))
-                } else {
-                    Token.Word(unescapeToken(token))
-                }
-            }
+        val rest = headerTokens.drop(1).map(::keyValueOrWord)
         // lastOrNull: today's parser overwrites on duplicate header keys (last
         // wins), and docToSnapshot's associate() is last-wins — keep them agreeing.
         val kindValue =
@@ -102,8 +92,8 @@ internal object FormatReader {
             ContractKind.SEALED, ContractKind.POLYMORPHIC ->
                 when {
                     body == FormatGrammar.SUBTYPES_MARKER -> Line(1, listOf(Token.Word(FormatGrammar.SUBTYPES_MARKER)))
-                    SUBTYPE_ARROW in body -> {
-                        val (value, name) = body.split(SUBTYPE_ARROW, limit = 2)
+                    FormatGrammar.ARROW in body -> {
+                        val (value, name) = body.split(FormatGrammar.ARROW, limit = 2)
                         Line(
                             2,
                             listOf(
@@ -136,14 +126,7 @@ internal object FormatReader {
                             FormatGrammar.KEY_JSON_NAMES,
                             parseListLiteral(token.removePrefix("${FormatGrammar.KEY_JSON_NAMES}=")),
                         )
-                    else -> {
-                        val eq = token.indexOf('=')
-                        if (eq >= 0) {
-                            Token.KeyValue(token.substring(0, eq), unescapeToken(token.substring(eq + 1)))
-                        } else {
-                            Token.Word(unescapeToken(token))
-                        }
-                    }
+                    else -> keyValueOrWord(token)
                 }
             }
         return Line(
@@ -157,15 +140,21 @@ internal object FormatReader {
             bodyLines
                 .map { it.trim() }
                 .filter { it.isNotEmpty() && '=' in it } // a line with no '=' is a tolerated no-op
-                .map { line ->
-                    val eq = line.indexOf('=')
-                    Line(
-                        1,
-                        listOf(
-                            Token.KeyValue(line.substring(0, eq), unescapeToken(line.substring(eq + 1))),
-                        ),
-                    )
-                }
-        return Block(listOf(Line(0, listOf(Token.Word(CONFIG_HEADER)))) + entries)
+                .map { line -> Line(1, listOf(keyValueOrWord(line))) }
+        return Block(listOf(Line(0, listOf(Token.Word(FormatGrammar.CONFIG_MARKER)))) + entries)
+    }
+
+    /**
+     * Splits a token on its FIRST `=` into a [Token.KeyValue] (both sides
+     * unescaped); a token with no `=` becomes a bare [Token.Word]. The single
+     * home of the key/value-vs-word rule for header, element, and config tokens.
+     */
+    private fun keyValueOrWord(token: String): Token {
+        val eq = token.indexOf('=')
+        return if (eq >= 0) {
+            Token.KeyValue(token.substring(0, eq), unescapeToken(token.substring(eq + 1)))
+        } else {
+            Token.Word(unescapeToken(token))
+        }
     }
 }

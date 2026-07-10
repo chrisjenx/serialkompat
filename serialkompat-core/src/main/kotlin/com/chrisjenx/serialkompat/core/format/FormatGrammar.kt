@@ -13,4 +13,6 @@ internal object FormatGrammar {
     const val KEY_ENCODE_DEFAULT = "encodeDefault"
     const val KEY_VALUES = "values"
     const val KEY_JSON_NAMES = "jsonNames"
+    const val FLAG_OPTIONAL = "optional"
+    const val FLAG_NULLABLE = "nullable"
 }
