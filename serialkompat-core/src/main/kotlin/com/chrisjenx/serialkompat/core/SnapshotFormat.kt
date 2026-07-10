@@ -1,5 +1,8 @@
 package com.chrisjenx.serialkompat.core
 
+import com.chrisjenx.serialkompat.core.format.FormatWriter
+import com.chrisjenx.serialkompat.core.format.snapshotToDoc
+
 /**
  * The canonical text codec for a [Snapshot] — the deterministic, human-readable,
  * diffable artifact (BCV's lesson: a sorted golden text reviewers can read).
@@ -32,16 +35,12 @@ package com.chrisjenx.serialkompat.core
  * ```
  */
 public object SnapshotFormat {
-    private const val INDENT = "  "
     private const val CONTRACT_PREFIX = "@contract "
     private const val CONFIG_HEADER = "@config"
     private const val SUBTYPE_ARROW = " -> "
 
     /** Serializes [snapshot] to its canonical text form. */
-    public fun serialize(snapshot: Snapshot): String {
-        val blocks = snapshot.contracts.map(::serializeContract) + serializeConfig(snapshot.config)
-        return blocks.joinToString("\n\n")
-    }
+    public fun serialize(snapshot: Snapshot): String = FormatWriter.render(snapshotToDoc(snapshot))
 
     /** Parses canonical text back into a [Snapshot]. Tolerant of blank lines. */
     public fun parse(text: String): Snapshot {
@@ -61,61 +60,6 @@ public object SnapshotFormat {
         }
         return Snapshot(contracts, config)
     }
-
-    // --- serialize -------------------------------------------------------------
-
-    private fun serializeContract(contract: Contract): String =
-        buildString {
-            append(CONTRACT_PREFIX).append(escapeToken(contract.serialName)).append(" kind=").append(contract.kind.name)
-            if (contract.discriminator != null) append(" discriminator=").append(escapeToken(contract.discriminator))
-            // Emit only when set, so every existing snapshot stays byte-for-byte identical (#128).
-            if (contract.hasPolymorphicDefault) append(" polymorphicDefault=true")
-            when (contract.kind) {
-                ContractKind.ENUM ->
-                    appendLineItem("values=" + listLiteral(contract.enumValues))
-                ContractKind.SEALED, ContractKind.POLYMORPHIC -> {
-                    appendLineItem("subtypes:")
-                    for (subtype in contract.subtypes) {
-                        append('\n').append(INDENT).append(INDENT)
-                        append(escapeToken(subtype.discriminatorValue))
-                            .append(SUBTYPE_ARROW)
-                            .append(escapeToken(subtype.serialName))
-                    }
-                }
-                ContractKind.CLASS, ContractKind.OBJECT ->
-                    for (element in contract.elements) appendLineItem(serializeElement(element))
-                ContractKind.OPAQUE -> Unit // no analyzable body
-            }
-        }
-
-    private fun StringBuilder.appendLineItem(item: String) {
-        append('\n').append(INDENT).append(item)
-    }
-
-    private fun serializeElement(element: Element): String =
-        buildString {
-            append(escapeToken(element.name)).append(": ").append(escapeToken(element.type))
-            if (element.optional) append(" optional")
-            if (element.nullable) append(" nullable")
-            if (element.jsonNames.isNotEmpty()) {
-                append(" jsonNames=").append(listLiteral(element.jsonNames))
-            }
-            if (element.encodeDefault != null) append(" encodeDefault=").append(element.encodeDefault.name)
-        }
-
-    private fun serializeConfig(config: SnapshotConfig): String =
-        buildString {
-            append(CONFIG_HEADER)
-            // Emitted in a fixed (alphabetical) order for byte-stability.
-            appendLineItem("classDiscriminator=" + escapeToken(config.classDiscriminator))
-            appendLineItem("classDiscriminatorMode=" + config.classDiscriminatorMode)
-            appendLineItem("coerceInputValues=" + config.coerceInputValues)
-            appendLineItem("encodeDefaults=" + config.encodeDefaults)
-            appendLineItem("explicitNulls=" + config.explicitNulls)
-            appendLineItem("ignoreUnknownKeys=" + config.ignoreUnknownKeys)
-            appendLineItem("namingStrategy=" + escapeToken(config.namingStrategy))
-            appendLineItem("useAlternativeNames=" + config.useAlternativeNames)
-        }
 
     // --- parse -----------------------------------------------------------------
 
@@ -210,10 +154,6 @@ public object SnapshotFormat {
      */
     private fun parseList(literal: String): List<String> = splitEscaped(literal.trim().removeSurrounding("[", "]"))
 
-    /** Builds a `[a,b,c]` list literal with each value [escaped][escapeListValue]. */
-    private fun listLiteral(values: List<String>): String =
-        "[" + values.joinToString(",", transform = ::escapeListValue) + "]"
-
     /**
      * Escapes a value for inclusion in a `[a,b,c]` list literal: a `\` becomes
      * `\\` and the `,` separator becomes `\,`, so a value that legally contains a
@@ -221,23 +161,7 @@ public object SnapshotFormat {
      */
     private fun escapeListValue(value: String): String = value.replace("\\", "\\\\").replace(",", "\\,")
 
-    /**
-     * Escapes a name-bearing token (serial name, element name/type, discriminator,
-     * subtype value/name) so it survives the codec's positional delimiters. A `\`
-     * escapes itself and each whitespace delimiter — space (word/`": "`/`" -> "`
-     * separators), tab, and CR/LF (line/block separators). It is the **identity**
-     * for a token free of these characters, so every existing snapshot stays
-     * byte-for-byte identical; only names that would otherwise corrupt change form.
-     */
-    private fun escapeToken(value: String): String =
-        value
-            .replace("\\", "\\\\")
-            .replace(" ", "\\s")
-            .replace("\t", "\\t")
-            .replace("\r", "\\r")
-            .replace("\n", "\\n")
-
-    /** Reverses [escapeToken] in a single pass so `\\` is not mistaken for an escape. */
+    /** Reverses the writer's token-escaping in a single pass so `\\` is not mistaken for an escape. */
     private fun unescapeToken(value: String): String {
         if ('\\' !in value) return value
         val out = StringBuilder(value.length)
