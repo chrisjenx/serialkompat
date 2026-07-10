@@ -88,5 +88,4 @@ internal fun listLiteral(values: List<String>): String =
     "[" + values.joinToString(",", transform = ::escapeListValue) + "]"
 
 /** Parses a `[a,b,c]` list literal; an empty `[]` yields an empty list. */
-internal fun parseListLiteral(literal: String): List<String> =
-    splitEscaped(literal.trim().removeSurrounding("[", "]"))
+internal fun parseListLiteral(literal: String): List<String> = splitEscaped(literal.trim().removeSurrounding("[", "]"))
