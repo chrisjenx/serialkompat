@@ -3,7 +3,6 @@ package com.chrisjenx.serialkompat.core
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNotEquals
 
 /**
  * The canonical text form of a [Snapshot] is the diffable, reviewable artifact.
@@ -339,14 +338,14 @@ class SnapshotFormatTest {
     }
 
     @Test
-    fun `round-trips enum values containing spaces and tabs`() {
-        // The ENUM values= line is parsed WHOLE-LINE (comma-split only, never
-        // space-tokenized), so an enum value from @SerialName("A B") legally
-        // contains a space and must keep round-tripping (#56 pin).
+    fun `round-trips enum values containing spaces tabs and a newline`() {
+        // The ENUM values= line is parsed WHOLE-LINE (comma-split only); an enum
+        // value from @SerialName may legally contain a space, tab, or newline and
+        // must round-trip (#56 pin, extended for whitespace escaping in #146).
         assertRoundTrips(
             Snapshot(
                 listOf(
-                    Contract("E", ContractKind.ENUM, enumValues = listOf("A B", "C", "tab\there")),
+                    Contract("E", ContractKind.ENUM, enumValues = listOf("A B", "C", "tab\there", "l1\nl2")),
                 ),
             ),
         )
@@ -360,21 +359,23 @@ class SnapshotFormatTest {
     }
 
     @Test
-    fun `jsonNames values containing spaces remain a documented corruption gap`() {
-        // Inverse-pin for the tracked list-whitespace follow-up (#146): element
-        // lines are space-tokenized, so a space in a jsonNames value still
-        // corrupts on parse. When #146 lands, flip this to assertRoundTrips.
-        val s =
+    fun `round-trips jsonNames values containing whitespace and a newline`() {
+        // #146: element lines are space-tokenized, so a jsonNames value with a
+        // space/tab/newline must escape into a single token and round-trip.
+        assertRoundTrips(
             Snapshot(
                 listOf(
                     Contract(
                         "T",
                         ContractKind.CLASS,
-                        elements = listOf(Element("f", "String", jsonNames = listOf("a b"))),
+                        elements =
+                            listOf(
+                                Element("f", "String", jsonNames = listOf("a b", "tab\there", "l1\nl2")),
+                            ),
                     ),
                 ),
-            )
-        assertNotEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
+            ),
+        )
     }
 
     @Test

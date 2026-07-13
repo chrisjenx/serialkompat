@@ -117,13 +117,16 @@ writer and the kind-driven reader, so layout and escaping live in one place).
 Separators are single spaces; name-bearing tokens are token-escaped (`\s` for a
 space, etc.), so an element line tokenizes unambiguously on whitespace. Enum
 `values=[…]` lines are parsed whole (comma-split only) — an enum value may
-legally contain a space; list values containing whitespace in *element* lines
-remain a tracked gap (#146). Parsing is kind-driven: a body line structurally
+legally contain a space. List values (`jsonNames`, enum `values`) use the same
+escape alphabet as name tokens plus one separator escape (`\,` for a literal
+comma), so a list value containing whitespace, a comma, or a newline escapes
+into a single delimiter-safe token (#146). Parsing is kind-driven: a body line structurally
 invalid for the contract's declared `kind` is rejected loudly rather than
 silently mis-mapped (parse is load-bearing — §5). Unknown header tokens,
 element flags, and `@config` keys are tolerated for forward compatibility
 (#128). Round-trip guarantee: `parse(serialize(s)) == s` for every
-extractor-produced snapshot that round-trips today (no-regression; see #146).
+extractor-produced snapshot (#146 closed the last whitespace carve-out;
+whitespace-free output stays byte-identical).
 Blocks are sorted by serial name; within a contract, elements sort by key, enum
 values sort, and subtypes sort by discriminator value — so reordering fields
 produces a zero diff. An element whose type is another contract simply records

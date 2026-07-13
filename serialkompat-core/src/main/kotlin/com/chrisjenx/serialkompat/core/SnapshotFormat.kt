@@ -15,8 +15,8 @@ import com.chrisjenx.serialkompat.core.format.snapshotToDoc
  * - **Order-invariant:** because the [Snapshot] model normalizes its collections,
  *   reordering fields, enum values, or subtypes produces identical text.
  * - **Round-trips:** `parse(serialize(s)) == s` for every extractor-produced
- *   snapshot that round-trips today (no-regression; list values containing
- *   whitespace remain a known, tracked gap — see #146).
+ *   snapshot; list values (jsonNames, enum values) escape whitespace and the
+ *   comma separator, so they survive tokenization like any other token (#146).
  *
  * Format (lists are comma-separated with no spaces; type refs contain no spaces):
  * ```

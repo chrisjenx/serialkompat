@@ -4,10 +4,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * The two escaping schemes are distinct and centralized here: token-escaping
- * (whitespace + backslash, for name-bearing tokens) and list-escaping
- * (comma + backslash, for `[a,b,c]` literal values). Their unescape semantics
- * are incompatible, so they must never be merged.
+ * The codec's escaping is centralized here. Both schemes share one escape
+ * alphabet (whitespace + backslash, see token-escaping); list-escaping adds
+ * the separator escape `\,` on top so `[a,b,c]` values survive comma-splitting.
  */
 class FormatEscapingTest {
     @Test
@@ -31,11 +30,26 @@ class FormatEscapingTest {
     }
 
     @Test
-    fun `list values keep raw spaces`() {
-        // The list scheme deliberately does NOT escape whitespace (see the
-        // tracked follow-up issue); an enum value with a space stays raw.
-        assertEquals("values kept raw", escapeListValue("values kept raw"))
+    fun `list-escaping escapes whitespace into a single delimiter-safe token`() {
+        // #146: list values share the token alphabet, so whitespace is escaped
+        // and a `[...]` literal carries no raw space for tokenization to split on.
+        assertEquals("values\\skept\\sraw", escapeListValue("values kept raw"))
+        assertEquals("a\\tb", escapeListValue("a\tb"))
+        assertEquals("l1\\nl2", escapeListValue("l1\nl2"))
+    }
+
+    @Test
+    fun `parseListLiteral still reads legacy raw-space literals`() {
+        // Backward-read compat: pre-#146 baselines emitted enum values= with raw
+        // spaces (they round-tripped then); spaces are not escape sequences, so
+        // they pass through unchanged on read.
         assertEquals(listOf("A B", "C"), parseListLiteral("[A B,C]"))
+    }
+
+    @Test
+    fun `list-escaping round-trips whitespace newline tab comma and backslash`() {
+        val values = listOf("a b", "tab\there", "l1\nl2", "cr\rhere", "with,comma", "back\\slash", "plain")
+        assertEquals(values, parseListLiteral(listLiteral(values)))
     }
 
     @Test
