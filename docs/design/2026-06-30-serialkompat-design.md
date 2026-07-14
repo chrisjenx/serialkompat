@@ -459,8 +459,11 @@ means no discriminator is emitted (nothing to collide with).
 ### Report
 
 Per finding: `type · rule · direction · severity · old→new · human explanation ·
-fix hint` (add a default / add `@JsonNames` / bump major / add exception). Emitted
-as console + machine JSON; posted as a PR comment on CI (§9).
+fix hint` (add a default / add `@JsonNames` / bump major / add exception).
+Emitted by pure `serialkompat-core` reporters as **console**, **versioned machine
+JSON** (top-level `schemaVersion`, documented and stable — see the "Report formats"
+docs page), **SARIF 2.1.0** (logical locations only), and **GitHub Actions
+annotations**; posted as a PR comment on CI (§9).
 
 ---
 
@@ -556,7 +559,10 @@ the report. A model cannot silently fall out of the gate.
 - **`serialkompat` GitHub Action** — one *unified* action (buf's lesson: don't
   fragment) running the task and posting the PR comment. The Gradle task stays
   CI-agnostic (emits JSON report + exit code); the Action does GitHub-specific
-  posting.
+  posting. It also emits capped inline `error`/`warning` annotations (the first 10 of each, plus
+  a `notice` summarizing any overflow) from the same report, and — because findings are
+  logical-only (no source `file:line`) — does **not** upload SARIF to GitHub code
+  scanning.
 - **`serialkompat-cli`** — v1, for non-Gradle / cross-repo use.
 
 ---

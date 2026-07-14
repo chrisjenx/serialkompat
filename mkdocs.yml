@@ -71,6 +71,7 @@ nav:
   - CI setup: ci.md
   - Configuration: configuration.md
   - Rules: rules.md
+  - Report formats: report-formats.md
   - Recipes: recipes.md
   - Deep dive: deep-dive.md
   - API: https://chrisjenx.github.io/serialkompat/api/
