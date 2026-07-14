@@ -83,14 +83,18 @@ Install serialkompat as a Gradle plugin, a standalone CLI, or a GitHub Action.
     the same repo) without a Gradle build in the loop.
 
     ```text
-    serialkompat diff <baseline.snapshot> <current.snapshot> [--direction=FULL|BACKWARD|FORWARD] [--no-fail]
+    serialkompat diff <baseline.snapshot> <current.snapshot> [--direction=FULL|BACKWARD|FORWARD] [--format=console|json|sarif|github] [--no-fail]
     ```
 
     | Flag | Effect |
     |---|---|
     | `--direction=FULL\|BACKWARD\|FORWARD` | Compatibility direction to enforce (default `FULL`) |
+    | `--format=console\|json\|sarif\|github` | Output format for the diff report (default `console`) — see [Report formats](report-formats.md) |
     | `--no-fail` | Exit `0` even if the diff finds breaking changes (report still prints) |
     | `--help`, `-h` | Print usage and exit `0` |
+
+    For example, `serialkompat diff a.snapshot b.snapshot --format=sarif > report.sarif`
+    writes a SARIF 2.1.0 log; `--format` only changes what is printed, never the exit code.
 
     Malformed input never crashes the CLI — a missing file, unknown flag, or invalid
     `--direction` prints `error: <message>` plus usage and exits `2`, never a stack trace.
