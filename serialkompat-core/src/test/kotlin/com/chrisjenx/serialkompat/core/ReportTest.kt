@@ -84,6 +84,29 @@ class ReportTest {
         assertFalse(report.shouldFail(Severity.BREAK))
     }
 
+    // --- findAcceptedBy ---------------------------------------------------------
+
+    @Test
+    fun `findAcceptedBy returns the matching break with its reason`() {
+        val accepted =
+            listOf(
+                AcceptedBreak(
+                    "com.example.Order",
+                    Rules.PROPERTY_REMOVED,
+                    reason = "field retired in v3",
+                    acceptedBy = "alice",
+                ),
+            )
+        val match = finding().findAcceptedBy(accepted)
+        assertEquals("field retired in v3", match?.reason)
+        assertEquals("alice", match?.acceptedBy)
+    }
+
+    @Test
+    fun `findAcceptedBy returns null when nothing sanctions the finding`() {
+        assertEquals(null, finding().findAcceptedBy(emptyList()))
+    }
+
     // --- console rendering -----------------------------------------------------
 
     @Test

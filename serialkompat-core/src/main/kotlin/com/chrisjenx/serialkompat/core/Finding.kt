@@ -28,6 +28,37 @@ public object Rules {
     public const val CONFIG_EXPLICIT_NULLS: String = "CONFIG_EXPLICIT_NULLS"
     public const val CONFIG_COERCE_INPUT: String = "CONFIG_COERCE_INPUT"
     public const val COVERAGE_GAP: String = "COVERAGE_GAP"
+
+    /**
+     * Every rule id in declaration order — the source of truth for any consumer
+     * that must enumerate rules (e.g. the SARIF driver catalog). A reflection
+     * test guards that this stays complete when a rule is added.
+     */
+    public val all: List<String> =
+        listOf(
+            CONTRACT_REMOVED,
+            PROPERTY_ADDED,
+            PROPERTY_REMOVED,
+            PROPERTY_OPTIONALITY,
+            PROPERTY_NULLABILITY,
+            PROPERTY_JSON_NAMES,
+            PROPERTY_TYPE_CHANGED,
+            ENUM_VALUE_ADDED,
+            ENUM_VALUE_REMOVED,
+            SUBTYPE_ADDED,
+            SUBTYPE_REMOVED,
+            DISCRIMINATOR_CHANGED,
+            DISCRIMINATOR_VALUE_CHANGED,
+            DISCRIMINATOR_COLLISION,
+            CONFIG_CHANGED,
+            CONFIG_NAMING_STRATEGY,
+            CONFIG_DISCRIMINATOR,
+            CONFIG_READER_STRICTNESS,
+            CONFIG_ENCODE_DEFAULTS,
+            CONFIG_EXPLICIT_NULLS,
+            CONFIG_COERCE_INPUT,
+            COVERAGE_GAP,
+        )
 }
 
 /**
