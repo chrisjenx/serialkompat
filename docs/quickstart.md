@@ -77,9 +77,10 @@ Reading a finding, top to bottom:
 | indented line 1 | What changed, in plain language |
 | `fix:` | A concrete suggestion for resolving or living with the break |
 
-The full machine-readable version lands at `build/serialkompat/report.json`
-(`{summary, findings: [...]}`) — useful for custom CI annotations or the
-[GitHub Action](setup.md#github-action)'s sticky PR comment.
+The full machine-readable version lands at `build/serialkompat/report.json` — a
+versioned JSON document (`{schemaVersion, summary, findings: [...]}`) tooling can
+depend on. The same report also renders as SARIF and GitHub annotations; see
+[Report formats](report-formats.md).
 
 ## Exit codes
 
@@ -94,3 +95,4 @@ The full machine-readable version lands at `build/serialkompat/report.json`
 - [Setup](setup.md) — the CLI and GitHub Action paths, plus the full `serialkompat { }` DSL.
 - [Rules](rules.md) — every rule, what it detects, and how config flips the verdict.
 - [Configuration](configuration.md) — direction, accepted breaks, renames, scoping.
+- [Report formats](report-formats.md) — the JSON schema, SARIF, and GitHub annotations.

@@ -109,3 +109,14 @@ The `reports { }` block applies to the pairwise `serialkompatCheck` /
 `serialkompatCheckAgainst`. The transitive history check
 (`serialkompatCheckHistory`) writes its own `report-history.json` /
 `report-history.sarif`, so the pairwise `report.json` stays deterministic.
+
+!!! warning
+    The GitHub Action builds its PR comment and annotations from `report.json`, so
+    keep the JSON report enabled when using the action. Disabling it
+    (`reports { json { required.set(false) } }`) leaves the action with no report to
+    read, and it posts "No report was produced" even though the gate ran.
+
+## Next
+
+- [Configuration](configuration.md) — the full `serialkompat { }` DSL, including `reports { }`.
+- [CI setup](ci.md) — the GitHub Action, the sticky comment, and the inline annotations.
