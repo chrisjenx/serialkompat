@@ -407,6 +407,11 @@ public final class com/chrisjenx/serialkompat/core/Finding {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/chrisjenx/serialkompat/core/GithubReporter {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/GithubReporter;
+	public final fun render (Lcom/chrisjenx/serialkompat/core/Report;)Ljava/lang/String;
+}
+
 public final class com/chrisjenx/serialkompat/core/JsonReporter {
 	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/JsonReporter;
 	public final fun render (Lcom/chrisjenx/serialkompat/core/Report;)Ljava/lang/String;
