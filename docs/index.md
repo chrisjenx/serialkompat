@@ -2,8 +2,7 @@
 
 **A backward/forward compatibility gate for [kotlinx-serialization](https://github.com/Kotlin/kotlinx.serialization) `@Serializable` models — like [`buf breaking`](https://buf.build/docs/breaking/), but for JSON.**
 
-You delete a field. The JSON already on the wire — queues, caches, older app
-versions — still carries it. Code review says LGTM; serialkompat fails the build:
+You delete a field. Payloads in queues, caches, and old app versions still carry it:
 
 <div class="sk-hero" markdown>
 
@@ -35,11 +34,10 @@ serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
 <span class="sk-t-fail">BUILD FAILED</span></code></pre>
 </div>
 
-No baseline file to maintain: the baseline schema is extracted **live from a git
-ref** (your target branch), diffed against your compiled models, and every change
-is classified against real kotlinx-serialization behavior — including your actual
-`Json { }` config, in both directions (new code reading old data, and old code
-reading new data).
+The baseline is extracted **live from a git ref** (your target branch) — no
+baseline file to maintain. Every change is classified against real
+kotlinx-serialization behavior, including your actual `Json { }` config, in both
+directions.
 
 [Quick start](quickstart.md){ .md-button .md-button--primary }
 [Rules](rules.md){ .md-button }
