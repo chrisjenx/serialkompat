@@ -53,8 +53,9 @@ class GithubReporterTest {
 
     @Test
     fun `message data escapes percent CR and LF but not colon`() {
-        val out = GithubReporter.render(Report(listOf(finding(message = "a: 50% off\nline2"))))
-        assertContains(out, "a: 50%25 off%0Aline2") // ':' stays literal in data, '%'->%25, '\n'->%0A
+        val out = GithubReporter.render(Report(listOf(finding(message = "a: 50% off\r\nline2"))))
+        // ':' stays literal in data; '%'->%25 (first), '\r'->%0D, '\n'->%0A
+        assertContains(out, "a: 50%25 off%0D%0Aline2")
         assertFalse(out.contains("%3A"))
     }
 
