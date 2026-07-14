@@ -173,3 +173,168 @@
     }
   }
 }
+
+/*
+ * Landing-page hero: a model diff flows down into a terminal that fails the
+ * build. Same constraints as the pipeline: pure CSS, no JS, no external
+ * assets, dark-mode aware, honors prefers-reduced-motion.
+ */
+
+.sk-hero {
+  margin: 1.5rem 0 0;
+}
+
+.sk-hero .highlight {
+  margin: 0;
+}
+
+.sk-hero-caption {
+  margin: 0 0 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Vertical connector between the diff and the terminal: a rule with a
+   traveling pulse (the diff "flowing into" the gate) and an arrowhead. */
+.sk-hero-flow {
+  position: relative;
+  width: 2px;
+  height: 2rem;
+  margin: 0.4rem auto;
+  background: var(--md-default-fg-color--lighter);
+}
+
+.sk-hero-flow::before {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--md-default-fg-color--lighter);
+}
+
+.sk-hero-flow span {
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  width: 4px;
+  height: 30%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--md-primary-fg-color);
+  animation: sk-hero-drop 1.8s ease-in-out infinite;
+}
+
+@keyframes sk-hero-drop {
+  0% {
+    top: -30%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* The terminal window. Deliberately dark in both color schemes — it reads
+   as a terminal, and the fixed palette keeps contrast identical under
+   Material's default and slate schemes. */
+.sk-terminal {
+  margin: 0 0 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  background: #1a1e26;
+  overflow: hidden;
+}
+
+.sk-terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  background: #262c38;
+}
+
+.sk-terminal-bar i {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+
+.sk-terminal-bar i:nth-of-type(2) {
+  background: #febc2e;
+}
+
+.sk-terminal-bar i:nth-of-type(3) {
+  background: #28c840;
+}
+
+.sk-terminal-bar b {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #7b8496;
+}
+
+.sk-terminal pre {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: transparent;
+}
+
+/* The terminal is an illustration, not copyable config — drop the copy
+   button Material injects into every code block (.md-code__nav in current
+   Material, .md-clipboard in older versions). */
+.sk-terminal .md-code__nav,
+.sk-terminal .md-clipboard {
+  display: none;
+}
+
+.sk-terminal code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  color: #d8dee9;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  /* Wrap long report lines the way a real terminal soft-wraps them,
+     instead of forcing horizontal scroll on the hero. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.sk-t-prompt {
+  color: #28c840;
+  font-weight: 700;
+}
+
+.sk-t-break,
+.sk-t-fail {
+  color: #ff6b6b;
+  font-weight: 700;
+}
+
+.sk-t-dim {
+  color: #8b93a5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-hero-flow span {
+    animation: none;
+    top: 35%;
+    opacity: 1;
+  }
+}
