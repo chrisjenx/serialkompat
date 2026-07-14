@@ -25,8 +25,11 @@ $ serialkompat diff /tmp/producer.snapshot /tmp/consumer.snapshot
 argument as the old schema, the second as the new one — same semantics as the
 Gradle task's `baselineRef` vs. the current classpath. Add
 `--direction=BACKWARD|FORWARD|FULL` to narrow the check, or `--no-fail` to
-print findings without failing the invocation. Exit codes: `0` ok, `1`
-breaking, `2` usage error.
+print findings without failing the invocation.
+Pass `--format=console|json|sarif|github` to choose the output format — e.g.
+`--format=sarif > report.sarif` for a SARIF log, or `--format=github` to emit
+inline annotations on a non-Action CI runner (see [Report formats](report-formats.md)).
+Exit codes: `0` ok, `1` breaking, `2` usage error.
 
 ## First-time adoption
 
@@ -206,6 +209,10 @@ serialkompat: transitive check vs 3 published version(s).
   BREAK  PROPERTY_REMOVED  com.example.wire.OrderEvent  (forward)
     field 'note' was removed from com.example.wire.OrderEvent
 ```
+
+The history check writes its report to `build/serialkompat/report-history.json`
+(and `report-history.sarif` if SARIF is enabled), kept separate from the pairwise
+`report.json` so each report's provenance is unambiguous.
 
 It's wired into `check`, but it's a **no-op until you've recorded at least one
 version** — a repo that hasn't opted into history never sees it fail. This is

@@ -23,6 +23,10 @@ what it controls. See [Quick start](quickstart.md) for the minimal version and
 | `history.sinceVersion` | `Property<String>` | unset | Retention: only check against versions `>=` this (semver) |
 | `history.depth` | `Property<Int>` | unset | Retention: only check against the newest N recorded versions |
 | `history.maxAge` | `Property<Duration>` | unset | Retention: only check against versions recorded within this window. Combining bounds is most-permissive (union) |
+| `reports.json.required` | `Property<Boolean>` | `true` | Write the JSON report to `build/serialkompat/report.json` ([Report formats](report-formats.md)) |
+| `reports.json.outputLocation` | `RegularFileProperty` | `build/serialkompat/report.json` | Where the JSON report is written |
+| `reports.sarif.required` | `Property<Boolean>` | `false` | Write the SARIF 2.1.0 report to `build/serialkompat/report.sarif` |
+| `reports.sarif.outputLocation` | `RegularFileProperty` | `build/serialkompat/report.sarif` | Where the SARIF report is written |
 
 The extension is config-cache safe — everything above is captured at configuration
 time. `baselineRef` isn't a file on disk: the baseline schema is recomputed live
@@ -164,7 +168,28 @@ same-service rolling deploy where old instances are drained within minutes only
 needs `BACKWARD` for that window — but relaxing to `BACKWARD` or `FORWARD` narrows
 the guarantee, so only do it deliberately, not as a way to silence findings.
 
+## Report formats
+
+A JSON report is written by default; enable SARIF (for IDEs / dashboards) or move
+the output with a nested `reports { }` block:
+
+```kotlin title="build.gradle.kts"
+serialkompat {
+  reports {
+    json { required.set(true) }               // default -> build/serialkompat/report.json
+    sarif { required.set(true) }              // opt-in  -> build/serialkompat/report.sarif
+  }
+}
+```
+
+JSON is on and SARIF is off by default. The block applies to the pairwise
+`serialkompatCheck` / `serialkompatCheckAgainst`; the transitive history check
+writes its own `report-history.json` / `report-history.sarif`. See
+[Report formats](report-formats.md) for the JSON schema, SARIF details, GitHub
+annotations, and the CLI `--format` equivalent.
+
 ## Next
 
 - [Rules](rules.md) — the full rule table each `direction` and `Json` config draws from.
 - [CI setup](ci.md) — wiring the check (and `-Pserialkompat.ref`) into a pipeline.
+- [Report formats](report-formats.md) — the JSON schema, SARIF, and GitHub annotations, and how to select them.

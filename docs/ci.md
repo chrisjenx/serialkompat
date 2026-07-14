@@ -62,6 +62,12 @@ task and check its exit code.
     - ⚠️ `WARN` findings only, nothing breaking
     - ✅ clean
 
+    Alongside the sticky comment, the action posts inline **annotations** for each
+    active finding — `BREAK` → error, `WARN` → warning — capped at GitHub's limit of
+    10 errors + 10 warnings per step, with a single notice summarizing any overflow so
+    nothing is silently dropped. Findings carry no source line, so they attach to the
+    run and job summary. See [Report formats](report-formats.md#github-annotations).
+
 === "Manual Gradle"
 
     ### Manual Gradle (any CI) {: #manual-gradle }
@@ -126,3 +132,4 @@ task and check its exit code.
 
 - [Configuration](configuration.md) — the full `serialkompat { }` DSL, direction, `acceptedBreaks`.
 - [Rules](rules.md) — every rule the classifier can raise.
+- [Report formats](report-formats.md) — JSON schema, SARIF, and the inline annotations.
