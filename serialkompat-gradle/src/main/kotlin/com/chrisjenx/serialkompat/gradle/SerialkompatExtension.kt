@@ -78,4 +78,12 @@ public abstract class SerialkompatExtension
         public fun history(action: Action<in SerialkompatHistory>) {
             action.execute(history)
         }
+
+        /** Machine-readable report formats written by the pairwise check (#122). */
+        public val reports: SerialkompatReports = objects.newInstance(SerialkompatReports::class.java)
+
+        /** Configures the [reports] block: `serialkompat { reports { sarif { required.set(true) } } }`. */
+        public fun reports(action: Action<in SerialkompatReports>) {
+            action.execute(reports)
+        }
     }

@@ -194,6 +194,27 @@ class SerialkompatHistoryFunctionalTest {
     }
 
     @Test
+    fun `serialkompatCheckHistory writes report-history_json and does not clobber the pairwise report_json`() {
+        settings()
+        buildFile(direction = "BACKWARD")
+        seedHistory("1.0.0", order(Element("id", "kotlin.String")))
+        // Adding an optional field is backward-compatible -> the history check passes.
+        seedCurrent(order(Element("id", "kotlin.String"), Element("note", "kotlin.String", optional = true)))
+
+        val result = runner("serialkompatCheckHistory", "-x", "serialkompatExtract").build()
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheckHistory")?.outcome)
+
+        assertTrue(
+            File(projectDir, "build/serialkompat/report-history.json").isFile,
+            "the history check must write its own report-history.json",
+        )
+        assertTrue(
+            !File(projectDir, "build/serialkompat/report.json").exists(),
+            "the history check must not write the pairwise report.json",
+        )
+    }
+
+    @Test
     fun `history retention narrows the horizon so an old-version break outside the window is not checked`() {
         settings()
         // depth=1 checks only the newest recorded version (2.0.0), dropping 1.0.0 from the horizon.
