@@ -77,6 +77,21 @@ runs:
             body = `${marker}\n### ${icon} serialkompat\n\n`
               + `**${s.breaking ?? 0} breaking**, ${s.warning ?? 0} warning, ${s.acknowledged ?? 0} acknowledged.\n\n`
               + (lines || '_No incompatible changes._');
+            // Inline annotations for active findings — mirrors core GithubReporter's 10+10
+            // cap + notice summary (docs/report-formats.md). No file/line (findings have
+            // none), so GitHub attaches them to the run and job summary; the sticky comment
+            // above stays the complete surface. No SARIF upload (logical-only locations).
+            const active = (report.findings || []).filter(f => !f.acknowledged);
+            const MAX = 10;
+            const errs = active.filter(f => f.severity === 'BREAK');
+            const warns = active.filter(f => f.severity === 'WARN');
+            errs.slice(0, MAX).forEach(f => core.error(`${f.contract} — ${f.message}`, { title: f.rule }));
+            warns.slice(0, MAX).forEach(f => core.warning(`${f.contract} — ${f.message}`, { title: f.rule }));
+            const dropped = Math.max(0, errs.length - MAX) + Math.max(0, warns.length - MAX);
+            if (dropped > 0) {
+              core.notice(`+${dropped} more finding(s) — see the serialkompat report or PR comment`,
+                { title: 'serialkompat' });
+            }
           } else {
             body = `${marker}\n### serialkompat\n\n_No report was produced (nothing configured to check)._`;
           }
