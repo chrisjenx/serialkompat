@@ -20,10 +20,13 @@ public data class AcceptedBreak(
     val acceptedBy: String = "",
 )
 
-/** Whether this finding is sanctioned by any entry in [accepted]. */
-public fun Finding.isAcceptedBy(accepted: List<AcceptedBreak>): Boolean =
-    accepted.any { break_ ->
+/** The first entry in [accepted] that sanctions this finding, or `null` if none does. */
+public fun Finding.findAcceptedBy(accepted: List<AcceptedBreak>): AcceptedBreak? =
+    accepted.firstOrNull { break_ ->
         break_.type == contract &&
             break_.rule == rule &&
             (break_.direction == null || break_.direction == direction)
     }
+
+/** Whether this finding is sanctioned by any entry in [accepted]. */
+public fun Finding.isAcceptedBy(accepted: List<AcceptedBreak>): Boolean = findAcceptedBy(accepted) != null

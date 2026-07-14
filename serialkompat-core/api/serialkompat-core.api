@@ -19,6 +19,7 @@ public final class com/chrisjenx/serialkompat/core/AcceptedBreak {
 }
 
 public final class com/chrisjenx/serialkompat/core/AcceptedBreakKt {
+	public static final fun findAcceptedBy (Lcom/chrisjenx/serialkompat/core/Finding;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/AcceptedBreak;
 	public static final fun isAcceptedBy (Lcom/chrisjenx/serialkompat/core/Finding;Ljava/util/List;)Z
 }
 
@@ -406,6 +407,11 @@ public final class com/chrisjenx/serialkompat/core/Finding {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/chrisjenx/serialkompat/core/GithubReporter {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/GithubReporter;
+	public final fun render (Lcom/chrisjenx/serialkompat/core/Report;)Ljava/lang/String;
+}
+
 public final class com/chrisjenx/serialkompat/core/JsonReporter {
 	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/JsonReporter;
 	public final fun render (Lcom/chrisjenx/serialkompat/core/Report;)Ljava/lang/String;
@@ -460,6 +466,13 @@ public final class com/chrisjenx/serialkompat/core/Rules {
 	public static final field PROPERTY_TYPE_CHANGED Ljava/lang/String;
 	public static final field SUBTYPE_ADDED Ljava/lang/String;
 	public static final field SUBTYPE_REMOVED Ljava/lang/String;
+	public final fun getAll ()Ljava/util/List;
+}
+
+public final class com/chrisjenx/serialkompat/core/SarifReporter {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/SarifReporter;
+	public final fun render (Lcom/chrisjenx/serialkompat/core/Report;Ljava/lang/String;)Ljava/lang/String;
+	public static synthetic fun render$default (Lcom/chrisjenx/serialkompat/core/SarifReporter;Lcom/chrisjenx/serialkompat/core/Report;Ljava/lang/String;ILjava/lang/Object;)Ljava/lang/String;
 }
 
 public final class com/chrisjenx/serialkompat/core/Scope {
