@@ -16,3 +16,9 @@ dependencies {
 application {
     mainClass.set("com.chrisjenx.serialkompat.cli.SerialkompatCli")
 }
+
+tasks.jar {
+    manifest {
+        attributes(mapOf("Implementation-Version" to project.version))
+    }
+}

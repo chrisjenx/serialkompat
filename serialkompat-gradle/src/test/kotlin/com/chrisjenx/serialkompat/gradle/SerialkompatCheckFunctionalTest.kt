@@ -58,6 +58,7 @@ class SerialkompatCheckFunctionalTest {
         baselineRef: String?,
         direction: String? = null,
         acceptedBreaks: List<String> = emptyList(),
+        reportsBlock: String = "",
     ) = write(
         "build.gradle.kts",
         """
@@ -79,6 +80,7 @@ class SerialkompatCheckFunctionalTest {
         } else {
             "acceptedBreaks.set(listOf(${acceptedBreaks.joinToString(", ") { "\"$it\"" }}))"
         }}
+            $reportsBlock
         }
         """,
     )
@@ -272,6 +274,43 @@ class SerialkompatCheckFunctionalTest {
         assertTrue(
             result.output.contains("0 contracts"),
             "expected the empty-baseline guard message; output:\n${result.output}",
+        )
+    }
+
+    @Test
+    fun `serialkompatCheck writes report_sarif when the sarif report is enabled`() {
+        settings()
+        buildFile(baselineRef = "HEAD", reportsBlock = "reports { sarif { required.set(true) } }")
+        orderModel("val id: String")
+        val sha = initCommit()
+        seedBaseline(sha, orderSnapshot(Element("id", "kotlin.String")))
+
+        val result = runner("serialkompatCheck").build()
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheck")?.outcome)
+
+        val sarif = File(projectDir, "build/serialkompat/report.sarif")
+        assertTrue(sarif.isFile, "expected a SARIF report when sarif is enabled")
+        assertTrue(
+            sarif.readText().contains("\"version\": \"2.1.0\""),
+            "SARIF must carry the 2.1.0 version: ${sarif.readText()}",
+        )
+    }
+
+    @Test
+    fun `serialkompatCheck writes only report_json by default, not report_sarif`() {
+        settings()
+        buildFile(baselineRef = "HEAD")
+        orderModel("val id: String")
+        val sha = initCommit()
+        seedBaseline(sha, orderSnapshot(Element("id", "kotlin.String")))
+
+        val result = runner("serialkompatCheck").build()
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheck")?.outcome)
+
+        assertTrue(File(projectDir, "build/serialkompat/report.json").isFile, "JSON is on by default")
+        assertTrue(
+            !File(projectDir, "build/serialkompat/report.sarif").exists(),
+            "SARIF must be off by default",
         )
     }
 

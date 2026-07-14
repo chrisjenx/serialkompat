@@ -3,6 +3,7 @@ package com.chrisjenx.serialkompat.gradle
 import com.chrisjenx.serialkompat.core.AcceptedBreak
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
 import com.chrisjenx.serialkompat.core.ContractKind
+import com.chrisjenx.serialkompat.core.SarifReporter
 import com.chrisjenx.serialkompat.core.SnapshotFormat
 import com.chrisjenx.serialkompat.extractor.DiscoveryMode
 import com.chrisjenx.serialkompat.gradle.git.GitRefBaseline
@@ -46,6 +47,16 @@ public class SerialkompatPlugin : Plugin<Project> {
         extension.renames.convention(emptyMap())
         // A source-controlled (not build/) location: the transitive check reads it, so it must persist.
         extension.history.dir.convention(target.layout.projectDirectory.dir("serialkompat/history"))
+        extension.reports.json.required
+            .convention(true)
+        extension.reports.sarif.required
+            .convention(false)
+        extension.reports.json.outputLocation.convention(
+            target.layout.buildDirectory.file("serialkompat/report.json"),
+        )
+        extension.reports.sarif.outputLocation.convention(
+            target.layout.buildDirectory.file("serialkompat/report.sarif"),
+        )
 
         val currentSnapshot = target.layout.buildDirectory.file("serialkompat/current.snapshot")
 
@@ -118,11 +129,27 @@ public class SerialkompatPlugin : Plugin<Project> {
                 .dir("serialkompat/worktrees")
                 .get()
                 .asFile
-        val reportFile =
+        // Report outputs. The pairwise check honors the `reports { }` DSL — its Property refs are
+        // captured here (CC-safe) and resolved at EXECUTION time, because a consumer's
+        // `serialkompat { reports { … } }` runs after this plugin is applied. The history check
+        // writes its own fixed report-history.* paths so the pairwise report.json/.sarif provenance
+        // stays deterministic (#122).
+        val jsonRequired = extension.reports.json.required
+        val jsonOutput = extension.reports.json.outputLocation
+        val sarifRequired = extension.reports.sarif.required
+        val sarifOutput = extension.reports.sarif.outputLocation
+        val historyJsonFile =
             target.layout.buildDirectory
-                .file("serialkompat/report.json")
+                .file("serialkompat/report-history.json")
                 .get()
                 .asFile
+        val historySarifFile =
+            target.layout.buildDirectory
+                .file("serialkompat/report-history.sarif")
+                .get()
+                .asFile
+        // Tool version from this plugin's jar manifest; null under TestKit/dev (SARIF omits it).
+        val toolVersion = javaClass.getPackage()?.implementationVersion
         val currentFile = currentSnapshot.get().asFile
         // A Provider (not project.findProperty at execution) keeps -Pserialkompat.ref config-cache-safe.
         val refProperty = target.providers.gradleProperty(REF_PROPERTY)
@@ -148,7 +175,14 @@ public class SerialkompatPlugin : Plugin<Project> {
                         current = currentFile,
                         baselineDir = baselineDir,
                         worktreesDir = worktreesDir,
-                        reportFile = reportFile,
+                        reports =
+                            ReportOutputs(
+                                jsonEnabled = jsonRequired.get(),
+                                jsonFile = jsonOutput.get().asFile,
+                                sarifEnabled = sarifRequired.get(),
+                                sarifFile = sarifOutput.get().asFile,
+                                toolVersion = toolVersion,
+                            ),
                         baselineRef = extension.baselineRef.orNull,
                         direction = extension.direction.get(),
                         include = extension.include.get(),
@@ -176,7 +210,14 @@ public class SerialkompatPlugin : Plugin<Project> {
                     current = currentFile,
                     baselineDir = baselineDir,
                     worktreesDir = worktreesDir,
-                    reportFile = reportFile,
+                    reports =
+                        ReportOutputs(
+                            jsonEnabled = jsonRequired.get(),
+                            jsonFile = jsonOutput.get().asFile,
+                            sarifEnabled = sarifRequired.get(),
+                            sarifFile = sarifOutput.get().asFile,
+                            toolVersion = toolVersion,
+                        ),
                     baselineRef = resolveBaselineRef(refProperty.orNull, extension.baselineRef.orNull),
                     direction = extension.direction.get(),
                     include = extension.include.get(),
@@ -225,7 +266,14 @@ public class SerialkompatPlugin : Plugin<Project> {
                         logger = t.logger,
                         current = currentFile,
                         historyDir = historyDir,
-                        reportFile = reportFile,
+                        reports =
+                            ReportOutputs(
+                                jsonEnabled = jsonRequired.get(),
+                                jsonFile = historyJsonFile,
+                                sarifEnabled = sarifRequired.get(),
+                                sarifFile = historySarifFile,
+                                toolVersion = toolVersion,
+                            ),
                         direction = extension.direction.get(),
                         include = extension.include.get(),
                         exclude = extension.exclude.get(),
@@ -256,7 +304,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         current: File,
         baselineDir: File,
         worktreesDir: File,
-        reportFile: File,
+        reports: ReportOutputs,
         baselineRef: String?,
         direction: CompatibilityDirection,
         include: List<String>,
@@ -292,7 +340,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                 renames = renames,
             )
         logger.lifecycle(outcome.console)
-        reportFile.also { it.parentFile.mkdirs() }.writeText(outcome.json)
+        writeReports(reports, outcome)
         if (outcome.failed) {
             throw GradleException("serialkompat: incompatible wire changes vs '$effectiveRef'. See the report above.")
         }
@@ -339,7 +387,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         logger: Logger,
         current: File,
         historyDir: File,
-        reportFile: File,
+        reports: ReportOutputs,
         direction: CompatibilityDirection,
         include: List<String>,
         exclude: List<String>,
@@ -368,9 +416,31 @@ public class SerialkompatPlugin : Plugin<Project> {
                 accepted = accepted,
             )
         logger.lifecycle(outcome.console)
-        reportFile.also { it.parentFile.mkdirs() }.writeText(outcome.json)
+        writeReports(reports, outcome)
         if (outcome.failed) {
             throw GradleException("serialkompat: schema incompatible with published history. See the report above.")
+        }
+    }
+
+    private class ReportOutputs(
+        val jsonEnabled: Boolean,
+        val jsonFile: File,
+        val sarifEnabled: Boolean,
+        val sarifFile: File,
+        val toolVersion: String?,
+    )
+
+    /** Writes the enabled machine-readable formats for a check outcome. */
+    private fun writeReports(
+        reports: ReportOutputs,
+        outcome: CheckExecutor.Outcome,
+    ) {
+        if (reports.jsonEnabled) {
+            reports.jsonFile.also { it.parentFile.mkdirs() }.writeText(outcome.json)
+        }
+        if (reports.sarifEnabled) {
+            val sarif = SarifReporter.render(outcome.report, reports.toolVersion)
+            reports.sarifFile.also { it.parentFile.mkdirs() }.writeText(sarif)
         }
     }
 

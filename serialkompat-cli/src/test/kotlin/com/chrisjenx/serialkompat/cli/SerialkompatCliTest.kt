@@ -185,4 +185,71 @@ class SerialkompatCliTest {
         val (code, output) = run("diff", baseline, currentFile.absolutePath)
         assertEquals(0, code, "WARN-only diff must not fail; output: $output")
     }
+
+    @Test
+    fun `--format=json renders the JSON report`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current, "--format=json")
+        assertEquals(0, code)
+        assertTrue(output.contains("\"schemaVersion\""), "expected JSON, got: $output")
+    }
+
+    @Test
+    fun `--format=sarif renders the SARIF report`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current, "--format=sarif")
+        assertEquals(0, code)
+        assertTrue(output.contains("\"version\": \"2.1.0\""), "expected SARIF, got: $output")
+    }
+
+    @Test
+    fun `--format=github renders workflow-command annotations for a break`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot") // drops 'id' -> a break
+        val (code, output) = run("diff", baseline, current, "--format=github")
+        assertEquals(1, code) // --format never changes the exit code
+        assertTrue(output.contains("::error"), "expected a GitHub annotation, got: $output")
+    }
+
+    @Test
+    fun `--format=console is the explicit default`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot") // a break -> console prints BREAK
+        val (code, output) = run("diff", baseline, current, "--format=console", "--no-fail")
+        assertEquals(0, code)
+        assertTrue(output.contains("BREAK"), "expected console output, got: $output")
+    }
+
+    @Test
+    fun `space-separated --format before the file args is parsed, not treated as a positional`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        // `--format sarif` must consume `sarif` as its value; the two files stay positional.
+        val (code, output) = run("diff", "--format", "sarif", baseline, current)
+        assertEquals(0, code, "output: $output")
+        assertTrue(output.contains("\"version\": \"2.1.0\""), "expected SARIF, got: $output")
+    }
+
+    @Test
+    fun `an invalid --format value exits 2 rather than silently defaulting`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current, "--format=xml")
+        assertEquals(2, code)
+        assertTrue(
+            output.contains("xml") || output.contains("format"),
+            "expected a format error, got: $output",
+        )
+    }
+
+    @Test
+    fun `a valueless --format exits 2 rather than silently defaulting`() {
+        val baseline = snapshotFile("a.snapshot", Element("id", "kotlin.String"))
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current, "--format")
+        assertEquals(2, code)
+        assertTrue(output.contains("format", ignoreCase = true), "expected a format error, got: $output")
+    }
 }

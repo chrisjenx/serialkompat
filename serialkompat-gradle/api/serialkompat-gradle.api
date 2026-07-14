@@ -11,8 +11,10 @@ public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatExtension {
 	public abstract fun getInclude ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getJsonInstance ()Lorg/gradle/api/provider/Property;
 	public abstract fun getRenames ()Lorg/gradle/api/provider/MapProperty;
+	public final fun getReports ()Lcom/chrisjenx/serialkompat/gradle/SerialkompatReports;
 	public abstract fun getTypes ()Lorg/gradle/api/provider/ListProperty;
 	public final fun history (Lorg/gradle/api/Action;)V
+	public final fun reports (Lorg/gradle/api/Action;)V
 }
 
 public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatHistory {
@@ -36,6 +38,20 @@ public final class com/chrisjenx/serialkompat/gradle/SerialkompatPlugin : org/gr
 }
 
 public final class com/chrisjenx/serialkompat/gradle/SerialkompatPlugin$Companion {
+}
+
+public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatReport {
+	public fun <init> ()V
+	public abstract fun getOutputLocation ()Lorg/gradle/api/file/RegularFileProperty;
+	public abstract fun getRequired ()Lorg/gradle/api/provider/Property;
+}
+
+public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatReports {
+	public fun <init> (Lorg/gradle/api/model/ObjectFactory;)V
+	public final fun getJson ()Lcom/chrisjenx/serialkompat/gradle/SerialkompatReport;
+	public final fun getSarif ()Lcom/chrisjenx/serialkompat/gradle/SerialkompatReport;
+	public final fun json (Lorg/gradle/api/Action;)V
+	public final fun sarif (Lorg/gradle/api/Action;)V
 }
 
 public abstract interface class com/chrisjenx/serialkompat/gradle/git/GitCommands {

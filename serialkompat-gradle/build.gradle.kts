@@ -30,3 +30,9 @@ gradlePlugin {
         }
     }
 }
+
+tasks.jar {
+    manifest {
+        attributes(mapOf("Implementation-Version" to project.version))
+    }
+}
