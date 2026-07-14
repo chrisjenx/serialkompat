@@ -464,6 +464,12 @@ public final class com/chrisjenx/serialkompat/core/Rules {
 	public final fun getAll ()Ljava/util/List;
 }
 
+public final class com/chrisjenx/serialkompat/core/SarifReporter {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/SarifReporter;
+	public final fun render (Lcom/chrisjenx/serialkompat/core/Report;Ljava/lang/String;)Ljava/lang/String;
+	public static synthetic fun render$default (Lcom/chrisjenx/serialkompat/core/SarifReporter;Lcom/chrisjenx/serialkompat/core/Report;Ljava/lang/String;ILjava/lang/Object;)Ljava/lang/String;
+}
+
 public final class com/chrisjenx/serialkompat/core/Scope {
 	public fun <init> ()V
 	public fun <init> (Ljava/util/List;Ljava/util/List;)V
