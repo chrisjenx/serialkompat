@@ -11,11 +11,31 @@
 
 > 🚧 **Status: early development, built in the open one reviewed PR at a time.** `-SNAPSHOT`s publish to Maven Central on every push to `main`; there is no stable release yet and the plugin is not on the Gradle Plugin Portal ([resolve via `mavenCentral()`](https://chrisjenx.github.io/serialkompat/setup/#gradle-plugin)). Follow along in the [issues](https://github.com/chrisjenx/serialkompat/issues) and [milestones](https://github.com/chrisjenx/serialkompat/milestones).
 
+You delete a field. Payloads in queues, caches, and old app versions still carry it:
+
+```diff
+ @Serializable
+ data class OrderEvent(
+     val id: String,
+     val amountCents: Long,
+-    val note: String? = null,
+ )
+```
+
+```console
+$ ./gradlew serialkompatCheck
+serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
+
+  BREAK  PROPERTY_REMOVED  com.example.wire.OrderEvent  (backward)
+    field 'note' was removed from com.example.wire.OrderEvent
+    fix: Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.
+```
+
 ## Why
 
-`kotlinx-serialization-json` is a joy to use, but it gives you **no safety net for schema evolution**. Rename a property, drop a default, make a field non-null — and you may have silently broken every old client still sending the old shape, or made years of persisted JSON undecodable. Today the only defence is a pile of hand-written round-trip tests.
+`kotlinx-serialization-json` has no safety net for schema evolution. Rename a property, drop a default, make a field non-null — every old client sending the old shape breaks, and persisted JSON can become undecodable. The usual defence is hand-written round-trip tests.
 
-`serialkompat` makes wire-compatibility a **gate**: it reads the JSON schema straight out of your `@Serializable` models, compares it against a baseline, and fails CI on backward/forward-incompatible changes — with the rules grounded in how kotlinx-serialization *actually* behaves.
+`serialkompat` makes wire compatibility a CI gate: it reads the JSON schema from your compiled `@Serializable` models, diffs it against a baseline, and fails on incompatible changes. The rules are grounded in how kotlinx-serialization actually behaves.
 
 ## How it works
 
@@ -27,7 +47,7 @@
 ```
 
 - **Extraction** walks the compiled `SerialDescriptor` graph, so it sees exactly what goes on the wire — real JSON keys (post-`@SerialName`/`namingStrategy`), optionality (`isElementOptional`), nullability, enums, and `SerializersModule`-resolved polymorphism.
-- **Baseline** is extracted **live from a git ref** (e.g. your target branch) — there is no hand-maintained baseline file to forget to update or accidentally overwrite. (An append-only published schema history for long-horizon persisted-data checks is on the roadmap.)
+- **Baseline** is extracted **live from a git ref** (e.g. your target branch) — no hand-maintained baseline file. For long-horizon persisted-data checks there is also an append-only [schema history](https://chrisjenx.github.io/serialkompat/recipes/) (`serialkompatRecord` / `serialkompatCheckHistory`).
 - **Classification** is direction-aware (`BACKWARD` / `FORWARD` / `FULL`) and **config-aware** — it reads your actual `Json { }` settings, because whether a change is safe depends on `ignoreUnknownKeys`, `namingStrategy`, `encodeDefaults`, and friends.
 - **Every rule is verified against real kotlinx-serialization** via a round-trip oracle: serialize with the old model, decode with the new one, and assert the classifier predicted what actually happened.
 
@@ -59,20 +79,13 @@ serialkompat {
 Two tasks are registered:
 
 - **`serialkompatExtract`** — dumps the current schema to `build/serialkompat/current.snapshot`.
-- **`serialkompatCheck`** — recomputes the baseline from `baselineRef` (git-ref-live: a throwaway worktree, no committed baseline to go stale), diffs, and fails on an unacknowledged breaking change. Wired into `check`, so it runs on every build and on CI — nothing to remember. Applying the plugin without configuring `types` is a no-op, so it never breaks an unconfigured `check`.
+- **`serialkompatCheck`** — recomputes the baseline from `baselineRef` (a throwaway worktree, no committed baseline to go stale), diffs, and fails on an unacknowledged breaking change. Wired into `check`, so it runs on every build and on CI. Applying the plugin without configuring `types` is a no-op.
 
-```console
-$ ./gradlew serialkompatCheck
-serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
-
-  BREAK  PROPERTY_REMOVED  com.example.wire.OrderEvent  (backward)
-    field 'note' was removed from com.example.wire.OrderEvent
-    fix: Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.
-```
+The report also renders as JSON (`build/serialkompat/report.json`), SARIF, and GitHub annotations — see [report formats](https://chrisjenx.github.io/serialkompat/report-formats/).
 
 ## CI (GitHub Action)
 
-A unified composite action runs the gate and posts a **sticky PR comment** with the findings (the Gradle task stays CI-agnostic — it emits a JSON report + exit code; the action does the GitHub-specific posting):
+A composite action runs the gate, posts a **sticky PR comment**, and adds inline annotations for the findings (the Gradle task stays CI-agnostic — it emits a JSON report and an exit code; the action does the GitHub-specific posting):
 
 ```yaml
 # .github/workflows/serialkompat.yml
@@ -110,6 +123,7 @@ See the [rules reference](https://chrisjenx.github.io/serialkompat/rules/) for t
 | `serialkompat-extractor` | Runtime `SerialDescriptor` → `Snapshot` extraction (JVM). |
 | `serialkompat-gradle` | The Gradle plugin (`serialkompatCheck`). |
 | `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` for non-Gradle / cross-repo use. |
+| `serialkompat-annotations` | `@SerialkompatIgnore` / `@SerialkompatChecked` discovery markers (Kotlin Multiplatform). |
 
 ## Building
 
