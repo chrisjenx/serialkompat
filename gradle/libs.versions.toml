@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.4.10"
 kotlinx-serialization = "1.11.0"
-junit-jupiter = "6.1.1"
+junit-jupiter = "6.1.2"
 kover = "0.9.8"
 dokka = "2.2.0"
 spotless = "8.8.0"
