@@ -160,6 +160,9 @@ val checkRulesProof = tasks.register("checkRulesProof") {
         // PR 2 (#119 sweep) flips this true once every rule has a Rule reference section.
         val enforceComplete = false
 
+        // The rule-id extraction below is duplicated from checkRulesDoc on purpose: a shared
+        // top-level helper/val can't be captured into a task action under the configuration
+        // cache ("cannot serialize Gradle script object references"), so each gate inlines it.
         val decl = Regex("""const val (\w+)\s*:\s*String\s*=\s*"([A-Z_]+)"""")
         val ruleIds = decl.findAll(findingKt.asFile.readText())
             .map { it.groupValues[2] }
