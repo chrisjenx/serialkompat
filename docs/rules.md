@@ -35,13 +35,13 @@ below for exactly how.
 | Rule | Detects | Backward | Forward | Config-aware |
 |---|---|---|---|---|
 | `CONTRACT_REMOVED` | Whole type deleted | ❌ BREAK | ❌ BREAK | — |
-| `PROPERTY_ADDED` | Field added | ✅ SAFE if optional (or nullable & reader `explicitNulls=false`), ❌ BREAK otherwise | ❌ BREAK unless reader has `ignoreUnknownKeys` | yes |
-| `PROPERTY_REMOVED` | Field deleted | ⚠️ WARN if `ignoreUnknownKeys` (silent drop), else ❌ BREAK | ✅ SAFE if it was optional, ⚠️ WARN if nullable & reader `explicitNulls=false` (absent → null), else ❌ BREAK | yes |
+| [`PROPERTY_ADDED`](#property_added) | Field added | ✅ SAFE if optional (or nullable & reader `explicitNulls=false`), ❌ BREAK otherwise | ❌ BREAK unless reader has `ignoreUnknownKeys` | yes |
+| [`PROPERTY_REMOVED`](#property_removed) | Field deleted | ⚠️ WARN if `ignoreUnknownKeys` (silent drop), else ❌ BREAK | ✅ SAFE if it was optional, ⚠️ WARN if nullable & reader `explicitNulls=false` (absent → null), else ❌ BREAK | yes |
 | `PROPERTY_OPTIONALITY` | Optional ↔ required | ❌ BREAK if became required, ✅ SAFE if became optional | ✅ SAFE if became required; ❌ BREAK unless `encodeDefaults` if became optional | yes |
 | `PROPERTY_NULLABILITY` | Nullable ↔ non-null | ✅ SAFE if became nullable, ❌ BREAK if became non-null | ❌ BREAK if nullable & `explicitNulls = true`; ⚠️ WARN if `false` | yes |
 | `PROPERTY_TYPE_CHANGED` | Field type changed | ✅ SAFE if numeric widening, else ❌ BREAK | ❌ BREAK | yes |
 | `PROPERTY_JSON_NAMES` | `@JsonNames` alias dropped | ⚠️ WARN | ✅ SAFE | no |
-| `ENUM_VALUE_ADDED` | Enum value added | ✅ SAFE | ❌ BREAK, ⚠️ WARN if the reader coerces **and** every field reading the enum has a default | yes |
+| [`ENUM_VALUE_ADDED`](#enum_value_added) | Enum value added | ✅ SAFE | ❌ BREAK, ⚠️ WARN if the reader coerces **and** every field reading the enum has a default | yes |
 | `ENUM_VALUE_REMOVED` | Enum value removed | ❌ BREAK | ✅ SAFE | no |
 | `SUBTYPE_ADDED` | Polymorphic variant added | ✅ SAFE | ❌ BREAK, ⚠️ WARN if the base registers a default deserializer² | no |
 | `SUBTYPE_REMOVED` | Polymorphic variant removed | ❌ BREAK | ✅ SAFE | no |
@@ -73,6 +73,103 @@ subtype, so it is a `WARN` (silent substitution), not `SAFE`. Without a default
 deserializer the old reader throws, so it stays a `BREAK`. This mirrors how
 `coerceInputValues` downgrades an added enum value, but the deciding fact lives on
 the contract, not in the config.
+
+## Rule reference
+
+Each rule shows the change as a diff, what happens on the wire in each direction,
+and a link to the oracle test that proves the verdict against real
+kotlinx-serialization. More rules are being filled in — see
+[#119](https://github.com/chrisjenx/serialkompat/issues/119); the matrix above
+links the ones that are ready.
+
+### `PROPERTY_ADDED` { #property_added }
+
+A field is added to a type. **Backward** ✅ SAFE when the field is optional (has a
+default) · **Forward** ❌ BREAK unless the reader sets `ignoreUnknownKeys`.
+Config-aware.
+
+```diff
+ @Serializable
+ data class OrderEvent(
+     val id: String,
++    val note: String = "",
+ )
+```
+
+!!! success "Backward — new reader ← old data"
+    ```json
+    {"id":"A1"}
+    ```
+    The added `note` defaults to `""` — decodes cleanly.
+
+!!! failure "Forward — old reader ← new data"
+    ```json
+    {"id":"A1","note":"ship it"}
+    ```
+    Old code doesn't know `note` → `SerializationException: Unexpected JSON key
+    'note'`. Set `ignoreUnknownKeys` on the old reader to downgrade this to a
+    silent drop.
+
+**Proof:** [`adding an optional field — strict reader`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt) · [`adding an optional field — lenient old reader tolerates it forward`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
+
+### `PROPERTY_REMOVED` { #property_removed }
+
+A field is deleted from a type. **Backward** ❌ BREAK — or ⚠️ WARN (silent drop) if
+the reader sets `ignoreUnknownKeys` · **Forward** ✅ SAFE if the field was optional.
+Config-aware.
+
+```diff
+ @Serializable
+ data class OrderEvent(
+     val id: String,
+-    val note: String = "",
+ )
+```
+
+!!! success "Forward — old reader ← new data"
+    ```json
+    {"id":"A1"}
+    ```
+    Old code's `note` was optional → defaults → decodes cleanly.
+
+!!! failure "Backward — new reader ← old data"
+    ```json
+    {"id":"A1","note":"hi"}
+    ```
+    New code dropped `note` → `SerializationException: Unexpected JSON key 'note'`.
+    With `ignoreUnknownKeys` it becomes a silent ⚠️ data drop instead.
+
+**Proof:** [`removing an optional field`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
+
+### `ENUM_VALUE_ADDED` { #enum_value_added }
+
+A constant is added to an enum. **Backward** ✅ SAFE · **Forward** ❌ BREAK — ⚠️ WARN
+if the reader coerces *and* the reading field has a default. Config-aware.
+
+```diff
+ @Serializable
+ enum class Status {
+     ACTIVE,
+     CLOSED,
++    ARCHIVED,
+ }
+```
+
+!!! success "Backward — new reader ← old data"
+    ```json
+    "CLOSED"
+    ```
+    Every old value still exists in the new enum → decodes cleanly.
+
+!!! failure "Forward — old reader ← new data"
+    ```json
+    "ARCHIVED"
+    ```
+    Old code has no `ARCHIVED` → `SerializationException: Status does not contain
+    element with name 'ARCHIVED'`. With `coerceInputValues` **and** a defaulted
+    reading field it coerces to the default instead (⚠️ silent).
+
+**Proof:** [`adding an enum value`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt) · [`an added enum value on a DEFAULTED field is a coercing-reader WARN, a strict-reader BREAK (#129)`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
 
 ## Config awareness
 
