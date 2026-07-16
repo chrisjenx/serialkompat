@@ -204,3 +204,8 @@ to look. Unanalysable is never treated as compatible.
 This matrix is hand-written today. A follow-up PR regenerates it directly from
 the shipped rule set, so the table on this page and the classifier's actual
 behavior can never drift apart.
+
+The per-rule worked examples under [Rule reference](#rule-reference) are being
+filled in rule by rule (#119). The `checkRulesProof` build gate fails CI if a
+proof link cites a test that no longer exists, and — once every rule has a
+section — will fail if a rule ships without one.

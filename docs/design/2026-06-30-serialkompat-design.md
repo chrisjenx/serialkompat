@@ -598,6 +598,13 @@ assertion first, then the rule.
 | **Extractor fidelity** | rich model (nested, sealed, enums, generics, value classes, contextual) → assert captured structure. |
 | **kotlinx version matrix** | run across supported kotlinx-serialization versions. |
 
+Those verdicts are surfaced for readers on the [Rules](../rules.md) page: a
+per-rule **Rule reference** section shows the change as a red/green diff, the
+good/bad wire outcome (with the real exception), and a link to the oracle test
+that proves it. A `checkRulesProof` build gate (sibling to `checkRulesDoc`)
+fails CI if a cited test is renamed or removed, and — once every rule has a
+section — if a `Rules.*` constant ships without one.
+
 ---
 
 ## 12. `kotlinx-schema` reuse — spike outcome: **vendor the walk** (resolved, #6)
