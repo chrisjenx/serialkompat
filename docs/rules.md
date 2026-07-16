@@ -106,9 +106,9 @@ Config-aware.
     ```json
     {"id":"A1","note":"ship it"}
     ```
-    Old code doesn't know `note` → `SerializationException: Unexpected JSON key
-    'note'`. Set `ignoreUnknownKeys` on the old reader to downgrade this to a
-    silent drop.
+    Old code doesn't know `note` → `SerializationException: Encountered an
+    unknown key 'note'`. Set `ignoreUnknownKeys` on the old reader to downgrade
+    this to a silent drop.
 
 **Proof:** [`adding an optional field — strict reader`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt) · [`adding an optional field — lenient old reader tolerates it forward`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
 
@@ -136,8 +136,8 @@ Config-aware.
     ```json
     {"id":"A1","note":"hi"}
     ```
-    New code dropped `note` → `SerializationException: Unexpected JSON key 'note'`.
-    With `ignoreUnknownKeys` it becomes a silent ⚠️ data drop instead.
+    New code dropped `note` → `SerializationException: Encountered an unknown key
+    'note'`. With `ignoreUnknownKeys` it becomes a silent ⚠️ data drop instead.
 
 **Proof:** [`removing an optional field`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
 
