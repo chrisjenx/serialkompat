@@ -175,11 +175,21 @@ val checkRulesProof = tasks.register("checkRulesProof") {
             .map { it.groupValues[1] }
             .toSet()
 
-        // Test names the docs cite: backtick link text on any `**Proof:**` line.
-        val citedTests = docText.lineSequence()
+        // Test names the docs cite: backtick link text on any `**Proof:**` line. The
+        // citation must be backtick-wrapped so the gate can validate it — a proof line
+        // with a link but no backtick citation would silently skip the check, so fail it.
+        val citeRegex = Regex("""\[`([^`]+)`\]""")
+        val proofLines = docText.lineSequence()
             .filter { it.trimStart().startsWith("**Proof:**") }
-            .flatMap { line -> Regex("""\[`([^`]+)`\]""").findAll(line).map { m -> m.groupValues[1] } }
             .toList()
+        val uncited = proofLines.filter { "](" in it && citeRegex.find(it) == null }
+        if (uncited.isNotEmpty()) {
+            throw GradleException(
+                "docs/rules.md has ${uncited.size} **Proof:** line(s) with a link but no " +
+                    "backtick-wrapped test citation; wrap the test name in backticks so it is checked.",
+            )
+        }
+        val citedTests = proofLines.flatMap { line -> citeRegex.findAll(line).map { it.groupValues[1] } }
         val missingTests = citedTests.filter { it !in testNames }
         if (missingTests.isNotEmpty()) {
             throw GradleException(
