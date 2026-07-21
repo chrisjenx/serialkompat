@@ -181,6 +181,38 @@ class RoundTripOracleTest {
         }
     }
 
+    /**
+     * Reader-tolerance config oracle. A config toggle over a *clean* single-schema payload decodes
+     * identically both ways (vacuous), so this decodes a crafted [rawPayload] the [tolerant] reader
+     * accepts and the [strict] reader rejects — proving, against the real library, that the WARN
+     * corresponds to an exhibitable divergence. Then drives the real reader→differ→classifier path and
+     * asserts the backward finding is [expectedRule] at WARN (WARN, not BREAK, because clean data still
+     * decodes — the throw is conditional on old data actually carrying the bad key/value).
+     */
+    private fun <T> assertReaderToleranceObservable(
+        serializer: KSerializer<T>,
+        rawPayload: String,
+        tolerant: Json,
+        strict: Json,
+        expectedRule: String,
+    ) {
+        tolerant.decodeFromString(serializer, rawPayload)
+        assertFailsWith<Exception> { strict.decodeFromString(serializer, rawPayload) }
+        val oldConfig = JsonConfigReader.read(tolerant)
+        val newConfig = JsonConfigReader.read(strict)
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer.descriptor), config = oldConfig),
+                DescriptorSnapshotExtractor.extract(listOf(serializer.descriptor), config = newConfig),
+            )
+        val backward =
+            Classifier()
+                .classify(changes, oldConfig, newConfig)
+                .single { it.direction == CompatibilityDirection.BACKWARD }
+        assertEquals(expectedRule, backward.rule)
+        assertEquals(Severity.WARN, backward.severity)
+    }
+
     // --- fixtures: two versions of the same serial name ------------------------
 
     @Serializable
@@ -1060,6 +1092,63 @@ class RoundTripOracleTest {
         assertTrue(
             findings.none { it.contract == "EnvV1" && it.rule == "PROPERTY_TYPE_CHANGED" },
             "a hole<->concrete flip on the envelope must not be a wire finding: $findings",
+        )
+    }
+
+    // --- reader-tolerance + coerce-input config oracles (#119) -----------------
+
+    @Serializable
+    @SerialName("StrictHolder")
+    private data class StrictHolder(
+        val id: String,
+    )
+
+    @Serializable
+    @SerialName("AltHolder")
+    private data class AltHolder(
+        @JsonNames("legacy") val name: String,
+    )
+
+    @Serializable
+    @SerialName("CoerceCfg")
+    private data class CoerceCfg(
+        val e: CoerceCfgEnum = CoerceCfgEnum.A,
+    )
+
+    @Serializable
+    @SerialName("CoerceCfgEnum")
+    private enum class CoerceCfgEnum { A, B }
+
+    @Test
+    fun `tightening ignoreUnknownKeys makes a tolerated unknown key throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<StrictHolder>(),
+            rawPayload = """{"id":"x","legacy":"y"}""",
+            tolerant = Json { ignoreUnknownKeys = true },
+            strict = Json {},
+            expectedRule = Rules.CONFIG_READER_STRICTNESS,
+        )
+    }
+
+    @Test
+    fun `disabling useAlternativeNames makes a @JsonNames alias key throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<AltHolder>(),
+            rawPayload = """{"legacy":"x"}""",
+            tolerant = Json {},
+            strict = Json { useAlternativeNames = false },
+            expectedRule = Rules.CONFIG_READER_STRICTNESS,
+        )
+    }
+
+    @Test
+    fun `disabling coerceInputValues makes an out-of-domain enum value throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<CoerceCfg>(),
+            rawPayload = """{"e":"NOPE"}""",
+            tolerant = Json { coerceInputValues = true },
+            strict = Json {},
+            expectedRule = Rules.CONFIG_COERCE_INPUT,
         )
     }
 }
