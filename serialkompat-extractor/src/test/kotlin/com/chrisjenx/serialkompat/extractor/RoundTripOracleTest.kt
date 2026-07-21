@@ -1188,4 +1188,69 @@ class RoundTripOracleTest {
             newJson = Json {},
         )
     }
+
+    // --- #119: DISCRIMINATOR_VALUE_CHANGED (conservative) + CONTRACT_REMOVED (structural) ------
+
+    @Serializable
+    @SerialName("P1")
+    private sealed interface MoveP1 {
+        @Serializable
+        @SerialName("m")
+        data class M(
+            val x: Int,
+        ) : MoveP1
+    }
+
+    @Serializable
+    @SerialName("P2")
+    private sealed interface MoveP2 {
+        @Serializable
+        @SerialName("m")
+        data class M(
+            val x: Int,
+        ) : MoveP2
+    }
+
+    @Serializable
+    @SerialName("Removable")
+    private data class Removable(
+        val id: String,
+    )
+
+    @Test
+    fun `a sealed-base rename is DISCRIMINATOR_VALUE_CHANGED yet both round-trips decode`() {
+        val cfg = JsonConfigReader.read(Json {})
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer<MoveP1>().descriptor), config = cfg),
+                DescriptorSnapshotExtractor.extract(listOf(serializer<MoveP2>().descriptor), config = cfg),
+                renames = mapOf("P1" to "P2"),
+            )
+        val findings = Classifier().classify(changes, cfg, cfg)
+        assertTrue(
+            findings.any { it.rule == Rules.DISCRIMINATOR_VALUE_CHANGED && it.severity == Severity.BREAK },
+            "a renamed sealed base must be flagged DISCRIMINATOR_VALUE_CHANGED (conservative BREAK)",
+        )
+        // The base serial name is never on the wire (only the subtype token is), so the real round-trip
+        // actually decodes BOTH ways — proving the BREAK is deliberate over-prediction, not observed.
+        val p1 = Json {}.encodeToString(serializer<MoveP1>(), MoveP1.M(1))
+        val p2 = Json {}.encodeToString(serializer<MoveP2>(), MoveP2.M(1))
+        assertEquals(MoveP2.M(1), Json {}.decodeFromString(serializer<MoveP2>(), p1))
+        assertEquals(MoveP1.M(1), Json {}.decodeFromString(serializer<MoveP1>(), p2))
+    }
+
+    @Test
+    fun `a removed @Serializable contract is a real BREAK both ways`() {
+        val cfg = JsonConfigReader.read(Json {})
+        val before = DescriptorSnapshotExtractor.extract(listOf(serializer<Removable>().descriptor), config = cfg)
+        val after = DescriptorSnapshotExtractor.extract(emptyList(), config = cfg)
+        val findings = Classifier().classify(SnapshotDiffer.diff(before, after), cfg, cfg)
+        val removed = findings.filter { it.rule == Rules.CONTRACT_REMOVED }
+        assertTrue(
+            removed.any { it.direction == CompatibilityDirection.BACKWARD && it.severity == Severity.BREAK },
+        )
+        assertTrue(
+            removed.any { it.direction == CompatibilityDirection.FORWARD && it.severity == Severity.BREAK },
+        )
+    }
 }
