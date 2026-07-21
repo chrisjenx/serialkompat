@@ -14,6 +14,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.serialization.modules.EmptySerializersModule
@@ -1149,6 +1150,42 @@ class RoundTripOracleTest {
             tolerant = Json { coerceInputValues = true },
             strict = Json {},
             expectedRule = Rules.CONFIG_COERCE_INPUT,
+        )
+    }
+
+    // --- DISCRIMINATOR_CHANGED via @JsonClassDiscriminator ---------------------
+
+    @Serializable
+    @SerialName("Disc")
+    @JsonClassDiscriminator("type")
+    private sealed interface DiscV1 {
+        @Serializable
+        @SerialName("a")
+        data class A(
+            val x: Int,
+        ) : DiscV1
+    }
+
+    @Serializable
+    @SerialName("Disc")
+    @JsonClassDiscriminator("kind")
+    private sealed interface DiscV2 {
+        @Serializable
+        @SerialName("a")
+        data class A(
+            val x: Int,
+        ) : DiscV2
+    }
+
+    @Test
+    fun `changing a type's @JsonClassDiscriminator key breaks decoding both ways`() {
+        assertOracleAgrees(
+            serializer<DiscV1>(),
+            DiscV1.A(1),
+            serializer<DiscV2>(),
+            DiscV2.A(1),
+            oldJson = Json {},
+            newJson = Json {},
         )
     }
 }
