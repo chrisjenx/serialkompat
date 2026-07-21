@@ -1,5 +1,6 @@
 package com.chrisjenx.serialkompat.extractor
 
+import com.chrisjenx.serialkompat.core.Change
 import com.chrisjenx.serialkompat.core.Classifier
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
 import com.chrisjenx.serialkompat.core.Contract
@@ -13,6 +14,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.ClassDiscriminatorMode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonNames
@@ -1252,5 +1254,64 @@ class RoundTripOracleTest {
         assertTrue(
             removed.any { it.direction == CompatibilityDirection.FORWARD && it.severity == Severity.BREAK },
         )
+    }
+
+    // --- exhaustiveness guard: every SnapshotConfig field maps to a rule -------
+
+    // Note: not named `Named` — that identifier is already taken above (orderId/lineTotal, used by
+    // the naming-strategy config-oracle test). This guard is config-only (it never diffs the fixture's
+    // own fields), so the fixture's exact shape/name doesn't matter; only the class must exist and
+    // extract cleanly.
+    @Serializable
+    @SerialName("ConfigGuard")
+    private data class ConfigGuardHolder(
+        val fieldName: String? = null,
+    )
+
+    @Test
+    fun `every wire-relevant Json setting maps to a specific rule — CONFIG_CHANGED is unreachable`() {
+        val base = Json {}
+        val variants =
+            listOf(
+                Json { namingStrategy = JsonNamingStrategy.SnakeCase },
+                Json { classDiscriminator = "kind" },
+                Json { classDiscriminatorMode = ClassDiscriminatorMode.NONE },
+                Json { ignoreUnknownKeys = true },
+                Json { encodeDefaults = true },
+                Json { explicitNulls = false },
+                Json { coerceInputValues = true },
+                Json { useAlternativeNames = false },
+            )
+        val observed = mutableSetOf<String>()
+        for (variant in variants) {
+            val oldCfg = JsonConfigReader.read(base)
+            val newCfg = JsonConfigReader.read(variant)
+            val changes =
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(serializer<ConfigGuardHolder>().descriptor),
+                        config = oldCfg,
+                    ),
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(serializer<ConfigGuardHolder>().descriptor),
+                        config = newCfg,
+                    ),
+                )
+            changes.filterIsInstance<Change.ConfigChanged>().forEach { observed += it.field }
+            val findings = Classifier().classify(changes, oldCfg, newCfg)
+            assertTrue(
+                findings.none { it.rule == Rules.CONFIG_CHANGED },
+                "a real Json setting fell through to the CONFIG_CHANGED catch-all: $findings",
+            )
+        }
+        // Drift-proof: assert EVERY SnapshotConfig field was exercised (Java reflection — no kotlin-reflect,
+        // mirroring RulesCatalogTest). If a 9th field is added to SnapshotConfig but not toggled here, this
+        // fails, flagging that CONFIG_CHANGED could become reachable un-guarded.
+        val allFields =
+            SnapshotConfig::class.java.declaredFields
+                .filter { !it.isSynthetic }
+                .map { it.name }
+                .toSet()
+        assertEquals(allFields, observed, "a SnapshotConfig field is not exercised by this guard")
     }
 }
