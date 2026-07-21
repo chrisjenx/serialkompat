@@ -187,7 +187,7 @@ class RoundTripOracleTest {
     /**
      * Reader-tolerance config oracle. A config toggle over a *clean* single-schema payload decodes
      * identically both ways (vacuous), so this decodes a crafted [rawPayload] the [tolerant] reader
-     * accepts and the [strict] reader rejects — proving, against the real library, that the WARN
+     * accepts and the [strictReader] rejects — proving, against the real library, that the WARN
      * corresponds to an exhibitable divergence. Then drives the real reader→differ→classifier path and
      * asserts the backward finding is [expectedRule] at WARN (WARN, not BREAK, because clean data still
      * decodes — the throw is conditional on old data actually carrying the bad key/value).
@@ -196,13 +196,13 @@ class RoundTripOracleTest {
         serializer: KSerializer<T>,
         rawPayload: String,
         tolerant: Json,
-        strict: Json,
+        strictReader: Json,
         expectedRule: String,
     ) {
         tolerant.decodeFromString(serializer, rawPayload)
-        assertFailsWith<Exception> { strict.decodeFromString(serializer, rawPayload) }
+        assertFailsWith<Exception> { strictReader.decodeFromString(serializer, rawPayload) }
         val oldConfig = JsonConfigReader.read(tolerant)
-        val newConfig = JsonConfigReader.read(strict)
+        val newConfig = JsonConfigReader.read(strictReader)
         val changes =
             SnapshotDiffer.diff(
                 DescriptorSnapshotExtractor.extract(listOf(serializer.descriptor), config = oldConfig),
@@ -1128,7 +1128,7 @@ class RoundTripOracleTest {
             serializer<StrictHolder>(),
             rawPayload = """{"id":"x","legacy":"y"}""",
             tolerant = Json { ignoreUnknownKeys = true },
-            strict = Json {},
+            strictReader = Json {},
             expectedRule = Rules.CONFIG_READER_STRICTNESS,
         )
     }
@@ -1139,7 +1139,7 @@ class RoundTripOracleTest {
             serializer<AltHolder>(),
             rawPayload = """{"legacy":"x"}""",
             tolerant = Json {},
-            strict = Json { useAlternativeNames = false },
+            strictReader = Json { useAlternativeNames = false },
             expectedRule = Rules.CONFIG_READER_STRICTNESS,
         )
     }
@@ -1150,7 +1150,7 @@ class RoundTripOracleTest {
             serializer<CoerceCfg>(),
             rawPayload = """{"e":"NOPE"}""",
             tolerant = Json { coerceInputValues = true },
-            strict = Json {},
+            strictReader = Json {},
             expectedRule = Rules.CONFIG_COERCE_INPUT,
         )
     }
