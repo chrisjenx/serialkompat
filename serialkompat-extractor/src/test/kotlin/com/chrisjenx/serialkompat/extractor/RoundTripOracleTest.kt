@@ -1,5 +1,6 @@
 package com.chrisjenx.serialkompat.extractor
 
+import com.chrisjenx.serialkompat.core.Change
 import com.chrisjenx.serialkompat.core.Classifier
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
 import com.chrisjenx.serialkompat.core.Contract
@@ -13,7 +14,9 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.ClassDiscriminatorMode
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.serialization.modules.EmptySerializersModule
@@ -179,6 +182,38 @@ class RoundTripOracleTest {
                 "$direction: decoded value differs from what was written (silent data loss) but classifier flagged nothing",
             )
         }
+    }
+
+    /**
+     * Reader-tolerance config oracle. A config toggle over a *clean* single-schema payload decodes
+     * identically both ways (vacuous), so this decodes a crafted [rawPayload] the [tolerant] reader
+     * accepts and the [strictReader] rejects — proving, against the real library, that the WARN
+     * corresponds to an exhibitable divergence. Then drives the real reader→differ→classifier path and
+     * asserts the backward finding is [expectedRule] at WARN (WARN, not BREAK, because clean data still
+     * decodes — the throw is conditional on old data actually carrying the bad key/value).
+     */
+    private fun <T> assertReaderToleranceObservable(
+        serializer: KSerializer<T>,
+        rawPayload: String,
+        tolerant: Json,
+        strictReader: Json,
+        expectedRule: String,
+    ) {
+        tolerant.decodeFromString(serializer, rawPayload)
+        assertFailsWith<Exception> { strictReader.decodeFromString(serializer, rawPayload) }
+        val oldConfig = JsonConfigReader.read(tolerant)
+        val newConfig = JsonConfigReader.read(strictReader)
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer.descriptor), config = oldConfig),
+                DescriptorSnapshotExtractor.extract(listOf(serializer.descriptor), config = newConfig),
+            )
+        val backward =
+            Classifier()
+                .classify(changes, oldConfig, newConfig)
+                .single { it.direction == CompatibilityDirection.BACKWARD }
+        assertEquals(expectedRule, backward.rule)
+        assertEquals(Severity.WARN, backward.severity)
     }
 
     // --- fixtures: two versions of the same serial name ------------------------
@@ -1061,5 +1096,222 @@ class RoundTripOracleTest {
             findings.none { it.contract == "EnvV1" && it.rule == "PROPERTY_TYPE_CHANGED" },
             "a hole<->concrete flip on the envelope must not be a wire finding: $findings",
         )
+    }
+
+    // --- reader-tolerance + coerce-input config oracles (#119) -----------------
+
+    @Serializable
+    @SerialName("StrictHolder")
+    private data class StrictHolder(
+        val id: String,
+    )
+
+    @Serializable
+    @SerialName("AltHolder")
+    private data class AltHolder(
+        @JsonNames("legacy") val name: String,
+    )
+
+    @Serializable
+    @SerialName("CoerceCfg")
+    private data class CoerceCfg(
+        val e: CoerceCfgEnum = CoerceCfgEnum.A,
+    )
+
+    @Serializable
+    @SerialName("CoerceCfgEnum")
+    private enum class CoerceCfgEnum { A, B }
+
+    @Test
+    fun `tightening ignoreUnknownKeys makes a tolerated unknown key throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<StrictHolder>(),
+            rawPayload = """{"id":"x","legacy":"y"}""",
+            tolerant = Json { ignoreUnknownKeys = true },
+            strictReader = Json {},
+            expectedRule = Rules.CONFIG_READER_STRICTNESS,
+        )
+    }
+
+    @Test
+    fun `disabling useAlternativeNames makes a @JsonNames alias key throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<AltHolder>(),
+            rawPayload = """{"legacy":"x"}""",
+            tolerant = Json {},
+            strictReader = Json { useAlternativeNames = false },
+            expectedRule = Rules.CONFIG_READER_STRICTNESS,
+        )
+    }
+
+    @Test
+    fun `disabling coerceInputValues makes an out-of-domain enum value throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<CoerceCfg>(),
+            rawPayload = """{"e":"NOPE"}""",
+            tolerant = Json { coerceInputValues = true },
+            strictReader = Json {},
+            expectedRule = Rules.CONFIG_COERCE_INPUT,
+        )
+    }
+
+    // --- DISCRIMINATOR_CHANGED via @JsonClassDiscriminator ---------------------
+
+    @Serializable
+    @SerialName("Disc")
+    @JsonClassDiscriminator("type")
+    private sealed interface DiscV1 {
+        @Serializable
+        @SerialName("a")
+        data class A(
+            val x: Int,
+        ) : DiscV1
+    }
+
+    @Serializable
+    @SerialName("Disc")
+    @JsonClassDiscriminator("kind")
+    private sealed interface DiscV2 {
+        @Serializable
+        @SerialName("a")
+        data class A(
+            val x: Int,
+        ) : DiscV2
+    }
+
+    @Test
+    fun `changing a type's @JsonClassDiscriminator key breaks decoding both ways`() {
+        assertOracleAgrees(
+            serializer<DiscV1>(),
+            DiscV1.A(1),
+            serializer<DiscV2>(),
+            DiscV2.A(1),
+            oldJson = Json {},
+            newJson = Json {},
+        )
+    }
+
+    // --- #119: DISCRIMINATOR_VALUE_CHANGED (conservative) + CONTRACT_REMOVED (structural) ------
+
+    @Serializable
+    @SerialName("P1")
+    private sealed interface MoveP1 {
+        @Serializable
+        @SerialName("m")
+        data class M(
+            val x: Int,
+        ) : MoveP1
+    }
+
+    @Serializable
+    @SerialName("P2")
+    private sealed interface MoveP2 {
+        @Serializable
+        @SerialName("m")
+        data class M(
+            val x: Int,
+        ) : MoveP2
+    }
+
+    @Serializable
+    @SerialName("Removable")
+    private data class Removable(
+        val id: String,
+    )
+
+    @Test
+    fun `a sealed-base rename is DISCRIMINATOR_VALUE_CHANGED yet both round-trips decode`() {
+        val cfg = JsonConfigReader.read(Json {})
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer<MoveP1>().descriptor), config = cfg),
+                DescriptorSnapshotExtractor.extract(listOf(serializer<MoveP2>().descriptor), config = cfg),
+                renames = mapOf("P1" to "P2"),
+            )
+        val findings = Classifier().classify(changes, cfg, cfg)
+        assertTrue(
+            findings.any { it.rule == Rules.DISCRIMINATOR_VALUE_CHANGED && it.severity == Severity.BREAK },
+            "a renamed sealed base must be flagged DISCRIMINATOR_VALUE_CHANGED (conservative BREAK)",
+        )
+        // The base serial name is never on the wire (only the subtype token is), so the real round-trip
+        // actually decodes BOTH ways — proving the BREAK is deliberate over-prediction, not observed.
+        val p1 = Json {}.encodeToString(serializer<MoveP1>(), MoveP1.M(1))
+        val p2 = Json {}.encodeToString(serializer<MoveP2>(), MoveP2.M(1))
+        assertEquals(MoveP2.M(1), Json {}.decodeFromString(serializer<MoveP2>(), p1))
+        assertEquals(MoveP1.M(1), Json {}.decodeFromString(serializer<MoveP1>(), p2))
+    }
+
+    @Test
+    fun `a removed @Serializable contract is a real BREAK both ways`() {
+        val cfg = JsonConfigReader.read(Json {})
+        val before = DescriptorSnapshotExtractor.extract(listOf(serializer<Removable>().descriptor), config = cfg)
+        val after = DescriptorSnapshotExtractor.extract(emptyList(), config = cfg)
+        val findings = Classifier().classify(SnapshotDiffer.diff(before, after), cfg, cfg)
+        val removed = findings.filter { it.rule == Rules.CONTRACT_REMOVED }
+        assertTrue(
+            removed.any { it.direction == CompatibilityDirection.BACKWARD && it.severity == Severity.BREAK },
+        )
+        assertTrue(
+            removed.any { it.direction == CompatibilityDirection.FORWARD && it.severity == Severity.BREAK },
+        )
+    }
+
+    // --- exhaustiveness guard: every SnapshotConfig field maps to a rule -------
+
+    // Note: not named `Named` — that identifier is already taken above (orderId/lineTotal, used by
+    // the naming-strategy config-oracle test). This guard is config-only (it never diffs the fixture's
+    // own fields), so the fixture's exact shape/name doesn't matter; only the class must exist and
+    // extract cleanly.
+    @Serializable
+    @SerialName("ConfigGuard")
+    private data class ConfigGuardHolder(
+        val fieldName: String? = null,
+    )
+
+    @Test
+    fun `every wire-relevant Json setting maps to a specific rule — CONFIG_CHANGED is unreachable`() {
+        val base = Json {}
+        val variants =
+            listOf(
+                Json { namingStrategy = JsonNamingStrategy.SnakeCase },
+                Json { classDiscriminator = "kind" },
+                Json { classDiscriminatorMode = ClassDiscriminatorMode.NONE },
+                Json { ignoreUnknownKeys = true },
+                Json { encodeDefaults = true },
+                Json { explicitNulls = false },
+                Json { coerceInputValues = true },
+                Json { useAlternativeNames = false },
+            )
+        val observed = mutableSetOf<String>()
+        for (variant in variants) {
+            val oldCfg = JsonConfigReader.read(base)
+            val newCfg = JsonConfigReader.read(variant)
+            val changes =
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(serializer<ConfigGuardHolder>().descriptor),
+                        config = oldCfg,
+                    ),
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(serializer<ConfigGuardHolder>().descriptor),
+                        config = newCfg,
+                    ),
+                )
+            changes.filterIsInstance<Change.ConfigChanged>().forEach { observed += it.field }
+            val findings = Classifier().classify(changes, oldCfg, newCfg)
+            assertTrue(
+                findings.none { it.rule == Rules.CONFIG_CHANGED },
+                "a real Json setting fell through to the CONFIG_CHANGED catch-all: $findings",
+            )
+        }
+        // Drift-proof: assert EVERY SnapshotConfig field was exercised (Java reflection — no kotlin-reflect,
+        // mirroring RulesCatalogTest). If a 9th field is added to SnapshotConfig but not toggled here, this
+        // fails, flagging that CONFIG_CHANGED could become reachable un-guarded.
+        val allFields =
+            SnapshotConfig::class.java.declaredFields
+                .filter { !it.isSynthetic }
+                .map { it.name }
+                .toSet()
+        assertEquals(allFields, observed, "a SnapshotConfig field is not exercised by this guard")
     }
 }
