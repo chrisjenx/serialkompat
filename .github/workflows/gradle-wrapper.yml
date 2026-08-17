@@ -1,0 +1,44 @@
+name: Update Gradle Wrapper
+
+# Dependabot cannot update the Gradle wrapper correctly: it never executes build
+# code, so it cannot run `./gradlew wrapper`. Its PRs swap gradle-wrapper.jar and
+# distributionUrl but leave gradlew/gradlew.bat at the old version and never write
+# distributionSha256Sum. `gradle-wrapper` is therefore ignored in
+# .github/dependabot.yml and this workflow owns wrapper upgrades instead: the action
+# runs the real `wrapper` task (jar + properties + both scripts move together),
+# pins distributionSha256Sum, and verifies the new jar against the official
+# release checksum before opening a PR.
+
+on:
+  schedule:
+    # Mondays 06:00 UTC — same cadence as the dependabot ecosystems.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-gradle-wrapper:
+    name: Update Gradle Wrapper
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The action shells out to ./gradlew, so pin the JVM to the project's target
+      # rather than inheriting whatever the runner image defaults to.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Update Gradle Wrapper
+        uses: gradle-update/update-gradle-wrapper-action@v2
+        with:
+          # GITHUB_TOKEN means CI will NOT run automatically on the PR this opens
+          # (GitHub suppresses workflow triggers for token-authored commits). Close
+          # and reopen the PR to kick CI, or swap in a PAT with `repo` scope.
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          labels: dependencies, ci

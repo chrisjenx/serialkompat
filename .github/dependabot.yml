@@ -10,6 +10,13 @@ updates:
         patterns:
           - "org.jetbrains.kotlin*"
           - "org.jetbrains.kotlinx*"
+    ignore:
+      # Dependabot never executes build code, so it cannot run `./gradlew wrapper`.
+      # Its "gradle-wrapper" PRs swap gradle-wrapper.jar + distributionUrl but leave
+      # gradlew/gradlew.bat at the old version and never write distributionSha256Sum
+      # — a half-upgraded wrapper. The wrapper is updated properly by
+      # .github/workflows/gradle-wrapper.yml instead.
+      - dependency-name: "gradle-wrapper"
     labels:
       - "dependencies"
 

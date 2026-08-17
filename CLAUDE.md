@@ -48,6 +48,7 @@ Keep the diff/classify engine (`-core`) decoupled from extraction and from where
 - **In compiled Gradle plugin code** (not `.gradle.kts`), task-configuration lambdas receive the task as a parameter — use `it`/a named param (`register("x") { task -> task.group = ... }`), not an implicit receiver.
 - **Configuration cache is on.** Avoid capturing `Project` at execution time; be wary of plugins that aren't config-cache compatible.
 - **`serialkompat-annotations` (KMP) builds Apple targets, which need a macOS host.** `ci.yml`'s ubuntu job excludes it (`-x :serialkompat-annotations:build`) and a separate `macos-latest` job is its sole `apiCheck`/native gate; `release`/`snapshot` publish jobs run on macOS so klibs are complete. These are deliberate — don't "simplify" them. Linux silently *disables* Apple targets (no error), so a green ubuntu build never proves that module complete.
+- **The Gradle wrapper is upgraded only via `./gradlew wrapper`**, never by hand-editing `distributionUrl` or swapping the jar — a partial bump leaves `gradlew`/`gradlew.bat` on the old version. Dependabot can't run the task, so `gradle-wrapper` is ignored in `.github/dependabot.yml`; `.github/workflows/gradle-wrapper.yml` owns wrapper PRs.
 - Never commit secrets. Publishing credentials live in CI secrets only.
 
 ## Deferred (tracked as issues)
