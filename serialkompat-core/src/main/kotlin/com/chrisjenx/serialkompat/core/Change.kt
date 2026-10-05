@@ -56,6 +56,8 @@ public sealed interface Change {
         val element: String,
         val wasOptional: Boolean,
         val nowOptional: Boolean,
+        /** The new (writer) element's `@EncodeDefault` mode; `null` if unrecorded (#158). */
+        val newEncodeDefault: EncodeDefaultMode? = null,
     ) : Change
 
     /** An existing element's nullability changed. */

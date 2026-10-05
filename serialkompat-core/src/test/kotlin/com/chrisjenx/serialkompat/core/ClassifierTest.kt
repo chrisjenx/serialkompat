@@ -135,10 +135,56 @@ class ClassifierTest {
 
         val encodingWriter =
             classify(
-                Change.ElementOptionalityChanged("T", "x", wasOptional = false, nowOptional = true),
+                becameOptional(EncodeDefaultMode.ABSENT),
                 new = SnapshotConfig(encodeDefaults = true),
             )
         assertNull(encodingWriter.severity(CompatibilityDirection.FORWARD))
+    }
+
+    private fun becameOptional(newEncodeDefault: EncodeDefaultMode?) =
+        Change.ElementOptionalityChanged(
+            "T",
+            "x",
+            wasOptional = false,
+            nowOptional = true,
+            newEncodeDefault = newEncodeDefault,
+        )
+
+    @Test
+    fun `required to optional — @EncodeDefault(NEVER) breaks forward even when the writer encodes defaults`() {
+        // #158: NEVER overrides encodeDefaults=true, so the new writer omits the field and an old
+        // reader that still requires it throws MissingFieldException.
+        val f = classify(becameOptional(EncodeDefaultMode.NEVER), new = SnapshotConfig(encodeDefaults = true))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `required to optional — @EncodeDefault(ALWAYS) is forward safe even when the writer omits defaults`() {
+        // ALWAYS overrides encodeDefaults=false: the field is always on the wire.
+        val f = classify(becameOptional(EncodeDefaultMode.ALWAYS), new = strict)
+        assertNull(f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `required to optional — a verified-absent annotation follows the writer's encodeDefaults`() {
+        assertEquals(
+            Severity.BREAK,
+            classify(becameOptional(EncodeDefaultMode.ABSENT), new = strict).severity(CompatibilityDirection.FORWARD),
+        )
+    }
+
+    @Test
+    fun `required to optional — an unrecorded @EncodeDefault is never assumed safe`() {
+        // #158: null means the extractor could not inspect the field (or the snapshot predates the
+        // recording). encodeDefaults=true is then only SAFE if no @EncodeDefault(NEVER) is present,
+        // which is unknown — unanalysable ≠ safe, so WARN rather than SAFE.
+        val unknown = classify(becameOptional(null), new = SnapshotConfig(encodeDefaults = true))
+        assertEquals(Severity.WARN, unknown.severity(CompatibilityDirection.FORWARD))
+        // Without encodeDefaults it is a BREAK either way (only ALWAYS could rescue it, and that is unknown).
+        assertEquals(
+            Severity.BREAK,
+            classify(becameOptional(null), new = strict).severity(CompatibilityDirection.FORWARD),
+        )
     }
 
     // --- Nullability -----------------------------------------------------------
