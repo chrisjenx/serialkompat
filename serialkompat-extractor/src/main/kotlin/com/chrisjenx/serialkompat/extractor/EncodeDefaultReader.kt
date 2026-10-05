@@ -51,9 +51,12 @@ internal object EncodeDefaultReader {
                     matched += holder
                     holderModes[i] = holder.getAnnotation(EncodeDefault::class.java).toMode()
                 }
+
                 // No annotation holder at all: the property carries no annotations, so no
                 // @EncodeDefault — but only if it provably exists under this name.
-                name in fieldNames -> fieldOnly += i
+                name in fieldNames -> {
+                    fieldOnly += i
+                }
             }
         }
         // An @EncodeDefault holder no element claimed (e.g. renamed by @get:JvmName) could belong to

@@ -22,8 +22,11 @@ public enum class DiscoveryMode {
         public fun fromCli(value: String): DiscoveryMode =
             when (value) {
                 "explicit" -> EXPLICIT
+
                 "opt-out" -> OPT_OUT
+
                 "opt-in" -> OPT_IN
+
                 else -> throw IllegalArgumentException(
                     "serialkompat: unknown --discovery '$value' (expected explicit|opt-out|opt-in)",
                 )

@@ -77,11 +77,13 @@ internal fun splitEscaped(inner: String): List<String> {
                 current.append(c).append(inner[i + 1]) // keep the escape pair intact
                 i += 2
             }
+
             c == ',' -> {
                 pieces += current.toString()
                 current.clear()
                 i++
             }
+
             else -> {
                 current.append(c)
                 i++

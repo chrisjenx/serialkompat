@@ -134,7 +134,7 @@ See the [rules reference](https://chrisjenx.github.io/serialkompat/rules/) for t
 ./gradlew koverHtmlReport
 ```
 
-Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.6.1), Kotlin 2.4.0, and kotlinx-serialization 1.11.0.
+Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.8.0), Kotlin 2.4.20, and kotlinx-serialization 1.11.0.
 
 ## Publishing
 
