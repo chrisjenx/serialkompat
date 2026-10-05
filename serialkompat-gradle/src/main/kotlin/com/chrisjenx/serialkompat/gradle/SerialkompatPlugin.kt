@@ -66,7 +66,10 @@ public class SerialkompatPlugin : Plugin<Project> {
                 task.description = "Extracts the current @Serializable JSON wire schema to a snapshot file."
                 task.mainClass.set("com.chrisjenx.serialkompat.extractor.SchemaExtractionMain")
                 val scanDirs = projectClassesDirs(target)
-                task.classpath(toolClasspath(target), projectRuntimeClasspath(target), scanDirs)
+                // Project first: its @Serializable classes were compiled against its own
+                // kotlinx-serialization/stdlib, which must win over the plugin's (and Gradle's
+                // embedded) copies. The tool jars come last and only fill what the project lacks.
+                task.classpath(projectRuntimeClasspath(target), scanDirs, toolClasspath(target))
                 task.onlyIf { hasWorkToDo(extension) }
                 // A typed provider (not a lambda) so its inputs/output are the task's fingerprint:
                 // flipping `discovery`/`types`/`jsonInstance` re-runs it, and since the key holds no
