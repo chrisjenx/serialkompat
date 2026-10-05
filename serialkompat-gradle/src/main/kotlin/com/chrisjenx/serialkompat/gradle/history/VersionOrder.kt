@@ -22,9 +22,14 @@ internal object VersionOrder : Comparator<String> {
         val coreCmp = compareCore(aCore, bCore)
         return when {
             coreCmp != 0 -> coreCmp
+
             aPre == null && bPre == null -> 0
-            aPre == null -> 1 // a is the final release, b is a prerelease ⇒ a is greater
+
+            // a is the final release, b is a prerelease ⇒ a is greater
+            aPre == null -> 1
+
             bPre == null -> -1
+
             else -> aPre.compareTo(bPre)
         }
     }

@@ -120,8 +120,9 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
                 Contract(serialName, kind, elements = elements)
             }
 
-            SerialKind.ENUM ->
+            SerialKind.ENUM -> {
                 Contract(serialName, ContractKind.ENUM, enumValues = descriptor.elementNames.toList())
+            }
 
             PolymorphicKind.SEALED -> {
                 val subtypeDescriptors = descriptor.getElementDescriptor(1).elementDescriptors.toList()
@@ -149,7 +150,9 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
                 )
             }
 
-            else -> null // primitives, list/map, contextual — element types, not contracts
+            else -> {
+                null
+            } // primitives, list/map, contextual — element types, not contracts
         }
 
     private fun elementOf(
@@ -180,13 +183,19 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         // not misread as a breaking type change (design §14).
         if (descriptor.isInline) return typeRef(descriptor.getElementDescriptor(0))
         return when (descriptor.kind) {
-            StructureKind.LIST ->
+            StructureKind.LIST -> {
                 "List<${typeRefNullable(descriptor.getElementDescriptor(0))}>"
-            StructureKind.MAP ->
+            }
+
+            StructureKind.MAP -> {
                 "Map<${typeRefNullable(
                     descriptor.getElementDescriptor(0),
                 )},${typeRefNullable(descriptor.getElementDescriptor(1))}>"
-            else -> contractName(descriptor)
+            }
+
+            else -> {
+                contractName(descriptor)
+            }
         }
     }
 
@@ -199,19 +208,32 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         // @Serializable object still needs that object walked; one wrapping a primitive walks nothing.
         if (descriptor.isInline) return referencedContracts(descriptor.getElementDescriptor(0))
         return when (descriptor.kind) {
-            StructureKind.LIST -> referencedContracts(descriptor.getElementDescriptor(0))
-            StructureKind.MAP ->
+            StructureKind.LIST -> {
+                referencedContracts(descriptor.getElementDescriptor(0))
+            }
+
+            StructureKind.MAP -> {
                 referencedContracts(descriptor.getElementDescriptor(0)) +
                     referencedContracts(descriptor.getElementDescriptor(1))
+            }
+
             StructureKind.CLASS, StructureKind.OBJECT, SerialKind.ENUM,
             PolymorphicKind.SEALED, PolymorphicKind.OPEN,
-            -> listOf(descriptor)
+            -> {
+                listOf(descriptor)
+            }
+
             // An unresolved @Contextual serializer's runtime shape is invisible to the descriptor
             // walk — exactly the "unanalysable ≠ safe" case (design §10). Walk it so contractOf
             // degrades it to an OPAQUE node and SnapshotDiffer raises a CoverageGap (#131), rather
             // than trusting the ContextualSerializer<T> type ref as if it were a stable wire shape.
-            SerialKind.CONTEXTUAL -> listOf(descriptor)
-            else -> emptyList()
+            SerialKind.CONTEXTUAL -> {
+                listOf(descriptor)
+            }
+
+            else -> {
+                emptyList()
+            }
         }
     }
 

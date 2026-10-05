@@ -81,8 +81,12 @@ internal object SerializableClassScanner {
             for (file in classFiles) {
                 val parsed = runCatching { parse(file.readBytes()) }.getOrNull()
                 when {
-                    parsed == null -> unreadable += file.relativeTo(root).path
+                    parsed == null -> {
+                        unreadable += file.relativeTo(root).path
+                    }
+
                     !parsed.serializable -> {}
+
                     else -> {
                         // A generic class is collected under skippedGenerics (field name unchanged) —
                         // the extractor resolves it as a root with type-parameter holes (#139) — and its
@@ -126,18 +130,36 @@ internal object SerializableClassScanner {
         var slot = 1
         while (slot < constantPoolCount) {
             when (val tag = input.readUnsignedByte()) {
-                CP_UTF8 -> utf8[slot] = input.readUTF()
-                CP_CLASS -> classNameIndex[slot] = input.readUnsignedShort() // → name_index
-                CP_STRING, CP_METHOD_TYPE, CP_MODULE, CP_PACKAGE -> input.skipNBytes(2)
-                CP_METHOD_HANDLE -> input.skipNBytes(3)
+                CP_UTF8 -> {
+                    utf8[slot] = input.readUTF()
+                }
+
+                CP_CLASS -> {
+                    classNameIndex[slot] = input.readUnsignedShort() // → name_index
+                }
+
+                CP_STRING, CP_METHOD_TYPE, CP_MODULE, CP_PACKAGE -> {
+                    input.skipNBytes(2)
+                }
+
+                CP_METHOD_HANDLE -> {
+                    input.skipNBytes(3)
+                }
+
                 CP_INTEGER, CP_FLOAT, CP_FIELDREF, CP_METHODREF,
                 CP_INTERFACE_METHODREF, CP_NAME_AND_TYPE, CP_DYNAMIC, CP_INVOKE_DYNAMIC,
-                -> input.skipNBytes(4)
+                -> {
+                    input.skipNBytes(4)
+                }
+
                 CP_LONG, CP_DOUBLE -> {
                     input.skipNBytes(8)
                     slot++ // Long/Double occupy two constant_pool slots (JVMS §4.4.5)
                 }
-                else -> throw IOException("unknown constant pool tag $tag")
+
+                else -> {
+                    throw IOException("unknown constant pool tag $tag")
+                }
             }
             slot++
         }
@@ -155,8 +177,10 @@ internal object SerializableClassScanner {
             val length = input.readInt().toLong() and 0xFFFFFFFFL
             when (name) {
                 "RuntimeVisibleAnnotations" -> annotations = annotations + readAnnotations(input, utf8)
+
                 // A class signature starting `<` declares type parameters (JVMS §4.7.9.1).
                 "Signature" -> generic = utf8[input.readUnsignedShort()]?.startsWith("<") == true
+
                 else -> input.skipNBytes(length)
             }
         }
@@ -192,8 +216,14 @@ internal object SerializableClassScanner {
     private fun skipElementValue(input: DataInputStream) {
         when (val tag = input.readUnsignedByte().toChar()) {
             // Single 2-byte constant_pool index: primitives B/C/D/F/I/J/S/Z, String s, class c.
-            'B', 'C', 'D', 'F', 'I', 'J', 'S', 'Z', 's', 'c' -> input.skipNBytes(2)
-            EV_ENUM -> input.skipNBytes(4) // type_name_index + const_name_index
+            'B', 'C', 'D', 'F', 'I', 'J', 'S', 'Z', 's', 'c' -> {
+                input.skipNBytes(2)
+            }
+
+            EV_ENUM -> {
+                input.skipNBytes(4) // type_name_index + const_name_index
+            }
+
             EV_ANNOTATION -> { // nested annotation: type_index + element_value_pairs
                 input.skipNBytes(2)
                 repeat(input.readUnsignedShort()) {
@@ -201,8 +231,14 @@ internal object SerializableClassScanner {
                     skipElementValue(input)
                 }
             }
-            EV_ARRAY -> repeat(input.readUnsignedShort()) { skipElementValue(input) }
-            else -> throw IOException("unknown element_value tag '$tag'")
+
+            EV_ARRAY -> {
+                repeat(input.readUnsignedShort()) { skipElementValue(input) }
+            }
+
+            else -> {
+                throw IOException("unknown element_value tag '$tag'")
+            }
         }
     }
 }

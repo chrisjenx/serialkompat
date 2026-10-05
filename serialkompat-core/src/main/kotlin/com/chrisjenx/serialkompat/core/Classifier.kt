@@ -53,9 +53,11 @@ public class Classifier(
     ): Verdict? =
         when (change) {
             // Adding a whole type is safe both ways.
-            is Change.ContractAdded -> null
+            is Change.ContractAdded -> {
+                null
+            }
 
-            is Change.ContractRemoved ->
+            is Change.ContractRemoved -> {
                 Verdict(
                     Rules.CONTRACT_REMOVED,
                     change.serialName,
@@ -65,8 +67,9 @@ public class Classifier(
                     message = "type ${change.serialName} was removed",
                     fixHint = "Keep the type while data or peers still use it; bump major to remove.",
                 )
+            }
 
-            is Change.ElementAdded ->
+            is Change.ElementAdded -> {
                 Verdict(
                     Rules.PROPERTY_ADDED,
                     change.contract,
@@ -87,8 +90,9 @@ public class Classifier(
                         "Give new fields a default (or make them nullable with explicitNulls=false); " +
                             "readers should set ignoreUnknownKeys; else bump major.",
                 )
+            }
 
-            is Change.ElementRemoved ->
+            is Change.ElementRemoved -> {
                 Verdict(
                     Rules.PROPERTY_REMOVED,
                     change.contract,
@@ -113,8 +117,9 @@ public class Classifier(
                         "Removing a field drops its data for tolerant readers; keep it (or bridge a " +
                             "rename with @JsonNames) until nothing uses it; else bump major.",
                 )
+            }
 
-            is Change.ElementOptionalityChanged ->
+            is Change.ElementOptionalityChanged -> {
                 if (change.wasOptional && !change.nowOptional) {
                     Verdict(
                         Rules.PROPERTY_OPTIONALITY,
@@ -137,8 +142,9 @@ public class Classifier(
                         fixHint = "Set encodeDefaults=true on the writer, or keep the field required.",
                     )
                 }
+            }
 
-            is Change.ElementNullabilityChanged ->
+            is Change.ElementNullabilityChanged -> {
                 if (!change.wasNullable && change.nowNullable) {
                     Verdict(
                         Rules.PROPERTY_NULLABILITY,
@@ -163,8 +169,9 @@ public class Classifier(
                         fixHint = "Old data may contain null here; keep it nullable or bump major.",
                     )
                 }
+            }
 
-            is Change.ElementTypeChanged ->
+            is Change.ElementTypeChanged -> {
                 // A hole (#n) is a generic type-parameter position, checked at concrete use sites,
                 // not on the envelope. Fill-if-absent extraction (#139) flips a field between a hole
                 // and a concrete type when a use-site is added/removed; that transition is coverage
@@ -183,8 +190,9 @@ public class Classifier(
                         fixHint = "Introduce a new field instead of changing a type; bump major.",
                     )
                 }
+            }
 
-            is Change.EnumValueAdded ->
+            is Change.EnumValueAdded -> {
                 Verdict(
                     Rules.ENUM_VALUE_ADDED,
                     change.contract,
@@ -203,8 +211,9 @@ public class Classifier(
                     message = "enum value '${change.value}' was added to ${change.contract}",
                     fixHint = "Enable coerceInputValues *and* give the reading field a default, or bump major.",
                 )
+            }
 
-            is Change.EnumValueRemoved ->
+            is Change.EnumValueRemoved -> {
                 Verdict(
                     Rules.ENUM_VALUE_REMOVED,
                     change.contract,
@@ -214,8 +223,9 @@ public class Classifier(
                     message = "enum value '${change.value}' was removed from ${change.contract}",
                     fixHint = "Keep the value (deprecated) until no persisted/old data uses it.",
                 )
+            }
 
-            is Change.SubtypeAdded ->
+            is Change.SubtypeAdded -> {
                 Verdict(
                     Rules.SUBTYPE_ADDED,
                     change.contract,
@@ -229,8 +239,9 @@ public class Classifier(
                     message = "subtype '${change.subtype.serialName}' was added to ${change.contract}",
                     fixHint = "Register a default deserializer on old readers, or bump major.",
                 )
+            }
 
-            is Change.SubtypeRemoved ->
+            is Change.SubtypeRemoved -> {
                 Verdict(
                     Rules.SUBTYPE_REMOVED,
                     change.contract,
@@ -240,8 +251,9 @@ public class Classifier(
                     message = "subtype '${change.subtype.serialName}' was removed from ${change.contract}",
                     fixHint = "Keep the subtype until no old/persisted data uses it.",
                 )
+            }
 
-            is Change.DiscriminatorChanged ->
+            is Change.DiscriminatorChanged -> {
                 Verdict(
                     Rules.DISCRIMINATOR_CHANGED,
                     change.contract,
@@ -251,6 +263,7 @@ public class Classifier(
                     message = "discriminator changed: ${change.oldDiscriminator} -> ${change.newDiscriminator}",
                     fixHint = "Don't change the discriminator key; it breaks all polymorphic decoding.",
                 )
+            }
 
             is Change.ElementJsonNamesChanged -> {
                 // Aliases only widen the keys a reader accepts. Adding one is safe; dropping one
@@ -276,7 +289,7 @@ public class Classifier(
 
             // Moving a plain type is wire-neutral (its class name isn't on the
             // wire); moving a polymorphic type changes the discriminator value.
-            is Change.ContractMoved ->
+            is Change.ContractMoved -> {
                 if (change.kind == ContractKind.SEALED || change.kind == ContractKind.POLYMORPHIC) {
                     Verdict(
                         Rules.DISCRIMINATOR_VALUE_CHANGED,
@@ -290,13 +303,16 @@ public class Classifier(
                 } else {
                     null // plain move is safe
                 }
+            }
 
-            is Change.ConfigChanged -> configVerdict(change)
+            is Change.ConfigChanged -> {
+                configVerdict(change)
+            }
 
             // A subtype property that shadows the class discriminator makes the model
             // unserializable — the real library refuses to encode it — so it breaks both
             // directions regardless of config (design §7, #132).
-            is Change.DiscriminatorCollision ->
+            is Change.DiscriminatorCollision -> {
                 Verdict(
                     Rules.DISCRIMINATOR_COLLISION,
                     change.contract,
@@ -309,10 +325,11 @@ public class Classifier(
                     fixHint =
                         "Rename the colliding property, or set a different @JsonClassDiscriminator on ${change.contract}.",
                 )
+            }
 
             // An unanalysable type can't be verified either way — surfaced as a WARN
             // coverage gap so it is never silently assumed compatible (design §10).
-            is Change.CoverageGap ->
+            is Change.CoverageGap -> {
                 Verdict(
                     Rules.COVERAGE_GAP,
                     change.serialName,
@@ -322,6 +339,7 @@ public class Classifier(
                     message = "type ${change.serialName} is opaque (unanalysable) — the gate cannot verify it",
                     fixHint = "Provide an analysable @Serializable form, or accept this coverage gap explicitly.",
                 )
+            }
         }
 
     /**
@@ -336,72 +354,89 @@ public class Classifier(
         val spec =
             when (change.field) {
                 // Rename every key / break polymorphic decoding — both directions.
-                "namingStrategy" ->
+                "namingStrategy" -> {
                     ConfigSpec(
                         Rules.CONFIG_NAMING_STRATEGY,
                         Severity.BREAK,
                         Severity.BREAK,
                         "A naming-strategy change renames every key; keep it stable or bump major.",
                     )
-                "classDiscriminator" ->
+                }
+
+                "classDiscriminator" -> {
                     ConfigSpec(
                         Rules.CONFIG_DISCRIMINATOR,
                         Severity.BREAK,
                         Severity.BREAK,
                         "Changing the discriminator breaks all polymorphic decoding.",
                     )
-                "classDiscriminatorMode" ->
+                }
+
+                "classDiscriminatorMode" -> {
                     ConfigSpec(
                         Rules.CONFIG_DISCRIMINATOR,
                         Severity.BREAK,
                         Severity.BREAK,
                         "Changing whether the discriminator is emitted breaks polymorphic decoding.",
                     )
+                }
+
                 // Reader-side (backward only): a stricter NEW reader can reject old data.
-                "ignoreUnknownKeys" ->
+                "ignoreUnknownKeys" -> {
                     ConfigSpec(
                         Rules.CONFIG_READER_STRICTNESS,
                         if (disabled) Severity.WARN else Severity.SAFE,
                         Severity.SAFE,
                         "A stricter reader now rejects previously-tolerated unknown keys.",
                     )
-                "coerceInputValues" ->
+                }
+
+                "coerceInputValues" -> {
                     ConfigSpec(
                         Rules.CONFIG_COERCE_INPUT,
                         if (disabled) Severity.WARN else Severity.SAFE,
                         Severity.SAFE,
                         "A reader that no longer coerces invalid values may fail to decode.",
                     )
-                "useAlternativeNames" ->
+                }
+
+                "useAlternativeNames" -> {
                     ConfigSpec(
                         Rules.CONFIG_READER_STRICTNESS,
                         if (disabled) Severity.WARN else Severity.SAFE,
                         Severity.SAFE,
                         "The reader no longer accepts @JsonNames alias keys.",
                     )
+                }
+
                 // Writer-side (forward only): the NEW writer may omit fields the old reader expects.
-                "encodeDefaults" ->
+                "encodeDefaults" -> {
                     ConfigSpec(
                         Rules.CONFIG_ENCODE_DEFAULTS,
                         Severity.SAFE,
                         if (disabled) Severity.WARN else Severity.SAFE,
                         "No longer writing defaults can drop fields peers rely on.",
                     )
+                }
+
                 // Whether nulls are written; conditional in both directions — kept coarse (WARN).
-                "explicitNulls" ->
+                "explicitNulls" -> {
                     ConfigSpec(
                         Rules.CONFIG_EXPLICIT_NULLS,
                         Severity.WARN,
                         Severity.WARN,
                         "This changes whether nulls appear on the wire.",
                     )
-                else ->
+                }
+
+                else -> {
                     ConfigSpec(
                         Rules.CONFIG_CHANGED,
                         Severity.WARN,
                         Severity.WARN,
                         "A wire-relevant Json setting changed.",
                     )
+                }
             }
         if (spec.backward == Severity.SAFE && spec.forward == Severity.SAFE) return null
         return Verdict(
