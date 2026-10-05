@@ -4,10 +4,13 @@ name: Update Gradle Wrapper
 # code, so it cannot run `./gradlew wrapper`. Its PRs swap gradle-wrapper.jar and
 # distributionUrl but leave gradlew/gradlew.bat at the old version and never write
 # distributionSha256Sum. `gradle-wrapper` is therefore ignored in
-# .github/dependabot.yml and this workflow owns wrapper upgrades instead: the action
-# runs the real `wrapper` task (jar + properties + both scripts move together),
-# pins distributionSha256Sum, and verifies the new jar against the official
-# release checksum before opening a PR.
+# .github/dependabot.yml and this workflow owns wrapper upgrades instead: it runs the
+# real `wrapper` task (jar + properties + both scripts move together), pins
+# distributionSha256Sum, and verifies the new jar against the official release
+# checksum before opening a PR.
+#
+# Plain script rather than a third-party action: gradle-update/update-gradle-wrapper-action
+# is unmaintained (Node 20) and failed every run here.
 
 on:
   schedule:
@@ -16,17 +19,25 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+
+concurrency:
+  group: gradle-wrapper
+  cancel-in-progress: false
 
 jobs:
   update-gradle-wrapper:
     name: Update Gradle Wrapper
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # To dispatch CI on the PR branch (see below).
+      actions: write
     steps:
       - uses: actions/checkout@v7
 
-      # The action shells out to ./gradlew, so pin the JVM to the project's target
+      # The wrapper task runs ./gradlew, so pin the JVM to the project's target
       # rather than inheriting whatever the runner image defaults to.
       - name: Set up JDK 17
         uses: actions/setup-java@v6
@@ -34,11 +45,57 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Update Gradle Wrapper
-        uses: gradle-update/update-gradle-wrapper-action@v2
-        with:
-          # GITHUB_TOKEN means CI will NOT run automatically on the PR this opens
-          # (GitHub suppresses workflow triggers for token-authored commits). Close
-          # and reopen the PR to kick CI, or swap in a PAT with `repo` scope.
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          labels: dependencies, ci
+      # Also validates the checked-in wrapper jar before we execute it.
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Update the wrapper and open a PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          props=gradle/wrapper/gradle-wrapper.properties
+          current=$(sed -n 's|^distributionUrl=.*/gradle-\(.*\)-bin\.zip$|\1|p' "$props")
+          meta=$(curl -fsSL https://services.gradle.org/versions/current)
+          latest=$(jq -r .version <<<"$meta")
+          echo "current=$current latest=$latest"
+          if [ "$latest" = "$current" ]; then
+            echo "Gradle wrapper is up to date"
+            exit 0
+          fi
+
+          branch="gradle-wrapper/$latest"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "Branch $branch already exists (PR open or pending); nothing to do"
+            exit 0
+          fi
+
+          dist_sha=$(curl -fsSL "$(jq -r .checksumUrl <<<"$meta")")
+          # Run twice: the first run (old Gradle) points the wrapper at the new version; the
+          # second (new Gradle) regenerates the jar and scripts from the new version itself.
+          for _ in 1 2; do
+            ./gradlew wrapper --gradle-version "$latest" --distribution-type bin \
+              --gradle-distribution-sha256-sum "$dist_sha" --no-configuration-cache
+          done
+
+          expected_jar=$(curl -fsSL "$(jq -r .wrapperChecksumUrl <<<"$meta")")
+          actual_jar=$(sha256sum gradle/wrapper/gradle-wrapper.jar | cut -d' ' -f1)
+          if [ "$expected_jar" != "$actual_jar" ]; then
+            echo "::error::gradle-wrapper.jar checksum $actual_jar does not match the official $expected_jar"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add gradle/wrapper gradlew gradlew.bat
+          git commit -m "Update Gradle Wrapper from $current to $latest"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Update Gradle Wrapper from $current to $latest" \
+            --label "area:ci" --label "kind:tooling" \
+            --body "Runs \`./gradlew wrapper --gradle-version $latest\` (twice) with \`distributionSha256Sum\` pinned; \`gradle-wrapper.jar\` verified against the official checksum. [Release notes](https://docs.gradle.org/$latest/release-notes.html)."
+          # PRs authored with GITHUB_TOKEN don't trigger pull_request workflows; dispatch CI on the
+          # branch so the required build checks report on its head commit. Non-fatal: the PR is
+          # already open, and a missing trigger just means checks need a close/reopen.
+          gh workflow run ci.yml --ref "$branch" \
+            || echo "::warning::Could not dispatch CI on $branch; close and reopen the PR to run checks."
