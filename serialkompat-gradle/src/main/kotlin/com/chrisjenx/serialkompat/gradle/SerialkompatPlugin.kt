@@ -66,51 +66,27 @@ public class SerialkompatPlugin : Plugin<Project> {
                 task.description = "Extracts the current @Serializable JSON wire schema to a snapshot file."
                 task.mainClass.set("com.chrisjenx.serialkompat.extractor.SchemaExtractionMain")
                 val scanDirs = projectClassesDirs(target)
-                task.classpath(toolClasspath(target), projectRuntimeClasspath(target), scanDirs)
-                task.outputs.file(currentSnapshot)
-                // The argumentProviders lambda below is a plain closure, not a declared
-                // CommandLineArgumentProvider with @Input properties, so Gradle can't infer
-                // which extension values feed the command line. Without these explicit
-                // inputs, flipping `discovery`/`types`/`jsonInstance` between builds is
-                // invisible to up-to-date checking and the task wrongly stays UP_TO_DATE,
-                // re-emitting a stale snapshot.
-                task.inputs.property("discoveryMode", extension.discovery)
-                task.inputs.property("types", extension.types)
-                task.inputs.property("jsonInstance", extension.jsonInstance).optional(true)
+                // Project first: its @Serializable classes were compiled against its own
+                // kotlinx-serialization/stdlib, which must win over the plugin's (and Gradle's
+                // embedded) copies. The tool jars come last and only fill what the project lacks.
+                task.classpath(projectRuntimeClasspath(target), scanDirs, toolClasspath(target))
                 task.onlyIf { hasWorkToDo(extension) }
-                task.argumentProviders.add {
-                    buildList {
-                        val discovery = extension.discovery.get()
-                        val types = extension.types.get()
-                        if (types.isNotEmpty()) {
-                            add("--types")
-                            add(types.joinToString(","))
-                        }
-                        // Discovery is only in play when `types` is empty (docs/configuration.md's
-                        // documented precedence) — matches SchemaExtractionMain's own
-                        // `typeNames.ifEmpty { ... }` filtering, so the plugin never pays for (or
-                        // reports on) a scan whose result would be discarded anyway.
-                        if (discovery != DiscoveryMode.EXPLICIT && types.isEmpty()) {
-                            add("--discovery")
-                            add(if (discovery == DiscoveryMode.OPT_OUT) "opt-out" else "opt-in")
-                            // No Java `main` source set and no KMP plugin (e.g. a root/aggregator
-                            // project) leaves scanDirs empty; emitting --scan-classes with an empty
-                            // string would make the extractor parse zero scan dirs and, with types
-                            // also empty, hit its `require(types.isNotEmpty() || scanDirs.isNotEmpty())`
-                            // -> a raw IllegalArgumentException. The extractor already degrades to
-                            // manifest-only discovery when --scan-classes is absent, so just omit it.
-                            if (scanDirs.files.isNotEmpty()) {
-                                add("--scan-classes")
-                                add(scanDirs.files.joinToString(File.pathSeparator) { it.absolutePath })
-                            }
-                        }
-                        add("--out")
-                        add(currentSnapshot.get().asFile.absolutePath)
-                        if (extension.jsonInstance.isPresent) {
-                            add("--json")
-                            add(extension.jsonInstance.get())
-                        }
-                    }
+                // A typed provider (not a lambda) so its inputs/output are the task's fingerprint:
+                // flipping `discovery`/`types`/`jsonInstance` re-runs it, and since the key holds no
+                // absolute paths the task is cacheable and relocatable.
+                task.argumentProviders.add(
+                    target.objects.newInstance(ExtractArguments::class.java).also { args ->
+                        args.types.set(extension.types)
+                        args.discovery.set(extension.discovery)
+                        args.jsonInstance.set(extension.jsonInstance)
+                        args.scanDirs.from(scanDirs)
+                        args.output.set(currentSnapshot)
+                    },
+                )
+                // JavaExec is @DisableCachingByDefault; extraction is a pure function of the
+                // classpath (@Classpath-normalized) and the provider's inputs above.
+                task.outputs.cacheIf("serialkompatExtract is a pure function of its classpath and arguments") {
+                    true
                 }
             }
 

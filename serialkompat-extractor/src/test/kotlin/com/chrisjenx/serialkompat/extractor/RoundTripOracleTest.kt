@@ -1107,12 +1107,115 @@ class RoundTripOracleTest {
                         DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), oldModule),
                         DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), newModule),
                     ),
+                    // The ground-truth reader above tolerates unknown keys — the sentinel needs it.
+                    SnapshotConfig(ignoreUnknownKeys = true),
+                    SnapshotConfig(),
                 ).filter { it.direction == CompatibilityDirection.FORWARD && it.rule == Rules.SUBTYPE_ADDED }
                 .map { it.severity }
                 .singleOrNull()
 
         assertEquals(Severity.WARN, forwardAddedSubtype(oldWithDefault), "default deserializer → forward WARN")
         assertEquals(Severity.BREAK, forwardAddedSubtype(oldNoDefault), "no default deserializer → forward BREAK")
+    }
+
+    // --- sealed base + module default deserializer (the `Unknown` fallback idiom) ---
+
+    @Serializable
+    @SerialName("Billing")
+    private sealed interface BillingV1 {
+        @Serializable
+        @SerialName("card")
+        data class Card(
+            val last4: String,
+        ) : BillingV1
+
+        @Serializable
+        @SerialName("unknown")
+        data class Unknown(
+            val note: String = "?",
+        ) : BillingV1
+    }
+
+    @Serializable
+    @SerialName("Billing")
+    private sealed interface BillingV2 {
+        @Serializable
+        @SerialName("card")
+        data class Card(
+            val last4: String,
+        ) : BillingV2
+
+        @Serializable
+        @SerialName("bank")
+        data class Bank(
+            val iban: String,
+        ) : BillingV2
+
+        @Serializable
+        @SerialName("unknown")
+        data class Unknown(
+            val note: String = "?",
+        ) : BillingV2
+    }
+
+    @Test
+    fun `a module default deserializer on a SEALED base downgrades an added-subtype forward break to WARN`() {
+        // SealedClassSerializer falls back to the module's polymorphic default for an unknown
+        // discriminator, exactly like an open base (#128) — the `Unknown` sentinel idiom.
+        val oldWithDefault =
+            SerializersModule {
+                polymorphic(
+                    BillingV1::class,
+                ) { defaultDeserializer { BillingV1.Unknown.serializer() } }
+            }
+        val newData = Json.encodeToString(serializer<BillingV2>(), BillingV2.Bank("GB00"))
+
+        // Ground truth: the default rescues a TOLERANT old reader (silent substitution). Without the
+        // default it throws; and with the default but a STRICT reader it still throws, because the new
+        // subtype's fields are unknown keys to the sentinel.
+        val tolerant =
+            Json {
+                serializersModule = oldWithDefault
+                ignoreUnknownKeys = true
+            }
+        assertIs<BillingV1.Unknown>(tolerant.decodeFromString(serializer<BillingV1>(), newData))
+        assertFailsWith<Exception> {
+            Json { serializersModule = oldWithDefault }.decodeFromString(serializer<BillingV1>(), newData)
+        }
+        assertFailsWith<Exception> { Json.decodeFromString(serializer<BillingV1>(), newData) }
+
+        fun forwardAddedSubtype(
+            oldModule: SerializersModule,
+            oldConfig: SnapshotConfig,
+        ): Severity? =
+            Classifier()
+                .classify(
+                    SnapshotDiffer.diff(
+                        DescriptorSnapshotExtractor.extract(
+                            listOf(serializer<BillingV1>().descriptor),
+                            oldModule,
+                            oldConfig,
+                        ),
+                        DescriptorSnapshotExtractor.extract(listOf(serializer<BillingV2>().descriptor)),
+                    ),
+                    oldConfig,
+                    SnapshotConfig(),
+                ).filter { it.direction == CompatibilityDirection.FORWARD && it.rule == Rules.SUBTYPE_ADDED }
+                .map { it.severity }
+                .singleOrNull()
+
+        val lenientConfig = SnapshotConfig(ignoreUnknownKeys = true)
+        assertEquals(
+            Severity.WARN,
+            forwardAddedSubtype(oldWithDefault, lenientConfig),
+            "sealed + default + tolerant → WARN",
+        )
+        assertEquals(
+            Severity.BREAK,
+            forwardAddedSubtype(oldWithDefault, SnapshotConfig()),
+            "default but strict → BREAK",
+        )
+        assertEquals(Severity.BREAK, forwardAddedSubtype(EmptySerializersModule(), lenientConfig), "no default → BREAK")
     }
 
     // --- #139: generic-root hole resolution -------------------------------------
