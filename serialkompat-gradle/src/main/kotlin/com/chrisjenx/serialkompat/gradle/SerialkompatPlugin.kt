@@ -157,12 +157,20 @@ public class SerialkompatPlugin : Plugin<Project> {
         // Captured at configuration time (a String, not the Project) so the record action never
         // touches `Task.project` at execution — config-cache-safe like the rest of the plugin.
         val projectVersion = target.version.toString()
+        // One build-wide lock: under --parallel, modules take turns extracting their baseline
+        // (git worktree + nested Gradle build) instead of racing on the same repo.
+        val baselineService =
+            target.gradle.sharedServices.registerIfAbsent(
+                BaselineExtractionService.NAME,
+                BaselineExtractionService::class.java,
+            ) { spec -> spec.maxParallelUsages.set(1) }
 
         val check =
             target.tasks.register(CHECK_TASK_NAME) { task ->
                 task.group = VERIFICATION_GROUP
                 task.description = "Fails on backward/forward-incompatible JSON wire changes vs the baseline ref."
                 task.dependsOn(extract)
+                task.usesService(baselineService)
                 // Applying the plugin without declaring what crosses the wire is a no-op,
                 // so `check` never breaks on an unconfigured project.
                 task.onlyIf { hasWorkToDo(extension) }
@@ -200,6 +208,7 @@ public class SerialkompatPlugin : Plugin<Project> {
             task.group = VERIFICATION_GROUP
             task.description = "Checks against an ad-hoc ref (-Pserialkompat.ref=<ref>), else the configured baseline."
             task.dependsOn(extract)
+            task.usesService(baselineService)
             task.onlyIf { hasWorkToDo(extension) }
             task.doLast { t ->
                 runCheck(
