@@ -159,14 +159,28 @@ public object SnapshotDiffer {
                 val old = oldByName[name]
                 val new = newByName[name]
                 when {
-                    old == null && new != null -> add(Change.ElementAdded(contract, new))
-                    old != null && new == null -> add(Change.ElementRemoved(contract, old))
+                    old == null && new != null -> {
+                        add(Change.ElementAdded(contract, new))
+                    }
+
+                    old != null && new == null -> {
+                        add(Change.ElementRemoved(contract, old))
+                    }
+
                     old != null && new != null -> {
                         if (old.type != new.type) {
                             add(Change.ElementTypeChanged(contract, name, old.type, new.type))
                         }
                         if (old.optional != new.optional) {
-                            add(Change.ElementOptionalityChanged(contract, name, old.optional, new.optional))
+                            add(
+                                Change.ElementOptionalityChanged(
+                                    contract,
+                                    name,
+                                    old.optional,
+                                    new.optional,
+                                    new.encodeDefault,
+                                ),
+                            )
                         }
                         if (old.nullable != new.nullable) {
                             add(Change.ElementNullabilityChanged(contract, name, old.nullable, new.nullable))
@@ -220,15 +234,22 @@ public object SnapshotDiffer {
             for (element in contract.elements) {
                 for (enumName in enumNames) {
                     when (enumReference(element.type, enumName)) {
-                        EnumRef.DIRECT ->
+                        EnumRef.DIRECT -> {
                             if (element.optional) {
                                 hasDefaultedDirect += enumName
                             } else {
                                 disqualified +=
                                     enumName
                             }
-                        EnumRef.NESTED -> disqualified += enumName
-                        EnumRef.NONE -> Unit
+                        }
+
+                        EnumRef.NESTED -> {
+                            disqualified += enumName
+                        }
+
+                        EnumRef.NONE -> {
+                            Unit
+                        }
                     }
                 }
             }
@@ -245,10 +266,12 @@ public object SnapshotDiffer {
     ): EnumRef =
         when {
             type == enumName -> EnumRef.DIRECT
+
             // Split on the generic delimiters and strip nullable markers so `List<E>` / `Map<E,V>` /
             // `List<E?>` count as nested, while a distinct type that merely *contains* the name as a
             // substring (e.g. `Enclosing`) does not falsely match.
             type.split('<', '>', ',').any { it.trim().removeSuffix("?") == enumName } -> EnumRef.NESTED
+
             else -> EnumRef.NONE
         }
 

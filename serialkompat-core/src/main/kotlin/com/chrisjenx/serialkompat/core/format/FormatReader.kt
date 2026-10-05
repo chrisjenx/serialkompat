@@ -73,7 +73,10 @@ internal object FormatReader {
         body: String,
     ): Line =
         when (kind) {
-            ContractKind.CLASS, ContractKind.OBJECT -> readElementLine(body)
+            ContractKind.CLASS, ContractKind.OBJECT -> {
+                readElementLine(body)
+            }
+
             ContractKind.ENUM -> {
                 require(body.startsWith("${FormatGrammar.KEY_VALUES}=[")) {
                     "serialkompat: malformed ENUM body line '$body' (expected 'values=[…]')"
@@ -89,9 +92,13 @@ internal object FormatReader {
                     ),
                 )
             }
-            ContractKind.SEALED, ContractKind.POLYMORPHIC ->
+
+            ContractKind.SEALED, ContractKind.POLYMORPHIC -> {
                 when {
-                    body == FormatGrammar.SUBTYPES_MARKER -> Line(1, listOf(Token.Word(FormatGrammar.SUBTYPES_MARKER)))
+                    body == FormatGrammar.SUBTYPES_MARKER -> {
+                        Line(1, listOf(Token.Word(FormatGrammar.SUBTYPES_MARKER)))
+                    }
+
                     FormatGrammar.ARROW in body -> {
                         val (value, name) = body.split(FormatGrammar.ARROW, limit = 2)
                         Line(
@@ -101,13 +108,20 @@ internal object FormatReader {
                             ),
                         )
                     }
-                    else -> throw IllegalArgumentException(
-                        "serialkompat: malformed subtype line '$body' (expected 'value -> name')",
-                    )
+
+                    else -> {
+                        throw IllegalArgumentException(
+                            "serialkompat: malformed subtype line '$body' (expected 'value -> name')",
+                        )
+                    }
                 }
-            ContractKind.OPAQUE -> throw IllegalArgumentException(
-                "serialkompat: OPAQUE contract '$serialName' must have no body lines, found '$body'",
-            )
+            }
+
+            ContractKind.OPAQUE -> {
+                throw IllegalArgumentException(
+                    "serialkompat: OPAQUE contract '$serialName' must have no body lines, found '$body'",
+                )
+            }
         }
 
     private fun readElementLine(body: String): Line {
@@ -121,12 +135,16 @@ internal object FormatReader {
         val trailing =
             tokens.drop(1).map { token ->
                 when {
-                    token.startsWith("${FormatGrammar.KEY_JSON_NAMES}=") ->
+                    token.startsWith("${FormatGrammar.KEY_JSON_NAMES}=") -> {
                         Token.KeyList(
                             FormatGrammar.KEY_JSON_NAMES,
                             parseListLiteral(token.removePrefix("${FormatGrammar.KEY_JSON_NAMES}=")),
                         )
-                    else -> keyValueOrWord(token)
+                    }
+
+                    else -> {
+                        keyValueOrWord(token)
+                    }
                 }
             }
         return Line(

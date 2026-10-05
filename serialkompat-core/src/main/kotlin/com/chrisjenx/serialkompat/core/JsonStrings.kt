@@ -14,12 +14,20 @@ internal object JsonStrings {
             for (c in value) {
                 when (c) {
                     '\\' -> append("\\\\")
+
                     '"' -> append("\\\"")
+
                     '\n' -> append("\\n")
+
                     '\r' -> append("\\r")
+
                     '\t' -> append("\\t")
+
                     '\b' -> append("\\b")
-                    '\u000C' -> append("\\f") // form feed (Kotlin has no '\f' escape)
+
+                    // form feed (Kotlin has no '\f' escape)
+                    '\u000C' -> append("\\f")
+
                     // JSON requires every control char < U+0020 to be escaped; those with short
                     // forms are handled above, the rest fall back to \u00XX.
                     else -> if (c < ' ') append("\\u").append(c.code.toString(16).padStart(4, '0')) else append(c)

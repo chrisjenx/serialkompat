@@ -132,8 +132,14 @@ public object SchemaExtractionMain {
             val rawDescriptor =
                 runCatching {
                     when {
-                        kClass == null -> null
-                        !generic -> serializer(kClass.createType()).descriptor
+                        kClass == null -> {
+                            null
+                        }
+
+                        !generic -> {
+                            serializer(kClass.createType()).descriptor
+                        }
+
                         else -> {
                             val holes = List(kClass.typeParameters.size) { HoleSerializer(it) }
                             serializer(kClass, holes, false).descriptor
@@ -149,8 +155,14 @@ public object SchemaExtractionMain {
                     )
                     opaque += Contract(rawDescriptor?.serialName ?: name, ContractKind.OPAQUE)
                 }
-                generic -> genericRoots += descriptor
-                else -> descriptors += descriptor
+
+                generic -> {
+                    genericRoots += descriptor
+                }
+
+                else -> {
+                    descriptors += descriptor
+                }
             }
         }
         // An unreadable class file is an unanalysable input: unanalysable ≠ safe, so it

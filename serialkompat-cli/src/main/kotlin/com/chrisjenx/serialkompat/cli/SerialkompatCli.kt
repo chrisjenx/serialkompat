@@ -68,35 +68,45 @@ public object SerialkompatCli {
         val directionArg = optionValue(args, "--direction")
         val direction =
             when {
-                !directionPresent -> CompatibilityDirection.FULL
+                !directionPresent -> {
+                    CompatibilityDirection.FULL
+                }
+
                 directionArg == null -> {
                     out.appendLine("error: --direction requires a value (FULL, BACKWARD, or FORWARD)")
                     return EXIT_USAGE
                 }
-                else ->
+
+                else -> {
                     runCatching { CompatibilityDirection.valueOf(directionArg) }.getOrElse {
                         out.appendLine(
                             "error: invalid --direction '$directionArg' (expected FULL, BACKWARD, or FORWARD)",
                         )
                         return EXIT_USAGE
                     }
+                }
             }
         val formatPresent = args.any { it == "--format" || it.startsWith("--format=") }
         val formatArg = optionValue(args, "--format")
         val format =
             when {
-                !formatPresent -> OutputFormat.CONSOLE
+                !formatPresent -> {
+                    OutputFormat.CONSOLE
+                }
+
                 formatArg == null -> {
                     out.appendLine("error: --format requires a value (console, json, sarif, or github)")
                     return EXIT_USAGE
                 }
-                else ->
+
+                else -> {
                     runCatching { OutputFormat.valueOf(formatArg.uppercase()) }.getOrElse {
                         out.appendLine(
                             "error: invalid --format '$formatArg' (expected console, json, sarif, or github)",
                         )
                         return EXIT_USAGE
                     }
+                }
             }
 
         val failOnBreaking = !args.contains("--no-fail")

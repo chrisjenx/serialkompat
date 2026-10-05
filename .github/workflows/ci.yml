@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Bot PRs authored with GITHUB_TOKEN (version bump, wrapper update) don't trigger
+  # pull_request runs; those workflows dispatch CI on their branch instead so the
+  # required checks still report on the PR's head commit.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

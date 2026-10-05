@@ -9,6 +9,7 @@ import com.chrisjenx.serialkompat.core.Severity
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.SnapshotDiffer
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
@@ -366,6 +367,28 @@ class RoundTripOracleTest {
         val note: String,
     )
 
+    // #158: required → optional, with the new writer's per-field @EncodeDefault overriding encodeDefaults.
+    @Serializable
+    @SerialName("EncodeDefaultMode")
+    private data class EncodeDefaultRequired(
+        val id: String,
+        val note: String,
+    )
+
+    @Serializable
+    @SerialName("EncodeDefaultMode")
+    private data class EncodeDefaultNever(
+        val id: String,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val note: String = "n",
+    )
+
+    @Serializable
+    @SerialName("EncodeDefaultMode")
+    private data class EncodeDefaultAlways(
+        val id: String,
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS) val note: String = "n",
+    )
+
     @Serializable
     @SerialName("Shape")
     private sealed interface ShapeV1 {
@@ -643,6 +666,103 @@ class RoundTripOracleTest {
             OptionalityV1("x"),
             serializer<OptionalityV2>(),
             OptionalityV2("x", note = "n"),
+        )
+    }
+
+    /** Forward findings for required `note` (old reader) → defaulted `note` (new writer under [writerJson]). */
+    private fun <B> becameOptionalForward(
+        newSerializer: KSerializer<B>,
+        writerJson: Json,
+    ): List<Severity> {
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer<EncodeDefaultRequired>().descriptor)),
+                DescriptorSnapshotExtractor.extract(
+                    listOf(newSerializer.descriptor),
+                    config = JsonConfigReader.read(writerJson),
+                ),
+            )
+        return Classifier()
+            .classify(changes, SnapshotConfig(), JsonConfigReader.read(writerJson))
+            .filter { it.rule == Rules.PROPERTY_OPTIONALITY && it.direction == CompatibilityDirection.FORWARD }
+            .map { it.severity }
+    }
+
+    @Test
+    fun `required becomes optional with @EncodeDefault(NEVER) breaks forward despite encodeDefaults`() {
+        // #158: NEVER beats encodeDefaults=true — a default-valued note is omitted, and the old
+        // reader that still requires it throws. This was a false SAFE before #158.
+        val writer = Json { encodeDefaults = true }
+        assertEquals(
+            Outcome.THREW,
+            roundTrip(writer, serializer(), EncodeDefaultNever("x"), strict, serializer<EncodeDefaultRequired>()),
+        )
+        assertEquals(listOf(Severity.BREAK), becameOptionalForward(serializer<EncodeDefaultNever>(), writer))
+        assertOracleAgrees(
+            serializer<EncodeDefaultRequired>(),
+            EncodeDefaultRequired("x", "n"),
+            serializer<EncodeDefaultNever>(),
+            EncodeDefaultNever("x"),
+            newJson = writer,
+        )
+    }
+
+    @Test
+    fun `required becomes optional with @EncodeDefault(ALWAYS) is forward safe without encodeDefaults`() {
+        // ALWAYS beats encodeDefaults=false: the note is always written, so the old reader decodes.
+        // Before #158 this was flagged a (false) forward BREAK.
+        assertEquals(
+            Outcome.DECODED,
+            roundTrip(strict, serializer(), EncodeDefaultAlways("x"), strict, serializer<EncodeDefaultRequired>()),
+        )
+        assertEquals(emptyList(), becameOptionalForward(serializer<EncodeDefaultAlways>(), strict))
+    }
+
+    @Test
+    fun `required becomes optional without @EncodeDefault follows the writer's encodeDefaults`() {
+        // Verified-absent annotation: omitted under encodeDefaults=false (BREAK), written under true (SAFE).
+        assertEquals(
+            Outcome.THREW,
+            roundTrip(strict, serializer(), OptionalityV1("x"), strict, serializer<OptionalityV2>()),
+        )
+        assertEquals(
+            Outcome.DECODED,
+            roundTrip(
+                Json { encodeDefaults = true },
+                serializer(),
+                OptionalityV1("x"),
+                strict,
+                serializer<OptionalityV2>(),
+            ),
+        )
+        val absentStrict =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<OptionalityV2>().descriptor)),
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<OptionalityV1>().descriptor)),
+                ),
+                SnapshotConfig(),
+                SnapshotConfig(),
+            )
+        assertTrue(absentStrict.any { it.direction == CompatibilityDirection.FORWARD && it.severity == Severity.BREAK })
+        val encoding = SnapshotConfig(encodeDefaults = true)
+        val absentEncoding =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<OptionalityV2>().descriptor)),
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(serializer<OptionalityV1>().descriptor),
+                        config = encoding,
+                    ),
+                ),
+                SnapshotConfig(),
+                encoding,
+            )
+        assertTrue(
+            absentEncoding.none {
+                it.rule == Rules.PROPERTY_OPTIONALITY &&
+                    it.direction == CompatibilityDirection.FORWARD
+            },
         )
     }
 

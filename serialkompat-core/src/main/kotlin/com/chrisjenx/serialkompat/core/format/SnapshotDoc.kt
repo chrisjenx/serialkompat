@@ -34,12 +34,22 @@ private fun contractBlock(contract: Contract): Block {
         }
     val body =
         when (contract.kind) {
-            ContractKind.ENUM -> listOf(valuesLine(contract.enumValues))
-            ContractKind.SEALED, ContractKind.POLYMORPHIC ->
+            ContractKind.ENUM -> {
+                listOf(valuesLine(contract.enumValues))
+            }
+
+            ContractKind.SEALED, ContractKind.POLYMORPHIC -> {
                 listOf(Line(1, listOf(Token.Word(FormatGrammar.SUBTYPES_MARKER)))) +
                     contract.subtypes.map { subtypeLine(it.discriminatorValue, it.serialName) }
-            ContractKind.CLASS, ContractKind.OBJECT -> contract.elements.map(::elementLine)
-            ContractKind.OPAQUE -> emptyList() // no analyzable body
+            }
+
+            ContractKind.CLASS, ContractKind.OBJECT -> {
+                contract.elements.map(::elementLine)
+            }
+
+            ContractKind.OPAQUE -> {
+                emptyList()
+            } // no analyzable body
         }
     return Block(listOf(Line(0, header)) + body)
 }
@@ -121,10 +131,16 @@ private fun contractOf(block: Block): Contract {
     for (line in block.lines.drop(1)) {
         when (val first = line.tokens.first()) {
             is Token.FieldRef -> elements += elementOf(first, line.tokens.drop(1))
+
             is Token.KeyList -> if (first.key == FormatGrammar.KEY_VALUES) enumValues = first.values
+
             is Token.ArrowPair -> subtypes += Subtype(first.left, first.right)
-            is Token.Word -> Unit // the `subtypes:` marker
-            is Token.KeyValue -> Unit // unknown fact: tolerated
+
+            // the `subtypes:` marker
+            is Token.Word -> Unit
+
+            // unknown fact: tolerated
+            is Token.KeyValue -> Unit
         }
     }
     return Contract(
@@ -148,18 +164,27 @@ private fun elementOf(
     var encodeDefault: EncodeDefaultMode? = null
     for (token in trailing) {
         when (token) {
-            is Token.Word ->
+            is Token.Word -> {
                 when (token.text) {
                     FormatGrammar.FLAG_OPTIONAL -> optional = true
                     FormatGrammar.FLAG_NULLABLE -> nullable = true
                     else -> Unit // unknown flag: tolerated
                 }
-            is Token.KeyList -> if (token.key == FormatGrammar.KEY_JSON_NAMES) jsonNames = token.values
-            is Token.KeyValue ->
+            }
+
+            is Token.KeyList -> {
+                if (token.key == FormatGrammar.KEY_JSON_NAMES) jsonNames = token.values
+            }
+
+            is Token.KeyValue -> {
                 if (token.key == FormatGrammar.KEY_ENCODE_DEFAULT) {
                     encodeDefault = EncodeDefaultMode.valueOf(token.value)
                 }
-            else -> Unit
+            }
+
+            else -> {
+                Unit
+            }
         }
     }
     return Element(fieldRef.name, fieldRef.type, optional, nullable, jsonNames, encodeDefault)

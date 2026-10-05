@@ -134,7 +134,7 @@ See the [rules reference](https://chrisjenx.github.io/serialkompat/rules/) for t
 ./gradlew koverHtmlReport
 ```
 
-Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.6.1), Kotlin 2.4.0, and kotlinx-serialization 1.11.0.
+Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.8.0), Kotlin 2.4.20, and kotlinx-serialization 1.11.0.
 
 ## Publishing
 
@@ -144,9 +144,7 @@ The library modules publish to **Maven Central** via the [vanniktech `maven-publ
 |---|---|
 | `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` | `mavenCentralUsername` / `mavenCentralPassword` |
 | `SIGNING_KEY_ID` / `SIGNING_KEY` / `SIGNING_KEY_PASSWORD` | `signingInMemoryKeyId` / `signingInMemoryKey` / `signingInMemoryKeyPassword` |
-| `APP_ID` / `APP_PRIVATE_KEY` | GitHub App used by the release job to tag, release, and bump the version |
-
-- **Release** (`Release` workflow, `workflow_dispatch` with a version): validates → tests → `publishAndReleaseToMavenCentral` → tags `vX.Y.Z` + GitHub release → moves the floating major tag (`v1`) → bumps `gradle.properties` to the next `-SNAPSHOT`. The floating `vN` tag is what Action consumers pin (`uses: chrisjenx/serialkompat@v1`); it moves only on stable (non-prerelease) releases.
+- **Release** (`Release` workflow, `workflow_dispatch` from `main` with a version): validates (refuses to start if any secret above is missing, so nothing is published by a half-configured run) → tests → `publishAndReleaseToMavenCentral` → tags `vX.Y.Z` + GitHub release → moves the floating major tag (`v1`) → opens a PR bumping `gradle.properties` to the next `-SNAPSHOT` (`main` is branch-protected, so the bump can't be pushed directly). The floating `vN` tag is what Action consumers pin (`uses: chrisjenx/serialkompat@v1`); it moves only on stable (non-prerelease) releases. Tagging and the GitHub release use the workflow's own `GITHUB_TOKEN` (no extra setup). Only the bump PR additionally needs **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**; without it the release still completes and the job warns you to bump the version by hand.
 - **Snapshot**: pushes to `main` publish `-SNAPSHOT`s automatically.
 
 Locally, `./gradlew publishToMavenLocal` publishes to `~/.m2` (signing uses your `signing.*` Gradle properties). Gradle Plugin Portal publishing (for `plugins { id("com.chrisjenx.serialkompat") }` resolution) is not yet configured.
