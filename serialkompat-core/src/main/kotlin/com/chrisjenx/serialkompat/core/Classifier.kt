@@ -131,10 +131,13 @@ public class Classifier(
                         change.contract,
                         "field '${change.element}'",
                         backward = Severity.SAFE,
-                        // forward: new writer may omit it unless it always encodes defaults.
-                        forward = if (newConfig.encodeDefaults) Severity.SAFE else Severity.BREAK,
+                        // forward: the old reader still requires it, so this is safe only if the new
+                        // writer always emits it — decided per field by @EncodeDefault (#158).
+                        forward = becameOptionalForward(change.newEncodeDefault, newConfig.encodeDefaults),
                         message = "field '${change.element}' became optional in ${change.contract}",
-                        fixHint = "Set encodeDefaults=true on the writer, or keep the field required.",
+                        fixHint =
+                            "Annotate it @EncodeDefault(ALWAYS), set encodeDefaults=true on the writer, " +
+                                "or keep the field required.",
                     )
                 }
 
@@ -421,6 +424,23 @@ public class Classifier(
         val forward: Severity,
         val hint: String,
     )
+
+    /**
+     * Forward severity of a field that became optional: an old reader still requires it, so the
+     * change is safe only if the new writer always emits the defaulted value (#158). A per-field
+     * `@EncodeDefault` overrides the writer's global `encodeDefaults`; an unrecorded mode is never
+     * assumed absent (a hidden `NEVER` would fail open), so `encodeDefaults=true` then only WARNs.
+     */
+    private fun becameOptionalForward(
+        mode: EncodeDefaultMode?,
+        encodeDefaults: Boolean,
+    ): Severity =
+        when (mode) {
+            EncodeDefaultMode.ALWAYS -> Severity.SAFE
+            EncodeDefaultMode.NEVER -> Severity.BREAK
+            EncodeDefaultMode.ABSENT -> if (encodeDefaults) Severity.SAFE else Severity.BREAK
+            null -> if (encodeDefaults) Severity.WARN else Severity.BREAK
+        }
 
     private fun isWidening(
         oldType: String,

@@ -87,6 +87,26 @@ class SnapshotDifferTest {
     }
 
     @Test
+    fun `optionality change carries the new writer's @EncodeDefault mode`() {
+        // #158: the forward verdict depends on whether the *new* writer emits the defaulted field.
+        val old = snapshot(clazz("T", Element("id", "String")))
+        val new =
+            snapshot(clazz("T", Element("id", "String", optional = true, encodeDefault = EncodeDefaultMode.NEVER)))
+        assertEquals(
+            listOf(
+                Change.ElementOptionalityChanged(
+                    "T",
+                    "id",
+                    wasOptional = false,
+                    nowOptional = true,
+                    newEncodeDefault = EncodeDefaultMode.NEVER,
+                ),
+            ),
+            diff(old, new),
+        )
+    }
+
+    @Test
     fun `element nullability changed`() {
         val old = snapshot(clazz("T", Element("id", "String", nullable = false)))
         val new = snapshot(clazz("T", Element("id", "String", nullable = true)))

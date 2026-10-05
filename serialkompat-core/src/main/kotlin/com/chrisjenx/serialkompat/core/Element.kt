@@ -14,7 +14,8 @@ package com.chrisjenx.serialkompat.core
  *   straight from `SerialDescriptor.isElementOptional`, never re-derived.
  * @property nullable whether the element accepts a JSON `null`.
  * @property jsonNames additional accepted input keys from `@JsonNames`.
- * @property encodeDefault an explicit `@EncodeDefault` mode, or `null` if absent.
+ * @property encodeDefault the field's `@EncodeDefault` mode ([EncodeDefaultMode.ABSENT] when
+ *   verified to carry none), or `null` when it was not recorded and is therefore unknown (#158).
  */
 public class Element(
     public val name: String,
