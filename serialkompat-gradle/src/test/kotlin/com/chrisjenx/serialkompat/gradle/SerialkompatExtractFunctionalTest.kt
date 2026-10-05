@@ -5,6 +5,7 @@ import java.io.File
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -81,5 +82,72 @@ class SerialkompatExtractFunctionalTest {
         val text = snapshot.readText()
         assertTrue(text.contains("@contract com.example.Order kind=CLASS"), "snapshot was:\n$text")
         assertTrue(text.contains("note: kotlin.String optional"))
+    }
+
+    @Test
+    fun `the project's own runtime jars win over the plugin's on the extractor classpath`() {
+        // The project's @Serializable classes were compiled against ITS kotlinx-serialization and
+        // stdlib; the forked extractor must load those, not the plugin's (or Gradle's embedded)
+        // older copies that would otherwise shadow them by sitting first on the classpath.
+        write(
+            "settings.gradle.kts",
+            """
+            pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
+            rootProject.name = "sample"
+        """,
+        )
+        write(
+            "build.gradle.kts",
+            """
+            plugins {
+                kotlin("jvm") version "$NEWER_KOTLIN"
+                kotlin("plugin.serialization") version "$NEWER_KOTLIN"
+                id("com.chrisjenx.serialkompat")
+            }
+            repositories { mavenCentral() }
+            dependencies { implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$NEWER_SERIALIZATION") }
+            serialkompat { types.set(listOf("com.example.Order")) }
+            tasks.register("printExtractClasspath") {
+                val cp = tasks.named<JavaExec>("serialkompatExtract").map { t -> t.classpath.files.map { it.name } }
+                doLast { cp.get().forEach { println("CP " + it) } }
+            }
+        """,
+        )
+        write(
+            "src/main/kotlin/com/example/Order.kt",
+            """
+            package com.example
+
+            import kotlinx.serialization.Serializable
+
+            @Serializable
+            data class Order(val id: String)
+        """,
+        )
+
+        val result =
+            GradleRunner
+                .create()
+                .withProjectDir(projectDir)
+                .withPluginClasspath()
+                .withArguments("printExtractClasspath", "serialkompatExtract", "--stacktrace")
+                .build()
+
+        val classpath =
+            result.output
+                .lines()
+                .filter { it.startsWith("CP ") }
+                .map { it.removePrefix("CP ") }
+
+        fun first(prefix: String) = classpath.firstOrNull { it.startsWith(prefix) }
+        assertEquals("kotlinx-serialization-core-jvm-$NEWER_SERIALIZATION.jar", first("kotlinx-serialization-core"))
+        assertEquals("kotlin-stdlib-$NEWER_KOTLIN.jar", first("kotlin-stdlib-"))
+        assertTrue(File(projectDir, "build/serialkompat/current.snapshot").readText().contains("com.example.Order"))
+    }
+
+    private companion object {
+        // Newer than the plugin's own kotlinx-serialization (1.11.0) and Gradle's embedded stdlib.
+        const val NEWER_SERIALIZATION = "1.12.0-RC"
+        const val NEWER_KOTLIN = "2.4.20"
     }
 }
