@@ -95,5 +95,7 @@ jobs:
             --label "area:ci" --label "kind:tooling" \
             --body "Runs \`./gradlew wrapper --gradle-version $latest\` (twice) with \`distributionSha256Sum\` pinned; \`gradle-wrapper.jar\` verified against the official checksum. [Release notes](https://docs.gradle.org/$latest/release-notes.html)."
           # PRs authored with GITHUB_TOKEN don't trigger pull_request workflows; dispatch CI on the
-          # branch so the required build checks report on its head commit.
-          gh workflow run ci.yml --ref "$branch"
+          # branch so the required build checks report on its head commit. Non-fatal: the PR is
+          # already open, and a missing trigger just means checks need a close/reopen.
+          gh workflow run ci.yml --ref "$branch" \
+            || echo "::warning::Could not dispatch CI on $branch; close and reopen the PR to run checks."
