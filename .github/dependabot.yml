@@ -17,13 +17,14 @@ updates:
       # — a half-upgraded wrapper. The wrapper is updated properly by
       # .github/workflows/gradle-wrapper.yml instead.
       - dependency-name: "gradle-wrapper"
+    # Labels must already exist in the repo or Dependabot silently drops them.
     labels:
-      - "dependencies"
+      - "kind:tooling"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     labels:
-      - "dependencies"
-      - "ci"
+      - "kind:tooling"
+      - "area:ci"
