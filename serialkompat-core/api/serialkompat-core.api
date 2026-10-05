@@ -171,16 +171,19 @@ public final class com/chrisjenx/serialkompat/core/Change$ElementNullabilityChan
 }
 
 public final class com/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged : com/chrisjenx/serialkompat/core/Change {
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZZ)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLcom/chrisjenx/serialkompat/core/EncodeDefaultMode;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLcom/chrisjenx/serialkompat/core/EncodeDefaultMode;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Z
 	public final fun component4 ()Z
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZZ)Lcom/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;
-	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;Ljava/lang/String;Ljava/lang/String;ZZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;
+	public final fun component5 ()Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZZLcom/chrisjenx/serialkompat/core/EncodeDefaultMode;)Lcom/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;Ljava/lang/String;Ljava/lang/String;ZZLcom/chrisjenx/serialkompat/core/EncodeDefaultMode;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementOptionalityChanged;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getElement ()Ljava/lang/String;
+	public final fun getNewEncodeDefault ()Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
 	public final fun getNowOptional ()Z
 	public final fun getWasOptional ()Z
 	public fun hashCode ()I
@@ -375,6 +378,7 @@ public final class com/chrisjenx/serialkompat/core/Element {
 }
 
 public final class com/chrisjenx/serialkompat/core/EncodeDefaultMode : java/lang/Enum {
+	public static final field ABSENT Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
 	public static final field ALWAYS Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
 	public static final field NEVER Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;

@@ -172,7 +172,15 @@ public object SnapshotDiffer {
                             add(Change.ElementTypeChanged(contract, name, old.type, new.type))
                         }
                         if (old.optional != new.optional) {
-                            add(Change.ElementOptionalityChanged(contract, name, old.optional, new.optional))
+                            add(
+                                Change.ElementOptionalityChanged(
+                                    contract,
+                                    name,
+                                    old.optional,
+                                    new.optional,
+                                    new.encodeDefault,
+                                ),
+                            )
                         }
                         if (old.nullable != new.nullable) {
                             add(Change.ElementNullabilityChanged(contract, name, old.nullable, new.nullable))

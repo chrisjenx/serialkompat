@@ -1,6 +1,7 @@
 package com.chrisjenx.serialkompat.extractor
 
 import com.chrisjenx.serialkompat.core.ContractKind
+import com.chrisjenx.serialkompat.core.EncodeDefaultMode
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.Subtype
@@ -18,7 +19,6 @@ import kotlinx.serialization.serializer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -186,11 +186,11 @@ class DescriptorSnapshotExtractorTest {
     }
 
     @Test
-    fun `@EncodeDefault is not recoverable from the runtime descriptor (Approach A limitation)`() {
+    fun `@EncodeDefault is recovered from bytecode though the descriptor hides it`() {
         // @EncodeDefault is not a @SerialInfo annotation, so it never appears in
-        // getElementAnnotations; the runtime walk cannot see it and leaves it null.
+        // getElementAnnotations; EncodeDefaultReader reads it off the class instead (#158).
         val snapshot = extract(serializer<WithDefault>().descriptor)
-        assertNull(snapshot.element("WithDefault", "always").encodeDefault)
+        assertEquals(EncodeDefaultMode.ALWAYS, snapshot.element("WithDefault", "always").encodeDefault)
     }
 
     @Test

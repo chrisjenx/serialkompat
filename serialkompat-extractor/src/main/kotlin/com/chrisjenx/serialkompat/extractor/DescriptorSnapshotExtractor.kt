@@ -3,6 +3,7 @@ package com.chrisjenx.serialkompat.extractor
 import com.chrisjenx.serialkompat.core.Contract
 import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.Element
+import com.chrisjenx.serialkompat.core.EncodeDefaultMode
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.Subtype
@@ -33,8 +34,9 @@ import kotlin.reflect.KClass
  * The graph is walked breadth-first with a visited-set keyed by serial name, so
  * cyclic and shared references are captured exactly once and terminate.
  *
- * Limitation: `@EncodeDefault` is not a `@SerialInfo` annotation and so is absent
- * from `getElementAnnotations`; Approach A cannot recover its mode (see §14).
+ * `@EncodeDefault` is not a `@SerialInfo` annotation and so is absent from
+ * `getElementAnnotations`; its mode is recovered from the model class's bytecode by
+ * [EncodeDefaultReader] instead, and left `null` (unknown) when that fails (#158, §14).
  */
 @OptIn(ExperimentalSerializationApi::class)
 public object DescriptorSnapshotExtractor : SnapshotExtractor {
@@ -112,10 +114,11 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         when (descriptor.kind) {
             StructureKind.CLASS, StructureKind.OBJECT -> {
                 val kind = if (descriptor.kind == StructureKind.OBJECT) ContractKind.OBJECT else ContractKind.CLASS
+                val encodeDefaults = EncodeDefaultReader.modes(descriptor)
                 val elements =
                     (0 until descriptor.elementsCount).map { i ->
                         referenced += referencedContracts(descriptor.getElementDescriptor(i))
-                        elementOf(descriptor, i)
+                        elementOf(descriptor, i, encodeDefaults[i])
                     }
                 Contract(serialName, kind, elements = elements)
             }
@@ -158,6 +161,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     private fun elementOf(
         owner: SerialDescriptor,
         index: Int,
+        encodeDefault: EncodeDefaultMode?,
     ): Element {
         val descriptor = owner.getElementDescriptor(index)
         val annotations = owner.getElementAnnotations(index)
@@ -167,10 +171,9 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             optional = owner.isElementOptional(index),
             nullable = descriptor.isNullable,
             jsonNames = annotations.filterIsInstance<JsonNames>().flatMap { it.names.toList() },
-            // NOTE: @EncodeDefault is not a @SerialInfo annotation, so it does not
-            // appear in getElementAnnotations — Approach A (runtime descriptor)
-            // cannot recover its mode. Left null; a compiler-plugin extractor could read it (§14).
-            encodeDefault = null,
+            // @EncodeDefault isn't a @SerialInfo annotation, so it comes from bytecode
+            // reflection instead (EncodeDefaultReader, #158); null = unknown.
+            encodeDefault = encodeDefault,
         )
     }
 

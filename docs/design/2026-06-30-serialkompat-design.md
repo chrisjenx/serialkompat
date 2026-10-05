@@ -175,8 +175,10 @@ and walks the descriptor tree (BFS + visited-set for cyclic graphs).
 The `SerialDescriptor` already contains exactly what wire compatibility depends
 on: `elementNames` (real JSON keys), `isElementOptional(i)` (authoritative
 optionality — already accounts for `@Required`/`@Transient`/defaults),
-`isNullable`, `SerialKind`, enum entries, sealed subtypes. `@JsonNames` /
-`@EncodeDefault` are read via element annotations.
+`isNullable`, `SerialKind`, enum entries, sealed subtypes. `@JsonNames` is read
+via element annotations. `@EncodeDefault` is not a `@SerialInfo` annotation, so it
+is read by reflecting on the model class behind the plugin-generated serializer
+(the property's RUNTIME-retained synthetic `get<Name>$annotations` method), see §14.
 
 **Why runtime, not compile-time:**
 - Highest fidelity; the *only* approach that sees `SerializersModule`-resolved
@@ -670,10 +672,23 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
 ---
 
 ## 14. Residual risks to validate in the plan
-- `@EncodeDefault` mode is **not recoverable** via Approach A — it is not a
-  `@SerialInfo` annotation, so it never appears in `getElementAnnotations` (#7).
-  The `Element.encodeDefault` field stays null from runtime extraction; a
-  compiler-plugin extractor (Approach C) could read it from source.
+- `@EncodeDefault` mode is **not on the descriptor** — it is not a `@SerialInfo`
+  annotation, so it never appears in `getElementAnnotations` (#7). It *is*
+  RUNTIME-retained, though: Kotlin puts property-targeted annotations on a synthetic
+  static `get<Name>$annotations()` method, so the extractor (`EncodeDefaultReader`,
+  #158) resolves the model class via the descriptor's plugin-generated serializer
+  and reads it there, matching properties by `@SerialName` or JVM getter naming
+  (superclasses included). It records `ALWAYS` / `NEVER` / `ABSENT` for optional
+  elements on positive evidence only (if any `@EncodeDefault` holder goes unmatched —
+  e.g. renamed by `@get:JvmName` — no field in that class is proven `ABSENT`);
+  anything unresolved (hand-written
+  serializers, unmatched names, reflection failure, or any pre-#158 snapshot) is
+  `null` = unknown. `PROPERTY_OPTIONALITY` forward (became optional) uses it:
+  `NEVER` → BREAK, `ALWAYS` → SAFE, `ABSENT` → follows `encodeDefaults`, unknown →
+  WARN under `encodeDefaults=true` (a hidden `NEVER` must never read as SAFE).
+  This relies on kotlinx internals (`PluginGeneratedSerialDescriptor`'s private
+  `generatedSerializer` field); if they change, extraction degrades to unknown
+  (WARN), never to a false SAFE.
 - A field's **default *value*** is likewise **not recoverable** via Approach A —
   the descriptor exposes `isElementOptional` (that a default exists) but never the
   value itself (it lives in the generated `deserialize`). So the enum coerce-fallback

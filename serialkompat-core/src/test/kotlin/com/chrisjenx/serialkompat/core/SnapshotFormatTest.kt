@@ -92,6 +92,30 @@ class SnapshotFormatTest {
     }
 
     @Test
+    fun `round-trips every @EncodeDefault mode and keeps an unrecorded one distinct`() {
+        // #158: ABSENT (verified: no annotation) must survive the codec and stay distinct from
+        // null (not recorded), which is how every pre-#158 snapshot parses.
+        val modes = listOf(EncodeDefaultMode.ALWAYS, EncodeDefaultMode.NEVER, EncodeDefaultMode.ABSENT, null)
+        val snapshot =
+            Snapshot(
+                listOf(
+                    Contract(
+                        "T",
+                        ContractKind.CLASS,
+                        elements =
+                            modes.mapIndexed {
+                                i,
+                                mode,
+                                ->
+                                Element("f$i", "String", optional = true, encodeDefault = mode)
+                            },
+                    ),
+                ),
+            )
+        assertEquals(snapshot, SnapshotFormat.parse(SnapshotFormat.serialize(snapshot)))
+    }
+
+    @Test
     fun `serialization is byte-stable across runs`() {
         val s = representativeSnapshot()
         assertEquals(SnapshotFormat.serialize(s), SnapshotFormat.serialize(s))
