@@ -22,6 +22,7 @@ import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.SerializersModuleCollector
+import kotlinx.serialization.serializerOrNull
 import kotlin.reflect.KClass
 
 /**
@@ -135,6 +136,9 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
                     ContractKind.SEALED,
                     discriminator = discriminatorOf(descriptor, config),
                     subtypes = subtypeDescriptors.map { Subtype(contractName(it), contractName(it)) },
+                    // SealedClassSerializer falls back to the module's polymorphic default for an
+                    // unknown discriminator too — the `Unknown` sentinel idiom on sealed bases.
+                    hasPolymorphicDefault = openPoly.hasDefault(descriptor),
                 )
             }
 
@@ -260,7 +264,23 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     private data class OpenPolymorphism(
         val subtypes: Map<KClass<*>, List<SerialDescriptor>>,
         val defaults: Set<KClass<*>>,
-    )
+    ) {
+        /**
+         * Serial names of the default-registering bases. A sealed descriptor carries no captured class,
+         * so it is matched by name; a base whose serializer can't be resolved is simply absent here,
+         * which keeps the verdict conservative (no recorded default → forward BREAK).
+         */
+        val defaultSerialNames: Set<String> by lazy {
+            defaults
+                .mapNotNull { base -> runCatching { serializerOrNull(base.java)?.descriptor?.serialName }.getOrNull() }
+                .toSet()
+        }
+
+        fun hasDefault(descriptor: SerialDescriptor): Boolean =
+            descriptor.capturedKClass?.let { it in defaults } ?: (contractNameOf(descriptor) in defaultSerialNames)
+
+        private fun contractNameOf(descriptor: SerialDescriptor) = descriptor.serialName.removeSuffix("?")
+    }
 
     /** Flattens a module's polymorphic registrations into [OpenPolymorphism]. */
     private fun collectOpenSubtypes(module: SerializersModule): OpenPolymorphism {
