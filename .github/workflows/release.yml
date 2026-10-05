@@ -11,15 +11,45 @@ on:
 permissions:
   contents: read
 
+# Never let two releases interleave, and never cancel one mid-publish.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  # Everything that can be checked before the irreversible Maven Central publish is
+  # checked here, so a misconfigured release fails *before* anything ships rather than
+  # after artifacts are on Central with no tag or GitHub release.
   validate:
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ inputs.version }}
+      REF: ${{ github.ref }}
+      # Secrets can't be read in `if:` expressions; export only whether each one is set.
+      HAS_MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME != '' }}
+      HAS_MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD != '' }}
+      HAS_SIGNING_KEY: ${{ secrets.SIGNING_KEY != '' }}
+      HAS_SIGNING_KEY_ID: ${{ secrets.SIGNING_KEY_ID != '' }}
+      HAS_SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Validate ref and publishing secrets
+        run: |
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "::error::Releases must be dispatched from main (got $REF)"
+            exit 1
+          fi
+          missing=0
+          for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD SIGNING_KEY SIGNING_KEY_ID SIGNING_KEY_PASSWORD; do
+            var="HAS_$name"
+            if [ "${!var}" != "true" ]; then
+              echo "::error::Repository secret $name is not set"
+              missing=1
+            fi
+          done
+          exit "$missing"
       - name: Validate version
         run: |
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
@@ -74,34 +104,33 @@ jobs:
   tag-and-release:
     needs: publish
     runs-on: ubuntu-latest
+    # GITHUB_TOKEN is enough to push tags (no tag rulesets) and create the release.
+    permissions:
+      contents: write
     steps:
-      - name: Generate app token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
       - name: Create tag and GitHub release
         env:
           VERSION: ${{ inputs.version }}
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "serialkompat-release-bot[bot]"
-          git config user.email "serialkompat-release-bot[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git ls-remote --tags origin "v$VERSION" | grep -q .; then
             echo "Tag v$VERSION already exists, skipping"
           else
-            git tag -a "v$VERSION" -m "Release $VERSION"
+            # Tag the exact commit that was tested and published, not wherever main is now.
+            git tag -a "v$VERSION" -m "Release $VERSION" "$GITHUB_SHA"
             git push origin "v$VERSION"
           fi
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             echo "Release v$VERSION already exists, skipping"
           else
-            gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+            PRERELEASE=()
+            if [[ "$VERSION" == *-* ]]; then PRERELEASE=(--prerelease); fi
+            gh release create "v$VERSION" --title "v$VERSION" --generate-notes --verify-tag "${PRERELEASE[@]}"
           fi
           # Maintain the floating major tag that Action consumers pin
           # (uses: chrisjenx/serialkompat@v1). Stable releases only — never
@@ -109,39 +138,54 @@ jobs:
           # Marketplace *listing* is a manual step (see README → Publishing).
           if [[ "$VERSION" != *-* ]]; then
             MAJOR="v${VERSION%%.*}"
-            git tag -f -a "$MAJOR" -m "serialkompat $MAJOR → v$VERSION"
+            git tag -f -a "$MAJOR" -m "serialkompat $MAJOR → v$VERSION" "$GITHUB_SHA"
             git push -f origin "$MAJOR"
           fi
 
+  # main is branch-protected (PR + required checks), so no token can push the version
+  # bump straight to it; it goes through a PR instead. Best-effort: the release is already
+  # complete by now, so a failure here warns with manual instructions rather than failing
+  # the run.
   bump-version:
     needs: tag-and-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
     steps:
-      - name: Generate app token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/checkout@v7
         with:
-          token: ${{ steps.app-token.outputs.token }}
-      - name: Bump to the next SNAPSHOT
+          ref: main
+      - name: Open a PR bumping to the next SNAPSHOT
         env:
           VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           IFS='.' read -r major minor patch <<< "$VERSION"
           patch_num="${patch%%-*}"
-          NEXT="${major}.${minor}.$((patch_num + 1))-SNAPSHOT"
+          # A prerelease (1.0.0-rc1) heads toward its own final version; a final release to the next patch.
+          if [[ "$VERSION" == *-* ]]; then next_patch="$patch_num"; else next_patch=$((patch_num + 1)); fi
+          NEXT="${major}.${minor}.${next_patch}-SNAPSHOT"
           CURRENT=$(grep '^version=' gradle.properties | cut -d'=' -f2)
           if [ "$CURRENT" = "$NEXT" ]; then
             echo "Version already at $NEXT, skipping"
             exit 0
           fi
-          git config user.name "serialkompat-release-bot[bot]"
-          git config user.email "serialkompat-release-bot[bot]@users.noreply.github.com"
-          git pull origin main
+          BRANCH="release/bump-$NEXT"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
           sed -i "s/^version=.*/version=${NEXT}/" gradle.properties
           git add gradle.properties
           git commit -m "Bump version to ${NEXT}"
-          git push origin main
+          if ! git push origin "$BRANCH" || ! gh pr create --base main --head "$BRANCH" \
+              --title "Bump version to ${NEXT}" \
+              --body "Post-release bump after v${VERSION}." --label "area:ci"; then
+            echo "::warning::Could not open the version-bump PR. v${VERSION} is released; bump gradle.properties to ${NEXT} manually."
+            exit 0
+          fi
+          # PRs authored with GITHUB_TOKEN don't trigger pull_request workflows; dispatch CI on the
+          # branch so the required build checks report on its head commit.
+          gh workflow run ci.yml --ref "$BRANCH" \
+            || echo "::warning::Could not dispatch CI on $BRANCH; close and reopen the PR to run checks."
