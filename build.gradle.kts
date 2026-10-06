@@ -100,7 +100,7 @@ apiValidation {
 }
 
 // Docs/code sync gate: every `Rules.*` constant must appear in docs/rules.md so the rule
-// matrix can never silently drift from the shipped rule set (see docs/rules.md "Coming later").
+// matrix can never silently drift from the shipped rule set (see docs/rules.md "Keeping this page in sync").
 val checkRulesDoc = tasks.register("checkRulesDoc") {
     group = "verification"
     description = "Fails if any Rules.* constant is undocumented in docs/rules.md."

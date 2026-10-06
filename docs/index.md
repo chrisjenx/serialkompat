@@ -34,10 +34,13 @@ serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
 <span class="sk-t-fail">BUILD FAILED</span></code></pre>
 </div>
 
-The baseline is extracted **live from a git ref** (your target branch) — no
-baseline file to maintain. Every change is classified against real
-kotlinx-serialization behavior, including your actual `Json { }` config, in both
-directions.
+serialkompat compares your models against a **baseline**: the schema at a git ref,
+usually your target branch. It extracts that baseline live on every run, so there is
+no baseline file to maintain.
+
+Every change is checked in both directions. *Backward* compatible means new code can
+read old data. *Forward* compatible means old code can read new data. Each verdict
+reflects how real kotlinx-serialization behaves under your actual `Json { }` config.
 
 [Quick start](quickstart.md){ .md-button .md-button--primary }
 [Rules](rules.md){ .md-button }
@@ -59,12 +62,12 @@ directions.
 <div class="sk-stage" markdown>Report</div>
 </div>
 
-- **`@Serializable`** — your compiled Kotlin models.
-- **Extractor** — walks the runtime `SerialDescriptor` graph (JVM); sees exactly what goes on the wire.
-- **Snapshot** — a canonical, comparable model of that wire schema.
-- **Differ** — computes the list of changes between two snapshots.
-- **Classifier** — applies rules plus your real `Json { }` config to turn changes into findings and a severity.
-- **Report** — findings plus an exit code, printed to console and CI (also [JSON, SARIF, and GitHub annotations](report-formats.md)).
+- **`@Serializable`**: your compiled Kotlin models.
+- **Extractor**: walks the runtime `SerialDescriptor` graph on the JVM, so it sees exactly what goes on the wire.
+- **Snapshot**: a canonical, comparable model of that wire schema.
+- **Differ**: lists the changes between two snapshots.
+- **Classifier**: applies the rules and your real `Json { }` config to turn each change into a finding with a severity.
+- **Report**: the findings plus an exit code, printed to the console. It is also available as [JSON, SARIF, and GitHub annotations](report-formats.md).
 
 ## Is / is not
 
@@ -75,10 +78,9 @@ directions.
 | Grounded in real kotlinx-serialization behavior — every rule is backed by a round-trip oracle test | A replacement for API/schema versioning |
 | | A general-purpose JSON-schema linter |
 
-!!! warning "Early development"
-    serialkompat is `{{ skversion }}` — `-SNAPSHOT`s publish to Maven Central on every push
-    to `main`, but there is no stable release yet and the plugin is not on the Gradle Plugin
-    Portal (see [Setup](setup.md#gradle-plugin)). The design is settled and the project is
-    being built in the open, one reviewed PR at a time — see the
+!!! note "Install from Maven Central"
+    The plugin is published to Maven Central, not the Gradle Plugin Portal. Add
+    `mavenCentral()` to `pluginManagement.repositories` in `settings.gradle.kts`, as shown in
+    [Setup](setup.md#gradle-plugin). Development happens in the open; see the
     [issues](https://github.com/chrisjenx/serialkompat/issues) and
     [milestones](https://github.com/chrisjenx/serialkompat/milestones).

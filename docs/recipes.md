@@ -1,15 +1,16 @@
 # Recipes
 
-Task-oriented answers for specific situations. For the full DSL see
-[Configuration](configuration.md); for CLI/Action install paths see
+Each recipe starts with a problem you might have, then shows the fix. For the full
+DSL, see [Configuration](configuration.md). To install the CLI or the Action, see
 [Setup](setup.md).
 
 ## Cross-repo diff with the CLI
 
-Two services (or two checkouts of a monorepo) that don't share a Gradle build
-still need to agree on the wire. Extract a snapshot on each side with the
-Gradle plugin, then diff the files with the standalone CLI — no Gradle build
-needs to see both sides at once.
+**Problem:** two services, or two checkouts of a monorepo, don't share a Gradle
+build. They still need to agree on the wire format.
+
+**Fix:** extract a snapshot on each side with the Gradle plugin, then compare the
+two files with the standalone CLI. No single Gradle build has to see both sides.
 
 ```console
 $ ./gradlew serialkompatExtract   # in repo/checkout A -> build/serialkompat/current.snapshot
@@ -21,26 +22,32 @@ $ cp build/serialkompat/current.snapshot /tmp/consumer.snapshot
 $ serialkompat diff /tmp/producer.snapshot /tmp/consumer.snapshot
 ```
 
-`serialkompat diff <baseline.snapshot> <current.snapshot>` treats the first
-argument as the old schema, the second as the new one — same semantics as the
-Gradle task's `baselineRef` vs. the current classpath. Add
-`--direction=BACKWARD|FORWARD|FULL` to narrow the check, or `--no-fail` to
-print findings without failing the invocation.
-Pass `--format=console|json|sarif|github` to choose the output format — e.g.
-`--format=sarif > report.sarif` for a SARIF log, or `--format=github` to emit
-inline annotations on a non-Action CI runner (see [Report formats](report-formats.md)).
+`serialkompat diff <baseline.snapshot> <current.snapshot>` treats the first file as
+the old schema and the second as the new one. That matches the Gradle check, where
+`baselineRef` is the old side and your current code is the new side.
+
+Useful flags:
+
+- `--direction=BACKWARD|FORWARD|FULL` narrows the check (default `FULL`).
+- `--no-fail` prints findings without failing.
+- `--format=console|json|sarif|github` picks the output format. For example,
+  `--format=sarif > report.sarif` writes a SARIF log, and `--format=github` emits
+  inline annotations on a CI runner that doesn't use the Action (see
+  [Report formats](report-formats.md)).
+
 Exit codes: `0` ok, `1` breaking, `2` usage error.
 
 ## First-time adoption
 
-Turning the gate on for the first time, the configured `baselineRef` almost
-always predates the `@Serializable` types you're checking — the baseline
-extraction comes back with zero contracts. By default that's treated as a
-misconfiguration and fails the build (a genuinely empty baseline would
-otherwise make every type look "newly added, therefore safe," silently
-masking real removals on the *next* run).
+**Problem:** you turn the gate on and the first run fails with an empty baseline.
+Your `baselineRef` predates the `@Serializable` types you're checking, so
+extracting the baseline finds no types.
 
-For the one run where an empty baseline is expected, opt out explicitly:
+serialkompat treats an empty baseline as a misconfiguration by default. Otherwise
+every type would look "newly added, therefore safe", and a real removal could slip
+through unnoticed.
+
+**Fix:** for the run where you expect an empty baseline, opt out explicitly:
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
@@ -49,20 +56,18 @@ serialkompat {
 }
 ```
 
-Once `baselineRef` (e.g. `origin/main`) has moved past the commit that
-introduced these types, remove the override — `failOnEmptyBaseline` should go
-back to its default `true` so a real misconfiguration doesn't slip through
-unnoticed.
+Once `baselineRef` (for example `origin/main`) contains the commit that added these
+types, remove the override. `failOnEmptyBaseline` goes back to its default, `true`,
+and catches a real misconfiguration again.
 
 ## Gradual adoption with discovery modes
 
-Maintaining an explicit `types` list up front is friction if you don't yet
-know — or don't yet want to commit to — the full set of wire contracts.
-`discovery` lets you turn the gate on for zero types and grow coverage type
-by type, in either direction.
+**Problem:** you don't know the full set of wire types yet, or you don't want to
+commit to all of them at once. Writing an explicit `types` list up front is
+friction.
 
-Start by depending on the annotations artifact and switching to `OPT_IN`,
-with no `types` list:
+**Fix:** use `discovery` to start with zero checked types and add them one by one.
+Depend on the annotations artifact and switch to `OPT_IN`, with no `types` list:
 
 ```kotlin title="build.gradle.kts"
 dependencies {
@@ -82,21 +87,19 @@ Nothing is checked yet. As you review each wire type, annotate it:
 data class OrderEvent(val id: String)
 ```
 
-Each newly-annotated type joins the gate on its next run — no plugin
-reconfiguration, no growing `types` list to maintain by hand.
+Each newly annotated type joins the gate on its next run. You don't touch the
+plugin config or maintain a `types` list by hand.
 
-The *first* annotated type is the exception: starting from zero, the baseline
-(still zero contracts on `main`) hits the same empty-baseline guard described
-in [First-time adoption](#first-time-adoption) above — the PR that annotates
-that first type looks like "everything just got added," which is exactly what
-`failOnEmptyBaseline` (default `true`) refuses to pass. The same escape hatch
-applies: temporarily set `failOnEmptyBaseline.set(false)` for that one PR, then
-drop the override once `baselineRef` has moved past it.
+!!! note "The first annotated type"
+    The PR that annotates your *first* type hits the empty-baseline guard from
+    [First-time adoption](#first-time-adoption). The baseline on `main` still has
+    zero types, so the change looks like "everything was just added". Use the same
+    fix: set `failOnEmptyBaseline.set(false)` for that one PR, then remove it once
+    `baselineRef` includes it.
 
-Once coverage is effectively complete, flip the direction: switch to
-`DiscoveryMode.OPT_OUT` so every discovered type is checked by default, and
-mark the remaining, intentionally-unstable stragglers with
-`@SerialkompatIgnore` instead:
+When coverage is essentially complete, flip the default. Switch to
+`DiscoveryMode.OPT_OUT` so every discovered type is checked, and mark the few
+intentionally unstable types with `@SerialkompatIgnore`:
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
@@ -110,21 +113,21 @@ serialkompat {
 data class DebugDump(val raw: String)
 ```
 
-Both directions stay meaningful throughout — `OPT_IN` never checks a type you
-haven't reviewed, `OPT_OUT` never silently drops a type you forgot to
-annotate. The flip between them, and the fact that annotating/un-annotating a
-type moves it in and out of the checked set immediately, is exercised
-end-to-end by `SerialkompatDiscoveryFunctionalTest`.
+Both modes fail safe. `OPT_IN` never checks a type you haven't reviewed. `OPT_OUT`
+never skips a type just because you forgot to annotate it. Adding or removing an
+annotation takes effect on the next run.
 
-See [Configuration](configuration.md#discovery-modes) for the full mode
-semantics and precedence rules.
+See [Configuration](configuration.md#discovery-modes) for the full mode semantics
+and precedence rules.
 
 ## Sanctioning a deliberate break
 
-Sometimes a break is intentional — a major version bump, a field you know
-every consumer has migrated off. `acceptedBreaks` downgrades a specific
-finding from failing to *acknowledged*: it still shows up in the report, it
-just no longer fails the build.
+**Problem:** you are making a breaking change on purpose. Maybe it's a major
+version bump, or you know every consumer has stopped using a field. The gate fails
+the build anyway.
+
+**Fix:** add the finding to `acceptedBreaks`. It moves from failing to
+*acknowledged*: it still appears in the report, but no longer fails the build.
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
@@ -134,20 +137,25 @@ serialkompat {
 }
 ```
 
-The format is `"<serialName> <RULE> [DIRECTION]"` — the contract's serial
-name, the exact rule ID (see [Rules](rules.md)), and an optional direction.
-Omit the direction to accept the finding in every direction being checked;
-include `BACKWARD`/`FORWARD` to accept it in only one. Each entry silences
-exactly the one finding it names — every other finding on that type, or that
-rule, still fails normally. The console and JSON reports both keep showing
-acknowledged findings (counted separately from active ones), so accepting a
-break is visible, not silent.
+The format is `"<serialName> <RULE> [DIRECTION]"`:
+
+- the type's serial name,
+- the exact rule ID (see [Rules](rules.md)),
+- an optional direction. Omit it to accept the finding in every direction you
+  check, or give `BACKWARD` or `FORWARD` to accept it in only one.
+
+An entry only covers findings with that serial name and rule. Every other finding
+on the type, or under that rule elsewhere, still fails. The console and JSON
+reports keep listing acknowledged findings, counted separately from active ones, so
+an accepted break stays visible.
 
 ## Monorepo scoping
 
-Running serialkompat per-module in a monorepo, each module should only be
-graded on the types it actually owns. `include`/`exclude` restrict a check to
-serial-name prefixes — `exclude` wins where both match:
+**Problem:** in a multi-module build, a module gets graded on wire types it doesn't
+own.
+
+**Fix:** restrict each module's check to serial-name prefixes with `include` and
+`exclude`. Where both match, `exclude` wins:
 
 ```kotlin title="modules/orders/build.gradle.kts"
 serialkompat {
@@ -157,37 +165,41 @@ serialkompat {
 }
 ```
 
-`include` defaults to `[""]` (matches everything); set it once you want a
-module to ignore contracts outside its own package. `exclude` is for carving
-out a subtree that's intentionally unstable (internal-only types with no
-cross-version contract) even though it matches `include`. Each module keeps
-its own `types`, `baselineRef`, and scope — there's no repo-wide config to
-share, so a change in one module's wire types can't accidentally widen or
-narrow another module's check.
+`include` defaults to `[""]`, which matches everything. Set it when a module
+should ignore types outside its own package. Use `exclude` to carve out an
+intentionally unstable subtree (internal-only types with no cross-version
+contract) that `include` would otherwise match.
+
+Each module has its own `types`, `baselineRef`, and scope. There's no repo-wide
+config, so a change to one module's wire types can't widen or narrow another
+module's check.
+
+Multi-module builds work with `--parallel`. Modules take turns extracting their
+baselines, so they don't compete for the same git repository.
 
 ## Persisted-data horizon: multi-version history
 
-Checking only against `baselineRef` catches a break against the *last*
-version — not against every version whose data might still be sitting in a
-database or a queue. For persisted data, the current schema has to stay
-readable against **every** release it might have been written under, not just
-the latest (Confluent's `*_TRANSITIVE` semantics).
+**Problem:** your data outlives a single release. Rows in a database or messages in
+a queue may have been written by any past version. Checking against `baselineRef`
+only catches a break against the *last* version, not against older ones.
 
-serialkompat records an **append-only, source-controlled schema history** and
-checks transitively against it:
+You need a **transitive** check: the current schema must stay compatible with
+**every** release whose data might still exist, not just the latest.
+
+**Fix:** record each release's schema in an append-only, source-controlled history,
+and check against all of it. On each release, record the schema and commit it:
 
 ```console
 # On each release (from CI or by hand), record the released schema and commit it.
 $ ./gradlew serialkompatRecord -Pserialkompat.recordVersion=1.4.0
-serialkompat: recorded schema for version '1.4.0' into serialkompat/history
+serialkompat: recorded schema for version '1.4.0' into /path/to/project/serialkompat/history
 
 $ git add serialkompat/history/1.4.0.snapshot && git commit -m "record wire schema 1.4.0"
 ```
 
-Each entry (`serialkompat/history/<version>.snapshot`) is written once and
-never mutated — an append-only record is what makes the horizon trustworthy
-(you can't quietly rewrite history to dodge the gate). The directory is
-configurable:
+Each entry (`serialkompat/history/<version>.snapshot`) is written once and never
+changed. That is what makes the history trustworthy: you can't quietly rewrite it
+to get past the gate. The directory is configurable:
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
@@ -198,38 +210,54 @@ serialkompat {
 }
 ```
 
-`serialkompatCheckHistory` then verifies the current schema against every
-recorded version at once and fails on a break with **any** of them — so a
-change that's fine against the latest release but would orphan data written by
-an older one is still caught:
+`serialkompatCheckHistory` checks the current schema against every recorded
+version at once. It fails on a break with **any** of them. A change that is fine
+against the latest release, but would break data written by an older one, is
+still caught:
 
 ```console
 $ ./gradlew serialkompatCheckHistory
 serialkompat: transitive check vs 3 published version(s).
+serialkompat: 2 active finding(s) (2 breaking, 0 warning), 0 acknowledged
+
+  BREAK  PROPERTY_REMOVED  com.example.wire.OrderEvent  (backward)
+    field 'note' was removed from com.example.wire.OrderEvent
+    fix: Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.
   BREAK  PROPERTY_REMOVED  com.example.wire.OrderEvent  (forward)
     field 'note' was removed from com.example.wire.OrderEvent
+    fix: Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.
 ```
 
 The history check writes its report to `build/serialkompat/report-history.json`
-(and `report-history.sarif` if SARIF is enabled), kept separate from the pairwise
-`report.json` so each report's provenance is unambiguous.
+(and `report-history.sarif` if SARIF is on). It is kept separate from the pairwise
+`report.json`, so you always know which check produced which report.
 
-It's wired into `check`, but it's a **no-op until you've recorded at least one
-version** — a repo that hasn't opted into history never sees it fail. This is
-pairwise-independent: `serialkompatCheck` (vs `baselineRef`) still covers
-live-service compatibility; history covers the persisted-data horizon.
+`serialkompatCheckHistory` is wired into `check`, but it does nothing until you
+record at least one version. A repo that doesn't use history never sees it fail.
+
+The two checks are independent. `serialkompatCheck` (against `baselineRef`) covers
+compatibility between live services. The history check covers persisted data.
 
 !!! note "Recording from the release flow"
-    `serialkompatRecord` uses the project `version` by default, or
-    `-Pserialkompat.recordVersion=X.Y.Z`. Wire it into your release job right
-    after publishing, and commit the new `serialkompat/history/*.snapshot` file
-    so it's there for the next run's transitive check.
+    `serialkompatRecord` uses the project `version` by default. Pass
+    `-Pserialkompat.recordVersion=X.Y.Z` to override it. Run it in your release job
+    right after publishing, and commit the new `serialkompat/history/*.snapshot`
+    file so the next transitive check can use it.
+
+!!! warning "Recording refuses an empty schema"
+    Because history is append-only, a bad entry can never be fixed. So
+    `serialkompatRecord` fails instead of recording a schema with zero checked
+    types. That includes a schema where every type is `OPAQUE`: a placeholder for a
+    type serialkompat couldn't analyse. If it refuses, check your `types` or
+    `discovery` configuration.
 
 ### Bounding the horizon (retention)
 
-You rarely guarantee compatibility with *every* version ever shipped — only a
-horizon: the last N releases, back to some version, or within a time window.
-Retention bounds the transitive check accordingly:
+**Problem:** you don't promise compatibility with *every* version you ever shipped.
+You promise a horizon: the last N releases, everything since some version, or
+everything within a time window.
+
+**Fix:** set retention bounds in the `history` block:
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
@@ -243,12 +271,14 @@ serialkompat {
 }
 ```
 
-Set one, or combine them — combining is **most-permissive** (the union of what
-each keeps), so adding a second bound only ever *widens* coverage; it can't
-silently drop a version another bound was still checking. When a horizon is in
-effect, the check logs which versions it dropped, so "compatible" is never
-mistaken for "compatible with all history". With no bounds set, every recorded
-version is checked.
+Set one bound or combine several. Combining is **most-permissive**: a version is
+checked if *any* bound keeps it. Adding a second bound can only widen coverage. It
+never drops a version another bound still checks. With no bounds set, every
+recorded version is checked.
+
+When a bound drops versions, the check logs how many it checked out of how many
+are recorded. That way "compatible" is never mistaken for "compatible with all
+history".
 
 ## Next
 

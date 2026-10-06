@@ -18,14 +18,14 @@ Guidance for Claude Code (and humans) working in this repo.
 ## Commands
 
 ```console
-./gradlew build            # compile + test + spotlessCheck + apiCheck (the full local gate)
+./gradlew build            # compile + test + spotlessCheck + apiCheck + checkRulesDoc/checkRulesProof (the full local gate)
 ./gradlew test             # tests only
 ./gradlew spotlessApply    # auto-format (run before committing)
 ./gradlew apiDump          # regenerate public-API baselines after an INTENTIONAL api change
 ./gradlew koverHtmlReport  # coverage -> build/reports/kover
 ```
 
-CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport` on JDK 17 and 21.
+CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport -x :serialkompat-annotations:build` on ubuntu, JDK 17 and 21, plus a `macos-latest` job for `:serialkompat-annotations:build`. `Secret Scan` (`gitleaks.yml`) runs gitleaks over the full history on PRs and pushes to `main`. `Docs` (`docs.yml`) runs `dokkaGenerate` + `mkdocs build --strict` on PRs touching `docs/**`, `mkdocs.yml` or `requirements-docs.txt` (and deploys on push to `main`).
 
 ## Modules
 
@@ -51,10 +51,11 @@ Keep the diff/classify engine (`-core`) decoupled from extraction and from where
 - **The Gradle wrapper is upgraded only via `./gradlew wrapper`**, never by hand-editing `distributionUrl` or swapping the jar — a partial bump leaves `gradlew`/`gradlew.bat` on the old version. Dependabot can't run the task, so `gradle-wrapper` is ignored in `.github/dependabot.yml`; `.github/workflows/gradle-wrapper.yml` owns wrapper PRs.
 - Never commit secrets. Publishing credentials live in CI secrets only.
 
-## Deferred (tracked as issues)
+## Publishing & deferred work (tracked as issues)
 
-- `detekt` static analysis (pending Kotlin 2.4 compatibility check).
-- Dokka API-docs site.
-- Maven Central publishing is **wired** (vanniktech `maven-publish` on the four library modules incl. `serialkompat-annotations`; `Release`/`Snapshot` workflows). It needs the CI secrets listed in README → Publishing to actually run. Gradle Plugin Portal publishing (for `plugins { id(...) }` resolution) is still pending.
+- `detekt` static analysis (#26; pending Kotlin 2.4 compatibility check).
+- Gradle Plugin Portal publishing (#24). The plugin + marker go to Maven Central only, so consumers need `mavenCentral()` in `pluginManagement { repositories }`.
+
+Maven Central publishing is **live** for SNAPSHOTs (vanniktech `maven-publish` on the four library modules incl. `serialkompat-annotations`; `Snapshot` workflow on push to `main`). The CI secrets are set. No release yet: the first is 0.1.0 via the `Release` workflow (dispatch from `main`; preflight checks secrets/version, then publish → tag → `v<major>` floating tag → version-bump PR).
 
 See the [issues](https://github.com/chrisjenx/serialkompat/issues) and [milestones](https://github.com/chrisjenx/serialkompat/milestones) for the build order.

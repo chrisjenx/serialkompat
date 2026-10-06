@@ -1,8 +1,8 @@
 # Configuration
 
-The full `serialkompat { }` extension reference: every property, its default, and
-what it controls. See [Quick start](quickstart.md) for the minimal version and
-[Setup](setup.md) for the CLI/Action equivalents.
+This page lists every option in the `serialkompat { }` block, with its default and
+what it does. For the minimal setup, see [Quick start](quickstart.md). For the CLI
+and GitHub Action, see [Setup](setup.md).
 
 ## `serialkompat { }` reference
 
@@ -10,7 +10,7 @@ what it controls. See [Quick start](quickstart.md) for the minimal version and
 |---|---|---|---|
 | `types` | `ListProperty<String>` | `[]` (required under `EXPLICIT` discovery) | FQNs of `@Serializable` root types to check |
 | `discovery` | `Property<DiscoveryMode>` | `EXPLICIT` | How checked types are found when `types` is empty: `EXPLICIT` (only `types`), `OPT_OUT` (everything discovered minus `@SerialkompatIgnore`), `OPT_IN` (only `@SerialkompatChecked`) |
-| `jsonInstance` | `Property<String>` | empty | FQN of a `Json` instance describing the wire (e.g. `com.example.WireJson.instance`); empty = default `Json{}` |
+| `jsonInstance` | `Property<String>` | unset | FQN of a `Json` instance describing the wire (e.g. `com.example.WireJson.instance`); unset = default `Json` |
 | `baselineRef` | `Property<String>` | auto-detected | Git ref the current schema is checked against. Unset ⇒ auto-detect the default branch (`origin/HEAD` → `origin/main` → `origin/master` → local `main`/`master`) |
 | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
 | `failOnBreaking` | `Property<Boolean>` | `true` | A `BREAK` finding fails the build |
@@ -21,29 +21,40 @@ what it controls. See [Quick start](quickstart.md) for the minimal version and
 | `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break) |
 | `history.dir` | `DirectoryProperty` | `serialkompat/history` | Source-controlled dir of recorded per-version snapshots for the transitive check ([Recipes](recipes.md#persisted-data-horizon-multi-version-history)) |
 | `history.sinceVersion` | `Property<String>` | unset | Retention: only check against versions `>=` this (semver) |
-| `history.depth` | `Property<Int>` | unset | Retention: only check against the newest N recorded versions |
+| `history.depth` | `Property<Int>` | unset | Retention: only check against the newest N recorded versions (unset or `<= 0` = no limit) |
 | `history.maxAge` | `Property<Duration>` | unset | Retention: only check against versions recorded within this window. Combining bounds is most-permissive (union) |
-| `reports.json.required` | `Property<Boolean>` | `true` | Write the JSON report to `build/serialkompat/report.json` ([Report formats](report-formats.md)) |
+| `reports.json.required` | `Property<Boolean>` | `true` | Write the JSON report ([Report formats](report-formats.md)) |
 | `reports.json.outputLocation` | `RegularFileProperty` | `build/serialkompat/report.json` | Where the JSON report is written |
-| `reports.sarif.required` | `Property<Boolean>` | `false` | Write the SARIF 2.1.0 report to `build/serialkompat/report.sarif` |
+| `reports.sarif.required` | `Property<Boolean>` | `false` | Write the SARIF 2.1.0 report |
 | `reports.sarif.outputLocation` | `RegularFileProperty` | `build/serialkompat/report.sarif` | Where the SARIF report is written |
 
-The extension is config-cache safe — everything above is captured at configuration
-time. `baselineRef` isn't a file on disk: the baseline schema is recomputed live
-from that ref via a temporary git worktree on every run, so there's nothing to
-regenerate or go stale.
+A few terms used on this page:
+
+- **Baseline:** the "old" schema you compare against. serialkompat doesn't store it
+  in a file. It checks out `baselineRef` in a temporary git worktree and extracts the
+  schema from there on every run, so there is nothing to regenerate or let go stale.
+- **Backward compatible:** new code can read data written by old code.
+- **Forward compatible:** old code can read data written by new code.
+
+The extension works with the configuration cache.
+
+!!! note "Which tasks use which options"
+    `renames` and `failOnEmptyBaseline` apply only to the pairwise check
+    (`serialkompatCheck` / `serialkompatCheckAgainst`). The transitive history
+    check (`serialkompatCheckHistory`) ignores both.
 
 ## Discovery modes
 
-`discovery` only matters when `types` is empty — it decides which of the
-scanned/discovered `@Serializable` types actually get checked:
+`discovery` only matters when `types` is empty. It decides which of the
+discovered `@Serializable` types get checked:
 
 | Mode | Checked types | Use when |
 |---|---|---|
-| `EXPLICIT` (default) | Only `types` | You maintain an explicit root-type list — the default, unchanged behavior |
+| `EXPLICIT` (default) | Only `types` | You maintain an explicit list of root types |
 | `OPT_OUT` | Everything discovered, minus types annotated `@SerialkompatIgnore` | Most types are wire contracts; a few (internal-only, unstable) opt out |
-| `OPT_IN` | Only types annotated `@SerialkompatChecked` | Gradual adoption — nothing is checked until you annotate it |
+| `OPT_IN` | Only types annotated `@SerialkompatChecked` | Gradual adoption. Nothing is checked until you annotate it |
 
+Discovery scans your module's compiled classes for class-level `@Serializable`.
 The annotations live in a small multiplatform artifact:
 
 ```kotlin
@@ -52,8 +63,8 @@ dependencies {
 }
 ```
 
-`com.chrisjenx.serialkompat.annotations.SerialkompatIgnore` and
-`com.chrisjenx.serialkompat.annotations.SerialkompatChecked` go on the
+Put `com.chrisjenx.serialkompat.annotations.SerialkompatIgnore` or
+`com.chrisjenx.serialkompat.annotations.SerialkompatChecked` on the
 `@Serializable` class itself:
 
 ```kotlin
@@ -62,15 +73,14 @@ dependencies {
 data class OrderEvent(val id: String)
 ```
 
-**Precedence**, applied in this order, in every mode:
+**Precedence.** These rules apply in this order, in every mode:
 
-1. A non-empty `types` list always wins — `discovery` is only consulted when
+1. A non-empty `types` list always wins. `discovery` is only consulted when
    `types` is empty.
-2. Annotations refine the **scanned** set only; classpath-manifest entries
-   (`META-INF/serialkompat/serializable-types.txt`) bypass annotation
-   filtering and are always included in `OPT_OUT`/`OPT_IN`.
-3. `include`/`exclude` serial-name prefixes apply after discovery, in all
-   modes — unchanged from before this feature.
+2. Annotations filter the **scanned** set only. Types listed in a classpath
+   manifest (`META-INF/serialkompat/serializable-types.txt`) skip annotation
+   filtering and are always included in `OPT_OUT` and `OPT_IN`.
+3. `include` and `exclude` prefixes apply after discovery, in all modes.
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
@@ -78,20 +88,21 @@ serialkompat {
 }
 ```
 
-**KMP:** a Kotlin Multiplatform module is supported for discovery/extraction
-when it declares a `jvm()` target — extraction reads compiled JVM descriptors,
-so a JVM target is the floor, not an oversight. Annotate models in
-`commonMain`; `serialkompat-annotations` is itself multiplatform, so the
-annotation is visible there.
+**Kotlin Multiplatform:** a KMP module works with discovery and extraction as long
+as it declares a `jvm()` target. Extraction reads compiled JVM serializers, so a JVM
+target is required. Annotate your models in `commonMain`. `serialkompat-annotations`
+is itself multiplatform, so the annotations are available there.
 
 ## Annotated example
 
 !!! note
     serialkompat isn't on the Gradle Plugin Portal yet, so `plugins { id(…) }` won't
-    resolve on its own — see [Setup](setup.md#gradle-plugin) for the `pluginManagement`
+    resolve on its own. See [Setup](setup.md#gradle-plugin) for the `pluginManagement`
     block that points Gradle at Maven Central.
 
 ```kotlin title="build.gradle.kts"
+import com.chrisjenx.serialkompat.core.CompatibilityDirection
+
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
@@ -117,43 +128,47 @@ serialkompat {
 }
 ```
 
-1. Root types to walk. Nested types and sealed subtypes reachable from these are
-   included automatically — you don't list every type in the graph.
-2. Points at a `Json { ... }` instance in your codebase so the classifier judges
+1. The root types to check. Nested types and sealed subtypes reachable from these
+   are included automatically, so you don't list every type in the graph.
+2. Points at a `Json { ... }` instance in your code. The classifier then judges
    changes against your *actual* wire config (`ignoreUnknownKeys`,
-   `encodeDefaults`, `explicitNulls`, etc.), not kotlinx-serialization's defaults.
-   Leave empty only if you truly serialize with a bare `Json { }`.
-3. The git ref extracted as the "old" schema to diff against. Any ref `git`
-   resolves — a branch, tag, or commit SHA. **Optional:** leave it unset and
-   serialkompat auto-detects your default branch (`origin/HEAD`, falling back to
-   `origin/main`/`origin/master`, then a local `main`/`master`), so a `master`-default
-   repo works without configuration. Set it explicitly to pin a specific ref.
-   Overridable per-invocation with `-Pserialkompat.ref=<ref>` on the
-   `serialkompatCheckAgainst` task without touching this file.
+   `encodeDefaults`, `explicitNulls`, and so on), not kotlinx-serialization's
+   defaults. The instance must be reachable on the module's runtime classpath. If
+   it can't be loaded, serialkompat prints a warning and falls back to the default
+   `Json` config. Leave it unset only if you really serialize with a plain `Json`.
+   A per-property `@EncodeDefault` overrides `encodeDefaults`, and serialkompat
+   reads it from your compiled classes (see [Rules](rules.md)).
+3. The git ref whose schema is the baseline. Any ref `git` resolves works: a
+   branch, tag, or commit SHA. **Optional.** Leave it unset and serialkompat
+   auto-detects your default branch. It tries `origin/HEAD`, then
+   `origin/main`/`origin/master`, then a local `main`/`master`, so a repo whose
+   default branch is `master` works without configuration. Set it to pin a
+   specific ref. To override it for one run without editing this file, use the
+   `serialkompatCheckAgainst` task with `-Pserialkompat.ref=<ref>`.
+   (`serialkompatCheck` ignores that property.)
 4. See [Choosing a direction](#choosing-a-direction) below.
-5. When `false`, `BREAK` findings are reported but don't fail the build — useful
-   for a soft-launch/audit period, not recommended long-term.
-6. Guards against a silent no-op: if the baseline extraction comes back empty
-   (wrong ref, types not yet on that ref, etc.), that's almost always a
-   misconfiguration, not "everything's compatible." Set `false` only while
-   adopting serialkompat on a repo where the baseline ref genuinely predates
-   these types.
-7. Restricts the check to serial names under this prefix. Default `[""]` (empty
-   string) matches everything.
-8. Prefixes to drop even if they matched `include` — for types that are
-   intentionally unstable (internal-only, no cross-version contract).
-9. Declares that `LegacyOrder`'s serial name became `OrderEvent`. Without this,
-   the differ sees a type removed and a type added — two `BREAK` findings — where
-   only one intentional rename occurred.
-10. Format is `"<serialName> <RULE> [DIRECTION]"`. `DIRECTION` is optional — omit
-    it to accept the break in every direction being checked; include it
-    (`BACKWARD`/`FORWARD`) to accept it in only one. Each entry silences one
-    specific finding; unrelated findings on the same type still fail normally.
+5. When `false`, `BREAK` findings are reported but don't fail the build. This is
+   useful for a short audit period. It isn't recommended long-term.
+6. Guards against a silent no-op. If the baseline comes back with no types (wrong
+   ref, types not on that ref yet), that is almost always a misconfiguration, not
+   "everything is compatible". Set `false` only while adopting serialkompat, when
+   the baseline ref really predates these types.
+7. Limits the check to serial names that start with this prefix. The default,
+   `[""]` (an empty string), matches everything.
+8. Prefixes to drop even when they match `include`. `exclude` wins. Use it for
+   intentionally unstable types (internal-only, no cross-version contract).
+9. Declares that the serial name `LegacyOrder` became `OrderEvent`. serialkompat
+   then compares the two types' contents. Without this, the differ sees the old
+   type removed (`CONTRACT_REMOVED`, a `BREAK`) and an unrelated new type added.
+10. The format is `"<serialName> <RULE> [DIRECTION]"`. `DIRECTION` is optional.
+    Omit it to accept the break in every direction you check, or give `BACKWARD`
+    or `FORWARD` to accept it in only one. Each entry matches only findings with
+    that serial name and rule. Other findings on the same type still fail.
 
 ## Choosing a direction
 
-`direction` tells the classifier which reader/writer pairing has to survive the
-change. Pick based on how the schema is actually used, not by default:
+`direction` tells the classifier which reader/writer pairing must keep working
+after the change. Pick it from how the schema is actually used:
 
 | Direction | Guarantees | Use when |
 |---|---|---|
@@ -161,17 +176,21 @@ change. Pick based on how the schema is actually used, not by default:
 | `FORWARD` | Old code can read data written by new code | Persisted data with slow migrations, or mixed-version consumers — an older reader (a replica, a cached job, a client that hasn't upgraded yet) must decode records a newer writer just produced |
 | `FULL` | Both | Public APIs, shared wire formats, or persisted data with no controlled rollout order — the safest default when you don't control both ends |
 
-`FULL` is the default and the right choice unless you specifically know only one
-direction matters. A queue where producers and consumers deploy independently, or
-long-lived persisted rows read by code from any past version, need `FULL`. A
-same-service rolling deploy where old instances are drained within minutes only
-needs `BACKWARD` for that window — but relaxing to `BACKWARD` or `FORWARD` narrows
-the guarantee, so only do it deliberately, not as a way to silence findings.
+`FULL` is the default. Keep it unless you know only one direction matters.
+
+You need `FULL` for a queue whose producers and consumers deploy independently, or
+for long-lived stored rows that code from any past version may read. A rolling
+deploy of a single service, where old instances drain within minutes, only needs
+`BACKWARD` for that window.
+
+!!! warning
+    `BACKWARD` and `FORWARD` each drop half the guarantee. Choose one deliberately,
+    never as a way to silence findings.
 
 ## Report formats
 
-A JSON report is written by default; enable SARIF (for IDEs / dashboards) or move
-the output with a nested `reports { }` block:
+serialkompat writes a JSON report by default. Use the nested `reports { }` block to
+turn on SARIF (for IDEs and dashboards) or to move the output files:
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
@@ -182,10 +201,14 @@ serialkompat {
 }
 ```
 
-JSON is on and SARIF is off by default. The block applies to the pairwise
-`serialkompatCheck` / `serialkompatCheckAgainst`; the transitive history check
-writes its own `report-history.json` / `report-history.sarif`. See
-[Report formats](report-formats.md) for the JSON schema, SARIF details, GitHub
+Each format also has an `outputLocation` you can set, for example
+`json { outputLocation.set(layout.buildDirectory.file("reports/serialkompat.json")) }`.
+
+The block applies to the pairwise `serialkompatCheck` and `serialkompatCheckAgainst`.
+The history check follows the same `required` switches, but always writes to its own
+fixed paths: `build/serialkompat/report-history.json` and `report-history.sarif`.
+
+See [Report formats](report-formats.md) for the JSON schema, SARIF details, GitHub
 annotations, and the CLI `--format` equivalent.
 
 ## Next
