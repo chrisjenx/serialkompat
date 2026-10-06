@@ -1,6 +1,7 @@
 package com.chrisjenx.serialkompat.extractor
 
 import com.chrisjenx.serialkompat.core.ContractKind
+import com.chrisjenx.serialkompat.core.SnapshotFormat
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -117,5 +118,7 @@ class GracefulDegradationTest {
         assertEquals(ContractKind.CLASS, snapshot.contracts.single { it.serialName == "Healthy" }.kind)
         val gap = snapshot.contracts.single { it.serialName != "Healthy" }
         assertEquals(ContractKind.OPAQUE, gap.kind)
+        // The fallback key must survive the snapshot text format the check reads back.
+        assertEquals(snapshot, SnapshotFormat.parse(SnapshotFormat.serialize(snapshot)))
     }
 }
