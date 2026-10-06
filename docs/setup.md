@@ -153,8 +153,8 @@ GitHub Action. Most projects start with the Gradle plugin.
     ### GitHub Action {: #github-action }
 
     The action runs `serialkompatCheckAgainst` (or a task you choose) and posts a sticky
-    PR comment with the summary and findings. It also adds error and warning
-    annotations to the workflow run.
+    PR comment with the summary and findings. On pull requests it also adds error
+    and warning annotations to the workflow run.
 
     ```yaml title=".github/workflows/serialkompat.yml"
     name: serialkompat
@@ -165,9 +165,9 @@ GitHub Action. Most projects start with the Gradle plugin.
         permissions:
           pull-requests: write
         steps:
-          - uses: actions/checkout@v5
+          - uses: actions/checkout@v7
             with: { fetch-depth: 0 }
-          - uses: actions/setup-java@v5
+          - uses: actions/setup-java@v6
             with: { distribution: temurin, java-version: "17" }
           - uses: chrisjenx/serialkompat@v0
             with:
@@ -193,13 +193,8 @@ GitHub Action. Most projects start with the Gradle plugin.
     | `report-path` | `build/serialkompat/report.json` | Path to the JSON report the sticky comment is built from |
     | `gradle-args` | `""` (empty) | Extra arguments passed to Gradle |
 
-    #### Outputs
-
-    | Output | Value |
-    |---|---|
-    | `exit_code` | The Gradle task's exit code |
-
-    The workflow fails if `exit_code != 0`. On pull requests, the sticky comment
+    The action declares no outputs. The job fails when the Gradle task exits
+    non-zero. On pull requests, the sticky comment
     (marked `<!-- serialkompat -->` and updated in place on every push) shows ❌ for a
     failing check, ⚠️ for warnings only, and ✅ otherwise.
 

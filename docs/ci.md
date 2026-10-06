@@ -77,7 +77,7 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
     report: `shared/api/build/serialkompat/report.json`. The comment covers one
     report, so in a multi-module build pick the module that matters most.
 
-    The Action also posts an inline **annotation** for each active finding: `BREAK`
+    On pull requests, the Action also posts an **annotation** for each active finding: `BREAK`
     becomes an error and `WARN` a warning. It posts at most 10 errors and 10
     warnings, plus one notice that counts any overflow, so nothing is dropped
     silently. Findings have no source line, so the annotations attach to the run and

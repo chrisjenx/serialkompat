@@ -25,7 +25,7 @@ Guidance for Claude Code (and humans) working in this repo.
 ./gradlew koverHtmlReport  # coverage -> build/reports/kover
 ```
 
-CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport -x :serialkompat-annotations:build` on ubuntu, JDK 17 and 21, plus a `macos-latest` job for `:serialkompat-annotations:build`. `Secret Scan` (`gitleaks.yml`) runs gitleaks over the full history on PRs and pushes to `main`. `Docs` (`docs.yml`) runs `dokkaGenerate` + `mkdocs build --strict` on PRs touching `docs/**`, `mkdocs.yml` or `requirements-docs.txt` (and deploys on push to `main`).
+CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport -x :serialkompat-annotations:build` on ubuntu, JDK 17 and 21, plus a `macos-latest` job for `:serialkompat-annotations:build`. `Secret Scan` (`gitleaks.yml`) runs gitleaks over the full history on PRs and pushes to `main`. `Docs` (`docs.yml`) runs `dokkaGenerate` + `mkdocs build --strict` on PRs touching `docs/**`, `mkdocs.yml`, `requirements-docs.txt` or `main.py` (and deploys on push to `main`).
 
 ## Modules
 

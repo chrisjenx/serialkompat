@@ -97,7 +97,7 @@ The report also renders as JSON (`build/serialkompat/report.json`), SARIF, and G
 
 ## CI (GitHub Action)
 
-The composite action runs the gate, posts a **sticky PR comment** with the findings, and adds annotations to the workflow run. The Gradle task itself stays CI-agnostic: it writes a JSON report and sets the exit code.
+The composite action runs the gate, posts a **sticky PR comment** with the findings, and (on pull requests) adds annotations to the workflow run. The Gradle task itself stays CI-agnostic: it writes a JSON report and sets the exit code.
 
 ```yaml
 # .github/workflows/serialkompat.yml
@@ -170,7 +170,7 @@ Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.8.0), Kotlin 2.4.20, and kot
 2. **Test.** `./gradlew build` on JDK 17 and 21, on macOS so the KMP klibs are complete.
 3. **Publish.** `publishAndReleaseToMavenCentral`.
 4. **Tag and release.** Tags `vX.Y.Z` on the tested commit and creates the GitHub release, marked as a prerelease if the version has a suffix. Stable releases also move the floating major tag that Action users pin (`v0` for 0.x, `v1` for 1.x).
-5. **Bump.** Opens a PR moving `gradle.properties` to the next patch `-SNAPSHOT`, because `main` is branch-protected. This needs **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**. Without it the release still completes, and the job warns you to bump the version by hand.
+5. **Bump.** Opens a PR moving `gradle.properties` to the next `-SNAPSHOT` (the next patch after a final release, or the same version after a prerelease: `1.0.0-rc1` → `1.0.0-SNAPSHOT`), because `main` is branch-protected. This needs **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**. Without it the release still completes, and the job warns you to bump the version by hand.
 
 Tagging, the GitHub release, and the bump PR all use the workflow's own `GITHUB_TOKEN`.
 

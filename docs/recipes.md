@@ -39,19 +39,31 @@ Exit codes: `0` ok, `1` breaking, `2` usage error.
 
 ## First-time adoption
 
-**Problem:** you turn the gate on and the first run fails with an empty baseline.
-Your `baselineRef` predates the `@Serializable` types you're checking, so
-extracting the baseline finds no types.
+**Problem:** you turn the gate on and the first run fails. The baseline is
+extracted by running your build at `baselineRef`, and that ref doesn't match what
+you're checking yet. Which failure you see depends on what the ref has:
 
-serialkompat treats an empty baseline as a misconfiguration by default. Otherwise
-every type would look "newly added, therefore safe", and a real removal could slip
-through unnoticed.
+- **No serialkompat configuration** (the usual case: the change that adds the
+  plugin). The baseline extraction can't run there, so the check fails with a
+  baseline-extraction error.
+- **An explicit `types` list naming classes that don't exist there yet.** Those
+  types are recorded as unanalysable in the baseline, so the check reports them
+  as `CONTRACT_REMOVED` (`BREAK`).
+- **`OPT_IN` or `OPT_OUT` discovery, but no `@Serializable` types yet.** The
+  baseline is empty. serialkompat treats an empty baseline as a misconfiguration
+  by default; otherwise every type would look "newly added, therefore safe", and
+  a real removal could slip through unnoticed.
 
-**Fix:** for the run where you expect an empty baseline, opt out explicitly:
+**Fix for the first two:** skip the check on the change that introduces
+serialkompat (`./gradlew build -x serialkompatCheck`, and leave the GitHub Action
+out of that PR). Once it's merged into `baselineRef`, every later change is
+checked normally.
+
+**Fix for an empty baseline:** for the run where you expect it, opt out explicitly:
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
-    types.set(listOf("com.example.wire.OrderEvent"))
+    discovery.set(com.chrisjenx.serialkompat.extractor.DiscoveryMode.OPT_OUT)
     failOnEmptyBaseline.set(false) // only while baselineRef predates these types
 }
 ```

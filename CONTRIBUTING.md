@@ -41,7 +41,7 @@ python3 -m venv build/docs-venv && build/docs-venv/bin/pip install -r requiremen
 build/docs-venv/bin/mkdocs serve   # live-reload at http://127.0.0.1:8000
 ```
 
-The `Docs` workflow runs `mkdocs build --strict` on any PR touching `docs/**`, `mkdocs.yml`, or `requirements-docs.txt`. Broken links, broken nav, or a page missing from the nav fail the PR.
+The `Docs` workflow runs `mkdocs build --strict` on any PR touching `docs/**`, `mkdocs.yml`, `requirements-docs.txt`, or `main.py` (the version macro). Broken links, broken nav, or a page missing from the nav fail the PR.
 
 ## Before you push
 

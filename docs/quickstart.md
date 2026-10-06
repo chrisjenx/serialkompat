@@ -59,9 +59,8 @@ $ ./gradlew serialkompatCheck
     serialkompat, the baseline ref doesn't have it yet, so the baseline extraction
     fails. Skip the check for that one change (`./gradlew build -x serialkompatCheck`,
     and leave the GitHub Action out of that PR) and merge it. The gate then works on
-    every later change. If the baseline ref has
-    the plugin but none of the configured types yet, see
-    [First-time adoption](recipes.md#first-time-adoption).
+    every later change. See
+    [First-time adoption](recipes.md#first-time-adoption) for the details.
 
 ## 3. Read the report
 
