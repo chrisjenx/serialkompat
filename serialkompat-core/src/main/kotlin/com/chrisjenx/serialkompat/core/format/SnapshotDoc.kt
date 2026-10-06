@@ -80,15 +80,23 @@ private fun configBlock(config: SnapshotConfig): Block =
     Block(
         listOf(
             Line(0, listOf(Token.Word(FormatGrammar.CONFIG_MARKER))),
-            // Fixed alphabetical key order for byte-stability.
+            // Fixed alphabetical key order for byte-stability. Every key is always written; a
+            // snapshot from an older version that lacks a key reads it back as its default (configOf).
+            configLine("allowComments", config.allowComments.toString()),
+            configLine("allowSpecialFloatingPointValues", config.allowSpecialFloatingPointValues.toString()),
+            configLine("allowStructuredMapKeys", config.allowStructuredMapKeys.toString()),
+            configLine("allowTrailingComma", config.allowTrailingComma.toString()),
             configLine("classDiscriminator", config.classDiscriminator),
             configLine("classDiscriminatorMode", config.classDiscriminatorMode),
             configLine("coerceInputValues", config.coerceInputValues.toString()),
+            configLine("decodeEnumsCaseInsensitive", config.decodeEnumsCaseInsensitive.toString()),
             configLine("encodeDefaults", config.encodeDefaults.toString()),
             configLine("explicitNulls", config.explicitNulls.toString()),
             configLine("ignoreUnknownKeys", config.ignoreUnknownKeys.toString()),
+            configLine("isLenient", config.isLenient.toString()),
             configLine("namingStrategy", config.namingStrategy),
             configLine("useAlternativeNames", config.useAlternativeNames.toString()),
+            configLine("useArrayPolymorphism", config.useArrayPolymorphism.toString()),
         ),
     )
 
@@ -198,6 +206,13 @@ private fun configOf(block: Block): SnapshotConfig {
             .filterIsInstance<Token.KeyValue>()
             .associate { it.key to it.value }
     val defaults = SnapshotConfig()
+
+    // A key absent from an older snapshot (written before that flag was captured) reads as the
+    // kotlinx default, so it diffs as no change against a current snapshot of the same Json.
+    fun flag(
+        key: String,
+        default: Boolean,
+    ): Boolean = values[key]?.toBooleanStrict() ?: default
     return SnapshotConfig(
         namingStrategy = values["namingStrategy"] ?: defaults.namingStrategy,
         classDiscriminator = values["classDiscriminator"] ?: defaults.classDiscriminator,
@@ -208,5 +223,13 @@ private fun configOf(block: Block): SnapshotConfig {
         coerceInputValues = values["coerceInputValues"]?.toBooleanStrict() ?: defaults.coerceInputValues,
         useAlternativeNames =
             values["useAlternativeNames"]?.toBooleanStrict() ?: defaults.useAlternativeNames,
+        useArrayPolymorphism = flag("useArrayPolymorphism", defaults.useArrayPolymorphism),
+        allowStructuredMapKeys = flag("allowStructuredMapKeys", defaults.allowStructuredMapKeys),
+        allowSpecialFloatingPointValues =
+            flag("allowSpecialFloatingPointValues", defaults.allowSpecialFloatingPointValues),
+        isLenient = flag("isLenient", defaults.isLenient),
+        decodeEnumsCaseInsensitive = flag("decodeEnumsCaseInsensitive", defaults.decodeEnumsCaseInsensitive),
+        allowTrailingComma = flag("allowTrailingComma", defaults.allowTrailingComma),
+        allowComments = flag("allowComments", defaults.allowComments),
     )
 }
