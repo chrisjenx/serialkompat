@@ -191,7 +191,11 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         val annotations = owner.getElementAnnotations(index)
         return Element(
             name = owner.getElementName(index),
-            type = typeRef(descriptor),
+            // `nullable` is the field's own (Kotlin-level) nullability: it also drives "absent decodes
+            // as null" under explicitNulls=false, which a non-null value class wrapper does NOT get even
+            // when its underlying value is nullable (MissingFieldException). The underlying `null` that
+            // such a wrapper can still put on the wire is recorded in the type instead ("kotlin.String?").
+            type = if (descriptor.isNullable) typeRef(descriptor) else typeRefNullable(descriptor),
             optional = owner.isElementOptional(index),
             nullable = descriptor.isNullable,
             jsonNames = annotations.filterIsInstance<JsonNames>().flatMap { it.names.toList() },
@@ -202,7 +206,8 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     }
 
     /** A canonical, whitespace-free type reference. Nullability of the top-level
-     * element is recorded separately on [Element]; nested nullability is kept. */
+     * element is recorded separately on [Element]; nested nullability is kept, including a
+     * value class's nullable underlying value (see [wireNullable]). */
     private fun typeRef(descriptor: SerialDescriptor): String {
         // A @JvmInline value class is transparent on the wire: it serializes as its single
         // underlying value, never as a wrapper object. Its type ref is therefore the underlying
@@ -227,7 +232,16 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     }
 
     private fun typeRefNullable(descriptor: SerialDescriptor): String =
-        typeRef(descriptor) + if (descriptor.isNullable) "?" else ""
+        typeRef(descriptor) + if (wireNullable(descriptor)) "?" else ""
+
+    /**
+     * Whether `null` can appear on the wire at this position. A value class is transparent, so
+     * `Id(null)` for `value class Id(val raw: String?)` encodes as a bare `null` even when the `Id`
+     * itself is non-null. Its nullability is therefore the wrapper's *or* the underlying value's,
+     * recursively, matching how [typeRef] unwraps it.
+     */
+    private fun wireNullable(descriptor: SerialDescriptor): Boolean =
+        descriptor.isNullable || (descriptor.isInline && wireNullable(descriptor.getElementDescriptor(0)))
 
     /** Descriptors reachable from an element that are themselves named contracts. */
     private fun referencedContracts(descriptor: SerialDescriptor): List<SerialDescriptor> {
