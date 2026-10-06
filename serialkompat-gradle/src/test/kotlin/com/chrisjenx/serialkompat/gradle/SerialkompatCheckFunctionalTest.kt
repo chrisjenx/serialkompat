@@ -6,6 +6,7 @@ import com.chrisjenx.serialkompat.core.Element
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.SnapshotFormat
+import com.chrisjenx.serialkompat.gradle.git.SnapshotCache
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import java.io.File
@@ -130,9 +131,9 @@ class SerialkompatCheckFunctionalTest {
         sha: String,
         baseline: Snapshot,
     ) {
-        val file = File(projectDir, "build/serialkompat/baseline/$sha.snapshot")
-        file.parentFile.mkdirs()
-        file.writeText(SnapshotFormat.serialize(baseline))
+        // Under TestKit the plugin has no jar manifest, so it runs with a null tool version.
+        SnapshotCache(File(projectDir, "build/serialkompat/baseline"), toolVersion = null)
+            .put(sha, SnapshotFormat.serialize(baseline))
     }
 
     private fun runner(vararg args: String) =

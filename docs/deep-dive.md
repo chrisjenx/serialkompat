@@ -99,8 +99,10 @@ sequenceDiagram
     Task->>Task: diff baseline vs. current, classify, report
 ```
 
-The result is cached, keyed by the resolved commit SHA — a commit's source is
-immutable, so the same ref never re-extracts. A stale worktree left behind by an
+The result is cached, keyed by the resolved commit SHA and the serialkompat
+version — a commit's source is immutable, so the same ref is extracted only
+once per serialkompat version (an upgrade never reuses an older tool's
+baseline). A stale worktree left behind by an
 interrupted run is pruned and cleaned up automatically on the next invocation,
 so the gate self-heals instead of wedging. Ref resolution is fail-closed: a
 ref that doesn't resolve fails the run rather than silently comparing against

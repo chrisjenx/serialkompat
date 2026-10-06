@@ -301,7 +301,8 @@ public class SerialkompatPlugin : Plugin<Project> {
     ) {
         val gitCli = SystemGit(rootDir)
         val git = GitRefBaseline(gitCli)
-        val cache = SnapshotCache(baselineDir)
+        // Keyed by SHA + this plugin's version, so an upgrade never reuses an older tool's baseline.
+        val cache = SnapshotCache(baselineDir, reports.toolVersion)
         worktreesDir.mkdirs()
 
         // An unconfigured, un-overridden ref auto-detects the default branch (issue #116).
