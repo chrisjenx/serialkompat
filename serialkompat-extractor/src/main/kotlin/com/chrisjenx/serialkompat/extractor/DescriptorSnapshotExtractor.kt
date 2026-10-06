@@ -160,6 +160,11 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             PolymorphicKind.OPEN -> {
                 val baseClass = descriptor.capturedKClass
                 val subtypeDescriptors = baseClass?.let { openPoly.subtypes[it] }.orEmpty()
+                // An open base's subtypes are only knowable from the module. None visible (an
+                // unregistered base, the wrong module, or no captured class) means the hierarchy
+                // was not analysed. An empty POLYMORPHIC would read as fully analysed and let every
+                // subtype change pass unseen, so record a coverage gap instead (design §10).
+                if (subtypeDescriptors.isEmpty()) return Contract(serialName, ContractKind.OPAQUE)
                 referenced += subtypeDescriptors
                 Contract(
                     serialName,

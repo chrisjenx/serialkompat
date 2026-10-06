@@ -179,6 +179,15 @@ class DescriptorSnapshotExtractorTest {
     }
 
     @Test
+    fun `an open base with no registered subtypes is an opaque coverage gap, not an empty hierarchy`() {
+        // The subtypes of an open base are only knowable from the module; with none visible the
+        // hierarchy is unanalysed, and recording it as a fully-analysed empty POLYMORPHIC would
+        // let every subtype change pass unseen (unanalysable ≠ safe).
+        val snapshot = extract(serializer<Shape>().descriptor, module = SerializersModule {})
+        assertEquals(ContractKind.OPAQUE, snapshot.contracts.single().kind)
+    }
+
+    @Test
     fun `cyclic references terminate and are captured once`() {
         val snapshot = extract(serializer<Node>().descriptor)
         assertEquals(1, snapshot.contracts.count { it.serialName == "Node" })

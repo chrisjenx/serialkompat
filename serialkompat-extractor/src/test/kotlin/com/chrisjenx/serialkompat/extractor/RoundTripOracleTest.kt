@@ -1118,6 +1118,42 @@ class RoundTripOracleTest {
         assertEquals(Severity.BREAK, forwardAddedSubtype(oldNoDefault), "no default deserializer → forward BREAK")
     }
 
+    @Test
+    fun `an open base extracted without its module registrations is not read as safe`() {
+        // The open base's subtypes live only in the SerializersModule. When extraction can't see that
+        // module (no/unloadable jsonInstance), both versions used to record POLYMORPHIC with an empty
+        // subtype list, identical on both sides, so the diff came back all-clear. Real ground truth:
+        // removing the `cat` registration breaks reading old `cat` payloads.
+        val oldModule =
+            SerializersModule {
+                polymorphic(Pet::class) {
+                    subclass(Dog::class)
+                    subclass(Cat::class)
+                }
+            }
+        val newModule = SerializersModule { polymorphic(Pet::class) { subclass(Dog::class) } }
+        val oldData = Json { serializersModule = oldModule }.encodeToString(serializer<Pet>(), Cat(9))
+        assertFailsWith<Exception> {
+            Json { serializersModule = newModule }.decodeFromString(serializer<Pet>(), oldData)
+        }
+
+        // Extracted without the module, the gate can't see that change, so it must say so (a coverage
+        // gap in both directions) rather than pass silently: unanalysable ≠ safe.
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), EmptySerializersModule()),
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), EmptySerializersModule()),
+                ),
+            )
+        for (direction in listOf(CompatibilityDirection.BACKWARD, CompatibilityDirection.FORWARD)) {
+            assertTrue(
+                findings.any { it.direction == direction && it.rule == Rules.COVERAGE_GAP },
+                "$direction: an open base with no visible subtypes must surface as a coverage gap; got $findings",
+            )
+        }
+    }
+
     // --- sealed base + module default deserializer (the `Unknown` fallback idiom) ---
 
     @Serializable
