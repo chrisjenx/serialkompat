@@ -59,6 +59,7 @@ class SerialkompatCheckFunctionalTest {
         direction: String? = null,
         acceptedBreaks: List<String> = emptyList(),
         reportsBlock: String = "",
+        body: String = "",
     ) = write(
         "build.gradle.kts",
         """
@@ -82,6 +83,7 @@ class SerialkompatCheckFunctionalTest {
         }}
             $reportsBlock
         }
+        $body
         """,
     )
 
@@ -129,8 +131,9 @@ class SerialkompatCheckFunctionalTest {
     private fun seedBaseline(
         sha: String,
         baseline: Snapshot,
+        buildDir: String = "build",
     ) {
-        val file = File(projectDir, "build/serialkompat/baseline/$sha.snapshot")
+        val file = File(projectDir, "$buildDir/serialkompat/baseline/$sha.snapshot")
         file.parentFile.mkdirs()
         file.writeText(SnapshotFormat.serialize(baseline))
     }
@@ -210,6 +213,33 @@ class SerialkompatCheckFunctionalTest {
                 second.output.contains("Configuration cache entry reused"),
             "expected the CC entry to be reused:\n${second.output}",
         )
+    }
+
+    @Test
+    fun `serialkompatCheck follows a build directory relocated in the build script body`() {
+        settings()
+        // Set in the script BODY — after `plugins {}` applied the plugin — so every path the plugin
+        // derives from the build directory must be resolved lazily, not at apply time.
+        buildFile(baselineRef = "HEAD", body = "layout.buildDirectory.set(layout.projectDirectory.dir(\"out\"))")
+        // Current narrows id from String to Int — a real wire break.
+        orderModel("val id: Int")
+        val sha = initCommit()
+        val baseline = orderSnapshot(Element("id", "kotlin.String"))
+        seedBaseline(sha, baseline, buildDir = "out")
+        // A stale snapshot left at the default location (e.g. from before the relocation) that still
+        // matches the baseline. Reading it instead of what extract just wrote would pass the gate.
+        seedBaseline(sha, baseline, buildDir = "build")
+        write("build/serialkompat/current.snapshot", SnapshotFormat.serialize(baseline))
+
+        val result = runner("serialkompatCheck", "--configuration-cache").buildAndFail()
+
+        assertTrue(
+            result.output.contains("incompatible wire changes vs 'HEAD'"),
+            "expected the gate to diff the freshly extracted schema; output:\n${result.output}",
+        )
+        val report = File(projectDir, "out/serialkompat/report.json")
+        assertTrue(report.isFile, "expected the JSON report under the relocated build dir")
+        assertTrue(report.readText().contains("BREAK"), "report should record the break: ${report.readText()}")
     }
 
     @Test
