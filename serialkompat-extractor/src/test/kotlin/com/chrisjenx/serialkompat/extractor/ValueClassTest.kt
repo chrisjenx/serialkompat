@@ -8,6 +8,7 @@ import com.chrisjenx.serialkompat.core.Rules
 import com.chrisjenx.serialkompat.core.Severity
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotDiffer
+import com.chrisjenx.serialkompat.core.SnapshotFormat
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -254,6 +255,8 @@ class ValueClassTest {
         val id = extract(serializer<TicketV1>().descriptor).element("Ticket", "id")
         assertEquals("kotlin.String?", id.type)
         assertEquals(false, id.nullable, "the wrapper itself is non-null")
+        val snapshot = extract(serializer<TicketV1>().descriptor)
+        assertEquals(snapshot, SnapshotFormat.parse(SnapshotFormat.serialize(snapshot)))
         assertEquals("List<kotlin.String?>", extract(serializer<BatchV1>().descriptor).element("Batch", "ids").type)
     }
 
