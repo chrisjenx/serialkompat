@@ -282,4 +282,104 @@ class DescriptorSnapshotExtractorTest {
         assertEquals("kotlin.String", box.elements.single { it.name == "value" }.type)
         assertTrue(box.elements.none { it.type.contains("#") }, "concrete instantiation must not carry holes")
     }
+
+    // --- serial-name collisions (two different shapes behind one contract identity) ---
+
+    @Serializable
+    @SerialName("Inner")
+    private data class Inner(
+        val code: Int,
+    )
+
+    @Serializable
+    @SerialName("TwoBoxes")
+    private data class TwoBoxes(
+        val names: Box<String>,
+        val inners: Box<Inner>,
+    )
+
+    @Serializable
+    @SerialName("SameBoxes")
+    private data class SameBoxes(
+        val a: Box<String>,
+        val b: Box<String>,
+    )
+
+    @Test
+    fun `two instantiations of a generic with different shapes degrade to an opaque gap`() {
+        // Type args are dropped from the contract identity, so Box<String> and Box<Inner> share the
+        // serial name "Box". Keeping only the first one walked would leave the second unchecked.
+        val snapshot = extract(serializer<TwoBoxes>().descriptor)
+        assertEquals(ContractKind.OPAQUE, snapshot.contract("Box").kind)
+    }
+
+    @Test
+    fun `a type reachable only through a colliding instantiation is still walked`() {
+        val snapshot = extract(serializer<TwoBoxes>().descriptor)
+        assertEquals("kotlin.Int", snapshot.element("Inner", "code").type)
+    }
+
+    @Test
+    fun `identical revisits of a shared type are unaffected`() {
+        val snapshot = extract(serializer<SameBoxes>().descriptor)
+        assertEquals(ContractKind.CLASS, snapshot.contract("Box").kind)
+        assertEquals(1, snapshot.contracts.count { it.serialName == "Box" })
+    }
+
+    @Serializable
+    @SerialName("OrderEvent")
+    private sealed interface OrderEvent {
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val orderId: String,
+        ) : OrderEvent
+    }
+
+    @Serializable
+    @SerialName("UserEvent")
+    private sealed interface UserEvent {
+        // Same subtype serial name as OrderEvent.Created; legal, since names are scoped per base.
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val userId: Int,
+        ) : UserEvent
+    }
+
+    @Serializable
+    @SerialName("Events")
+    private data class Events(
+        val order: OrderEvent,
+        val user: UserEvent,
+    )
+
+    @Test
+    fun `sealed subtypes sharing a serial name across bases degrade to an opaque gap`() {
+        val snapshot = extract(serializer<Events>().descriptor)
+        assertEquals(ContractKind.OPAQUE, snapshot.contract("created").kind)
+        // The bases themselves are still analysed.
+        assertEquals(ContractKind.SEALED, snapshot.contract("OrderEvent").kind)
+        assertEquals(ContractKind.SEALED, snapshot.contract("UserEvent").kind)
+    }
+
+    @Serializable
+    @SerialName("Chain")
+    private data class Chain<T>(
+        val value: T,
+        val next: Chain<List<T>>? = null,
+    )
+
+    @Serializable
+    @SerialName("ChainHolder")
+    private data class ChainHolder(
+        val chain: Chain<String>,
+    )
+
+    @Test
+    fun `a generic that instantiates itself ever deeper still terminates`() {
+        // Every level is a new shape of "Chain" (value: String, List<String>, List<List<String>>, ...).
+        val snapshot = extract(serializer<ChainHolder>().descriptor)
+        assertEquals(ContractKind.OPAQUE, snapshot.contract("Chain").kind)
+    }
 }
