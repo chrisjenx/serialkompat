@@ -65,14 +65,15 @@ every run until fixed (like `COVERAGE_GAP`), and only when a discriminator is
 actually emitted — `classDiscriminatorMode = NONE` suppresses it (nothing to
 collide with).
 
-² `SUBTYPE_ADDED`'s forward downgrade is driven by a **recorded model fact**, not a
-`Json` setting: if the (reader-side) base registered an open-polymorphism
-**default deserializer**, an unknown — e.g. newly added — subtype coerces to the
-sentinel instead of throwing. Decode succeeds but yields the sentinel, not the real
-subtype, so it is a `WARN` (silent substitution), not `SAFE`. Without a default
-deserializer the old reader throws, so it stays a `BREAK`. This mirrors how
-`coerceInputValues` downgrades an added enum value, but the deciding fact lives on
-the contract, not in the config.
+² `SUBTYPE_ADDED`'s forward downgrade is driven by a **recorded model fact**: if the
+(reader-side) base — open **or sealed** — registered a polymorphic **default
+deserializer** in the `Json`'s `SerializersModule` (the `Unknown` sentinel idiom), an
+unknown — e.g. newly added — subtype coerces to the sentinel instead of throwing.
+Decode succeeds but yields the sentinel, not the real subtype, so it is a `WARN`
+(silent substitution), not `SAFE`. The sentinel only absorbs the new subtype's fields
+when the old reader has `ignoreUnknownKeys`; a strict reader still throws on them, so
+it stays a `BREAK`, as it does without a default deserializer. This mirrors how
+`coerceInputValues` downgrades an added enum value.
 
 ## Rule reference
 
