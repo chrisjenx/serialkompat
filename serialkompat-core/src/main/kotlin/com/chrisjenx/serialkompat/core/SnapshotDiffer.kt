@@ -30,6 +30,19 @@ public object SnapshotDiffer {
         old: Snapshot,
         new: Snapshot,
         renames: Map<String, String> = emptyMap(),
+    ): List<Change> = diff(old, new, renames, enumReaders = old)
+
+    /**
+     * As [diff], but judges enum coercibility (#129) over [enumReaders] — the *unscoped* baseline —
+     * rather than [old]. Coercibility is a fact about every reader on the wire: a required reference
+     * from a contract outside the checked scope (e.g. one owned by another module) still throws on an
+     * added value, so it must disqualify the coerce-rescued WARN even though that contract isn't checked.
+     */
+    internal fun diff(
+        old: Snapshot,
+        new: Snapshot,
+        renames: Map<String, String>,
+        enumReaders: Snapshot,
     ): List<Change> =
         buildList {
             addAll(diffConfig(old.config, new.config))
@@ -39,7 +52,7 @@ public object SnapshotDiffer {
 
             // Which enums, in the *baseline* (old = the forward reader), are read only by defaulted
             // direct properties — the precondition for coerceInputValues to rescue an added value (#129).
-            val oldCoercibleEnums = coercibleEnumNames(old)
+            val oldCoercibleEnums = coercibleEnumNames(enumReaders)
 
             // Honour a rename only for a genuine move: the source must be gone from `new` and
             // the target new to `old`. Otherwise both endpoints are still present, and treating
