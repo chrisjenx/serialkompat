@@ -382,4 +382,39 @@ class DescriptorSnapshotExtractorTest {
         val snapshot = extract(serializer<ChainHolder>().descriptor)
         assertEquals(ContractKind.OPAQUE, snapshot.contract("Chain").kind)
     }
+
+    @Serializable
+    @SerialName("Addr")
+    private data class Addr(
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS) val city: String = "x",
+    )
+
+    @Serializable
+    @SerialName("AddrUsers")
+    private data class AddrUsers(
+        val home: Addr,
+        val work: Addr?,
+    )
+
+    @Serializable
+    @SerialName("Tree")
+    private data class Tree(
+        val parent: Tree?,
+        val label: String,
+    )
+
+    @Test
+    fun `a type referenced both as T and T? is one shape, not a collision`() {
+        // The nullable reference arrives as a wrapper descriptor; it must analyse identically
+        // (including the bytecode-recovered @EncodeDefault) so it isn't mistaken for a second shape.
+        val snapshot = extract(serializer<AddrUsers>().descriptor)
+        assertEquals(ContractKind.CLASS, snapshot.contract("Addr").kind)
+        assertEquals(EncodeDefaultMode.ALWAYS, snapshot.element("Addr", "city").encodeDefault)
+    }
+
+    @Test
+    fun `a self-reference through a nullable field is one shape, not a collision`() {
+        val snapshot = extract(serializer<Tree>().descriptor)
+        assertEquals(ContractKind.CLASS, snapshot.contract("Tree").kind)
+    }
 }
