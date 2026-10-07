@@ -338,7 +338,10 @@ serialkompat {
 ```
 
 **Resolution order:** read from the `Json` instance → else explicit config in the
-extension → else conservative/strict *with a loud "assuming" warning*.
+extension → else conservative/strict *with a loud "assuming" warning*. A
+`jsonInstance` that is *configured* but can't be loaded fails the extraction
+rather than falling back: the fallback would silently check every type under
+the wrong config and without the module's polymorphic registrations.
 
 **This is correctness, not convenience.** These `Json` settings change the wire
 shape or decode behavior; hand-re-declaring them would silently drift:

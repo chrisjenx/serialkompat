@@ -1118,6 +1118,42 @@ class RoundTripOracleTest {
         assertEquals(Severity.BREAK, forwardAddedSubtype(oldNoDefault), "no default deserializer → forward BREAK")
     }
 
+    @Test
+    fun `an open base extracted without its module registrations is not read as safe`() {
+        // The open base's subtypes live only in the SerializersModule. When extraction can't see that
+        // module (no/unloadable jsonInstance), both versions used to record POLYMORPHIC with an empty
+        // subtype list, identical on both sides, so the diff came back all-clear. Real ground truth:
+        // removing the `cat` registration breaks reading old `cat` payloads.
+        val oldModule =
+            SerializersModule {
+                polymorphic(Pet::class) {
+                    subclass(Dog::class)
+                    subclass(Cat::class)
+                }
+            }
+        val newModule = SerializersModule { polymorphic(Pet::class) { subclass(Dog::class) } }
+        val oldData = Json { serializersModule = oldModule }.encodeToString(serializer<Pet>(), Cat(9))
+        assertFailsWith<Exception> {
+            Json { serializersModule = newModule }.decodeFromString(serializer<Pet>(), oldData)
+        }
+
+        // Extracted without the module, the gate can't see that change, so it must say so (a coverage
+        // gap in both directions) rather than pass silently: unanalysable ≠ safe.
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), EmptySerializersModule()),
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), EmptySerializersModule()),
+                ),
+            )
+        for (direction in listOf(CompatibilityDirection.BACKWARD, CompatibilityDirection.FORWARD)) {
+            assertTrue(
+                findings.any { it.direction == direction && it.rule == Rules.COVERAGE_GAP },
+                "$direction: an open base with no visible subtypes must surface as a coverage gap; got $findings",
+            )
+        }
+    }
+
     // --- sealed base + module default deserializer (the `Unknown` fallback idiom) ---
 
     @Serializable
@@ -1581,5 +1617,80 @@ class RoundTripOracleTest {
                 .map { it.name }
                 .toSet()
         assertEquals(allFields, observed, "a SnapshotConfig field is not exercised by this guard")
+    }
+
+    // --- serial-name collision across sealed bases ---------------------------------
+
+    @Serializable
+    @SerialName("Ledger")
+    private sealed interface LedgerEvent {
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val ledgerId: String,
+        ) : LedgerEvent
+    }
+
+    @Serializable
+    @SerialName("Account")
+    private sealed interface AccountEventV1 {
+        // Shares the subtype serial name "created" with LedgerEvent.Created (legal across bases).
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val accountId: String,
+        ) : AccountEventV1
+    }
+
+    @Serializable
+    @SerialName("Account")
+    private sealed interface AccountEventV2 {
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val accountId: Int,
+        ) : AccountEventV2
+    }
+
+    @Serializable
+    @SerialName("Feed")
+    private data class FeedV1(
+        val ledger: LedgerEvent,
+        val account: AccountEventV1,
+    )
+
+    @Serializable
+    @SerialName("Feed")
+    private data class FeedV2(
+        val ledger: LedgerEvent,
+        val account: AccountEventV2,
+    )
+
+    @Test
+    fun `a change behind a colliding subtype serial name is never read as safe`() {
+        // Ground truth: Account's `created.accountId` changed String -> Int; old data no longer decodes.
+        val oldData =
+            Json.encodeToString(
+                FeedV1.serializer(),
+                FeedV1(LedgerEvent.Created("l-1"), AccountEventV1.Created("not-a-number")),
+            )
+        assertFailsWith<Exception> { Json.decodeFromString(FeedV2.serializer(), oldData) }
+
+        // The walk deduped "created" by serial name, so Account's subtype was never analysed and the
+        // diff came back empty. It must at least surface as a coverage gap (unanalysable ≠ safe).
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<FeedV1>().descriptor)),
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<FeedV2>().descriptor)),
+                ),
+            )
+        assertTrue(
+            findings.any {
+                it.direction == CompatibilityDirection.BACKWARD &&
+                    (it.severity == Severity.BREAK || it.rule == Rules.COVERAGE_GAP)
+            },
+            "real decode threw but the gate was silent; got $findings",
+        )
     }
 }
