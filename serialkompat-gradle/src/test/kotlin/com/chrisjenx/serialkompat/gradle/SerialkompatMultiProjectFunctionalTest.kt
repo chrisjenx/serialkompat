@@ -6,6 +6,7 @@ import com.chrisjenx.serialkompat.core.Element
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.SnapshotFormat
+import com.chrisjenx.serialkompat.gradle.git.SnapshotCache
 import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.TaskOutcome
 import java.io.File
@@ -84,9 +85,9 @@ class SerialkompatMultiProjectFunctionalTest {
         val contract =
             Contract("com.example.$type", ContractKind.CLASS, elements = listOf(Element("id", "kotlin.String")))
         val snapshot = Snapshot(listOf(contract), SnapshotConfig())
-        File(projectDir, "$module/build/serialkompat/baseline/$sha.snapshot")
-            .also { it.parentFile.mkdirs() }
-            .writeText(SnapshotFormat.serialize(snapshot))
+        // Under TestKit the plugin has no jar manifest, so it runs with a null tool version.
+        SnapshotCache(File(projectDir, "$module/build/serialkompat/baseline"), toolVersion = null)
+            .put(sha, SnapshotFormat.serialize(snapshot))
     }
 
     @Test

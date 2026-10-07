@@ -420,7 +420,10 @@ serialkompat {
 ```
 
 **Resolution order:** read from the `Json` instance → else explicit config in the
-extension → else conservative/strict *with a loud "assuming" warning*.
+extension → else conservative/strict *with a loud "assuming" warning*. A
+`jsonInstance` that is *configured* but can't be loaded fails the extraction
+rather than falling back: the fallback would silently check every type under
+the wrong config and without the module's polymorphic registrations.
 
 **Updated: what shipped.** There is no "explicit config in the extension" step.
 `SchemaExtractionMain` loads the `jsonInstance` FQN if set; otherwise (or if it
@@ -436,10 +439,16 @@ shape or decode behavior; hand-re-declaring them would silently drift:
   and whether it's emitted.
 - `useAlternativeNames` (does `@JsonNames` apply?), `coerceInputValues`,
   `ignoreUnknownKeys`, `encodeDefaults`, `explicitNulls`.
+- `useArrayPolymorphism` (object vs `["type",{...}]` array polymorphism),
+  `allowStructuredMapKeys`, `allowSpecialFloatingPointValues` — change what is
+  written *and* accepted.
+- `isLenient`, `decodeEnumsCaseInsensitive`, `allowTrailingComma`, `allowComments` —
+  reader-only acceptance (kotlinx writes the same bytes either way).
+- Not captured: `prettyPrint`/`prettyPrintIndent` (whitespace only).
 
 **Config is part of the contract, so config *changes* are classified too:**
 - flip `namingStrategy` → every key renamed → **BREAK** (both directions)
-- change `classDiscriminator`/mode → polymorphic **BREAK**
+- change `classDiscriminator`/mode, or toggle `useArrayPolymorphism` → polymorphic **BREAK**
 - tighten `ignoreUnknownKeys` true→false → your own readers got stricter →
   **WARN** ("previously-safe additions now break for your services")
 
@@ -757,6 +766,10 @@ yet true for coverage gaps.
 - **Unanalyzable ≠ safe.** Any type the tool can't faithfully model is surfaced as
   an explicit **coverage gap**, governed by `failOnUnanalyzable` (default: WARN, so
   adoption isn't blocked by one exotic type — but loud, never assumed-safe).
+  The gap covers either side: a type that was opaque in the *baseline* but is
+  analysed now (a newer extractor, or a code change) has no prior shape to diff,
+  so it is one coverage gap, not a remove + add (a false BREAK). The reverse,
+  analysed → opaque, stays remove + add *plus* the gap: a coverage loss stays loud.
 - **Determinism:** sorted + normalized snapshot ⇒ re-runs byte-identical, field
   reordering yields zero diff. BFS + visited-set for cyclic graphs.
 
@@ -917,14 +930,17 @@ beyond the original roadmap: discovery modes + `serialkompat-annotations`
   fields are checked via hole resolution (#139); **per-instantiation** shape
   (`BaseResponse<User>` vs `BaseResponse<Order>` — type args are erased in type
   refs) and **generic sealed/polymorphic** hierarchies remain gaps. The classifier
-  suppresses an `ElementTypeChanged` whenever *either* side of the change bears a
-  hole, which is broader than just container/arity flips: **any** concrete-argument
-  change beside a hole is also suppressed this cut, including a real break such as
-  `Map<String,#0>` → `Map<Int,#0>` (a map-key type change, not flagged) alongside
-  the narrower container/arity case (`List<#0>` → `Set<#0>`). A hole-normalized
-  structural compare — diffing only the concrete positions of a hole-bearing type
-  string rather than suppressing the whole change — is a possible follow-up to
-  tighten this.
+  suppresses an `ElementTypeChanged` when *exactly one* side bears a hole — the
+  fill-if-absent hole↔concrete flip, which is coverage moving, not a wire change —
+  or when both sides bear holes but differ only in hole ordinals (`List<#0>` →
+  `List<#1>`). When *both* sides bear holes otherwise, both are hole-form renderings
+  of the declaration, so the difference is a real shape change and is classified as
+  `PROPERTY_TYPE_CHANGED` (`List<#0>` → `#0`, `List<#0>` → `Set<#0>`,
+  `Map<String,#0>` → `Map<Int,#0>`; oracle-backed). Still a gap: an envelope change
+  made in the same step as a hole↔concrete flip (`List<#0>` → `kotlin.String`) is
+  indistinguishable at the element level from a fill and stays suppressed; a
+  wildcard structural compare (a hole matches any type, the surrounding envelope
+  must match) would tighten this.
 - Contextual serializers require the `SerializersModule` (supplied by the `Json`
   instance the user points at).
 - Rebuilding *recent* refs is reliable; *ancient* ones are not (→ old baselines

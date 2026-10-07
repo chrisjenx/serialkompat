@@ -178,8 +178,11 @@ public class Classifier(
                 // A hole (#n) is a generic type-parameter position, checked at concrete use sites,
                 // not on the envelope. Fill-if-absent extraction (#139) flips a field between a hole
                 // and a concrete type when a use-site is added/removed; that transition is coverage
-                // moving, not the wire shape changing, so it is never a finding (either side hole-bearing).
-                if (isHoleBearing(change.oldType) || isHoleBearing(change.newType)) {
+                // moving, not the wire shape changing, so it is never a finding (one side hole-bearing).
+                // When *both* sides bear holes, both are hole-form renderings of the declaration, so a
+                // difference beyond hole ordinals (List<#0> -> #0, Map<String,#1> -> Map<Int,#1>) is a
+                // real declared-shape change and is classified like any other type change.
+                if (isHoleOnlyTransition(change.oldType, change.newType)) {
                     null
                 } else {
                     Verdict(
@@ -418,6 +421,53 @@ public class Classifier(
                     )
                 }
 
+                // Reader-only acceptance flags: they never change what is written (kotlinx emits the
+                // same bytes either way), but tightening one makes the NEW reader reject input the
+                // old one accepted — e.g. a non-kotlinx producer's unquoted strings, differently-cased
+                // enum constants, trailing commas, or comments. Conditional on the data → WARN.
+                "isLenient", "decodeEnumsCaseInsensitive", "allowTrailingComma", "allowComments" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_READER_STRICTNESS,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        Severity.SAFE,
+                        "A stricter reader now rejects input the previous reader accepted.",
+                    )
+                }
+
+                // Reshapes EVERY polymorphic payload ({"type":..} object <-> ["..",{..}] array);
+                // each reader rejects the other shape — both directions, like a discriminator change.
+                "useArrayPolymorphism" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_ARRAY_POLYMORPHISM,
+                        Severity.BREAK,
+                        Severity.BREAK,
+                        "Toggling useArrayPolymorphism changes the shape of every polymorphic payload; " +
+                            "keep it stable or bump major.",
+                    )
+                }
+
+                // Without it a structured-key map can be neither encoded nor decoded, so the reader
+                // that lacks it rejects every such map the other side writes. Conservatively BREAK in
+                // that direction (exact only when the model has a structured-key map).
+                "allowStructuredMapKeys" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_STRUCTURED_MAP_KEYS,
+                        if (disabled) Severity.BREAK else Severity.SAFE,
+                        if (disabled) Severity.SAFE else Severity.BREAK,
+                        "A reader without allowStructuredMapKeys rejects maps with non-primitive keys.",
+                    )
+                }
+
+                // NaN/Infinity: the reader that lacks it rejects such values — only if the data has them.
+                "allowSpecialFloatingPointValues" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_SPECIAL_FLOATS,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        if (disabled) Severity.SAFE else Severity.WARN,
+                        "A reader without allowSpecialFloatingPointValues rejects NaN/Infinity values.",
+                    )
+                }
+
                 // Writer-side (forward only): the NEW writer may omit fields the old reader expects.
                 "encodeDefaults" -> {
                     ConfigSpec(
@@ -496,6 +546,24 @@ public class Classifier(
      */
     private fun isHoleBearing(typeRef: String): Boolean =
         typeRef.split('<', '>', ',').any { HOLE_SENTINEL.matches(it.trim().removeSuffix("?")) }
+
+    /**
+     * Whether an `ElementTypeChanged` from [oldType] to [newType] is hole bookkeeping rather than a
+     * wire change: exactly one side bears a hole (a fill-if-absent hole<->concrete flip, #139), or both
+     * do but differ only in hole ordinals (`List<#0>` vs `List<#1>`).
+     */
+    private fun isHoleOnlyTransition(
+        oldType: String,
+        newType: String,
+    ): Boolean {
+        val oldHoles = isHoleBearing(oldType)
+        val newHoles = isHoleBearing(newType)
+        return when {
+            oldHoles != newHoles -> true
+            oldHoles -> HOLE_SENTINEL.replace(oldType, "#") == HOLE_SENTINEL.replace(newType, "#")
+            else -> false
+        }
+    }
 
     private class Verdict(
         val rule: String,

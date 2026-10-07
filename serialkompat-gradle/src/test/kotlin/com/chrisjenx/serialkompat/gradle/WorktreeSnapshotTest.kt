@@ -38,6 +38,39 @@ class WorktreeSnapshotTest {
     }
 
     @Test
+    fun `the nested extract is told where to write, so a relocated build dir in the worktree is found`() {
+        val worktreeDir = File(rootDir, "worktree")
+        val output = worktreeSnapshotFile(worktreeDir)
+
+        val args = nestedExtractArguments(":proj", output)
+
+        assertEquals(":proj:serialkompatExtract", args.first())
+        assertTrue(
+            "-Pserialkompat.internal.extractOutput=${output.absolutePath}" in args,
+            "the nested build must receive an explicit output location; args: $args",
+        )
+    }
+
+    @Test
+    fun `the root project's nested extract task has no empty path segment`() {
+        val args = nestedExtractArguments(":", worktreeSnapshotFile(File(rootDir, "worktree")))
+
+        assertEquals(":serialkompatExtract", args.first())
+    }
+
+    @Test
+    fun `reads the explicitly-located snapshot, preferring it over the default build dir`() {
+        val projectDir = File(rootDir, "proj").apply { mkdirs() }
+        val worktreeDir = File(rootDir, "worktree")
+        worktreeSnapshotFile(worktreeDir).apply { parentFile.mkdirs() }.writeText("explicit")
+        File(worktreeDir, "proj/build/serialkompat/current.snapshot")
+            .apply { parentFile.mkdirs() }
+            .writeText("legacy")
+
+        assertEquals("explicit", readWorktreeSnapshot(rootDir, projectDir, worktreeDir))
+    }
+
+    @Test
     fun `fails closed with a clear message when the nested extract never wrote a snapshot`() {
         val projectDir = File(rootDir, "proj").apply { mkdirs() }
         val worktreeDir = File(rootDir, "worktree").apply { mkdirs() }

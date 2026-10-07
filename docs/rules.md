@@ -53,7 +53,10 @@ the side encoding it. Backward, the reader is your new code; forward, it's your 
 | `DISCRIMINATOR_COLLISION` | Subtype property shadows the class discriminator (unserializable model) | ❌ BREAK | ❌ BREAK | no¹ |
 | `CONFIG_NAMING_STRATEGY` | `namingStrategy` changed | ❌ BREAK | ❌ BREAK | — |
 | `CONFIG_DISCRIMINATOR` | `classDiscriminator` or `classDiscriminatorMode` changed | ❌ BREAK | ❌ BREAK | — |
-| `CONFIG_READER_STRICTNESS` | `ignoreUnknownKeys` / `useAlternativeNames` changed | ⚠️ WARN if tightened, ✅ SAFE if loosened | ✅ SAFE | — |
+| `CONFIG_READER_STRICTNESS` | `ignoreUnknownKeys` / `useAlternativeNames` / `isLenient` / `decodeEnumsCaseInsensitive` / `allowTrailingComma` / `allowComments` changed | ⚠️ WARN if tightened, ✅ SAFE if loosened | ✅ SAFE | — |
+| `CONFIG_ARRAY_POLYMORPHISM` | `useArrayPolymorphism` toggled (`{"type":..}` object ↔ `["..",{..}]` array) | ❌ BREAK | ❌ BREAK | — |
+| `CONFIG_STRUCTURED_MAP_KEYS` | `allowStructuredMapKeys` toggled | ❌ BREAK if disabled, ✅ SAFE if enabled | ✅ SAFE if disabled, ❌ BREAK if enabled | — |
+| `CONFIG_SPECIAL_FLOATS` | `allowSpecialFloatingPointValues` toggled (`NaN`/`Infinity`) | ⚠️ WARN if disabled, ✅ SAFE if enabled | ✅ SAFE if disabled, ⚠️ WARN if enabled | — |
 | `CONFIG_ENCODE_DEFAULTS` | `encodeDefaults` toggled | ✅ SAFE | ⚠️ WARN if disabled, ✅ SAFE if enabled | — |
 | `CONFIG_EXPLICIT_NULLS` | `explicitNulls` toggled | ⚠️ WARN | ⚠️ WARN | — |
 | `CONFIG_COERCE_INPUT` | `coerceInputValues` toggled | ⚠️ WARN if disabled, ✅ SAFE if enabled | ✅ SAFE | — |

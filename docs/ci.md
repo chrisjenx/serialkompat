@@ -154,7 +154,9 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
 - **The check tasks are never cached or up-to-date, on purpose.** Their result
   depends on what the baseline ref points at *now*, which isn't a task input. The
   expensive part, the baseline snapshot, is still reused: it is stored per commit
-  SHA in `build/serialkompat/baseline/` and benefits from the extract cache above.
+  SHA and serialkompat version in `build/serialkompat/baseline/`, and benefits from
+  the extract cache above. Upgrading serialkompat re-extracts the baseline instead
+  of reusing one an older version produced.
 - **Parallel multi-module builds are safe.** Under `--parallel`, modules take turns
   extracting their baselines through one shared build service. That avoids
   competing git worktree operations and many nested Gradle builds starting at once.

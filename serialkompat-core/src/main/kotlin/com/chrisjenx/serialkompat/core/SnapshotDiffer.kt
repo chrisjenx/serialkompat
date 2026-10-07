@@ -15,7 +15,9 @@ package com.chrisjenx.serialkompat.core
  * name order, then each contract's member deltas in a fixed order, and finally the
  * per-snapshot static-defect scans over the current snapshot — [Change.CoverageGap]
  * for each unanalysable type, then [Change.DiscriminatorCollision] for each
- * unserializable subtype/discriminator clash.
+ * unserializable subtype/discriminator clash. A contract that was `OPAQUE` in the
+ * baseline but is analysed now is the one exception: it has no prior shape to diff,
+ * so it yields a [Change.CoverageGap] in its serial-name slot instead of a remove + add.
  */
 public object SnapshotDiffer {
     /**
@@ -30,6 +32,19 @@ public object SnapshotDiffer {
         old: Snapshot,
         new: Snapshot,
         renames: Map<String, String> = emptyMap(),
+    ): List<Change> = diff(old, new, renames, enumReaders = old)
+
+    /**
+     * As [diff], but judges enum coercibility (#129) over [enumReaders] — the *unscoped* baseline —
+     * rather than [old]. Coercibility is a fact about every reader on the wire: a required reference
+     * from a contract outside the checked scope (e.g. one owned by another module) still throws on an
+     * added value, so it must disqualify the coerce-rescued WARN even though that contract isn't checked.
+     */
+    internal fun diff(
+        old: Snapshot,
+        new: Snapshot,
+        renames: Map<String, String>,
+        enumReaders: Snapshot,
     ): List<Change> =
         buildList {
             addAll(diffConfig(old.config, new.config))
@@ -39,7 +54,7 @@ public object SnapshotDiffer {
 
             // Which enums, in the *baseline* (old = the forward reader), are read only by defaulted
             // direct properties — the precondition for coerceInputValues to rescue an added value (#129).
-            val oldCoercibleEnums = coercibleEnumNames(old)
+            val oldCoercibleEnums = coercibleEnumNames(enumReaders)
 
             // Honour a rename only for a genuine move: the source must be gone from `new` and
             // the target new to `old`. Otherwise both endpoints are still present, and treating
@@ -120,6 +135,17 @@ public object SnapshotDiffer {
                 Triple("ignoreUnknownKeys", old.ignoreUnknownKeys, new.ignoreUnknownKeys),
                 Triple("namingStrategy", old.namingStrategy, new.namingStrategy),
                 Triple("useAlternativeNames", old.useAlternativeNames, new.useAlternativeNames),
+                Triple("useArrayPolymorphism", old.useArrayPolymorphism, new.useArrayPolymorphism),
+                Triple("allowStructuredMapKeys", old.allowStructuredMapKeys, new.allowStructuredMapKeys),
+                Triple(
+                    "allowSpecialFloatingPointValues",
+                    old.allowSpecialFloatingPointValues,
+                    new.allowSpecialFloatingPointValues,
+                ),
+                Triple("isLenient", old.isLenient, new.isLenient),
+                Triple("decodeEnumsCaseInsensitive", old.decodeEnumsCaseInsensitive, new.decodeEnumsCaseInsensitive),
+                Triple("allowTrailingComma", old.allowTrailingComma, new.allowTrailingComma),
+                Triple("allowComments", old.allowComments, new.allowComments),
             )
         return fields
             .filter { (_, before, after) -> before != after }
@@ -131,6 +157,14 @@ public object SnapshotDiffer {
         after: Contract,
         oldCoercibleEnums: Set<String>,
     ): List<Change> {
+        // A baseline coverage gap that is now analysable (a newer extractor, or a code change) is a
+        // coverage gain, not a different type: the old wire shape was never seen, so there is nothing
+        // to remove or compare. It is still unverified this run, so it surfaces as a gap — never a
+        // silent pass ("unanalysable ≠ safe", design §10). The reverse (analysed → OPAQUE) stays
+        // remove + add below, plus the trailing scan's gap: a coverage loss must stay loud.
+        if (before.kind == ContractKind.OPAQUE && after.kind != ContractKind.OPAQUE) {
+            return listOf(Change.CoverageGap(after.serialName))
+        }
         // A change of kind (e.g. CLASS → ENUM) is a different type on the wire;
         // surface it as remove + add rather than a fabricated member diff.
         if (before.kind != after.kind) {
@@ -247,9 +281,7 @@ public object SnapshotDiffer {
                             disqualified += enumName
                         }
 
-                        EnumRef.NONE -> {
-                            Unit
-                        }
+                        EnumRef.NONE -> {}
                     }
                 }
             }

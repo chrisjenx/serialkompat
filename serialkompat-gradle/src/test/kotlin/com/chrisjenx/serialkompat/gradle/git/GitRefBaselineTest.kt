@@ -58,11 +58,11 @@ class GitRefBaselineTest {
                 mapOf(
                     "rev-parse --verify main^{commit}" to "sha1\n",
                     "worktree prune" to "",
-                    "worktree add --detach $worktree main" to "",
+                    "worktree add --detach $worktree sha1" to "",
                     "worktree remove --force $worktree" to "",
                 ),
             )
-        val cache = SnapshotCache(tempDir.resolve("cache"))
+        val cache = SnapshotCache(tempDir.resolve("cache"), toolVersion = "1.0.0")
         var extractCalls = 0
         val extract: (File) -> String = { _ ->
             extractCalls++
@@ -77,6 +77,52 @@ class GitRefBaselineTest {
         val second = GitRefBaseline(git).snapshotAt("main", tempDir, cache, extract)
         assertEquals(first, second)
         assertEquals(1, extractCalls)
+    }
+
+    @Test
+    fun `snapshotAt checks out the resolved sha, not the ref, so a moving ref can't poison the cache`() {
+        // The ref advances between resolution and checkout (a concurrent fetch/push). Checking out
+        // the REF would extract sha2's schema and cache it under sha1 permanently.
+        val worktree = tempDir.resolve("sha1").absolutePath
+        val git =
+            object : GitCommands {
+                val added = mutableListOf<List<String>>()
+                var refSha = "sha1"
+
+                override fun run(vararg args: String): String {
+                    val key = args.joinToString(" ")
+                    return when {
+                        key == "rev-parse --verify main^{commit}" -> "$refSha\n".also { refSha = "sha2" }
+                        key.startsWith("worktree add") -> "".also { added += args.toList() }
+                        key.startsWith("worktree") -> ""
+                        else -> error("fake git: unexpected command '$key'")
+                    }
+                }
+            }
+        val cache = SnapshotCache(tempDir.resolve("cache"), toolVersion = "1.0.0")
+
+        GitRefBaseline(git).snapshotAt("main", tempDir, cache) { "@config\n  namingStrategy=none" }
+
+        assertEquals(listOf(listOf("worktree", "add", "--detach", worktree, "sha1")), git.added)
+        assertEquals("@config\n  namingStrategy=none", cache.get("sha1"))
+    }
+
+    @Test
+    fun `withWorktree checks out the resolved sha it names the worktree after`() {
+        val worktree = tempDir.resolve("sha9").absolutePath
+        val git =
+            FakeGit(
+                mapOf(
+                    "rev-parse --verify main^{commit}" to "sha9\n",
+                    "worktree prune" to "",
+                    "worktree add --detach $worktree sha9" to "",
+                    "worktree remove --force $worktree" to "",
+                ),
+            )
+
+        GitRefBaseline(git).withWorktree("main", tempDir) { it }
+
+        assertTrue(git.commands.contains(listOf("worktree", "add", "--detach", worktree, "sha9")))
     }
 
     @Test
@@ -109,11 +155,11 @@ class GitRefBaselineTest {
                 mapOf(
                     "rev-parse --verify main^{commit}" to "sha2\n",
                     "worktree prune" to "",
-                    "worktree add --detach ${tempDir.resolve("sha2").absolutePath} main" to "",
+                    "worktree add --detach ${tempDir.resolve("sha2").absolutePath} sha2" to "",
                     "worktree remove --force ${tempDir.resolve("sha2").absolutePath}" to "",
                 ),
             )
-        val cache = SnapshotCache(tempDir.resolve("cache"))
+        val cache = SnapshotCache(tempDir.resolve("cache"), toolVersion = "1.0.0")
         assertFailsWith<IllegalStateException> {
             GitRefBaseline(git).snapshotAt("main", tempDir, cache) { error("boom") }
         }

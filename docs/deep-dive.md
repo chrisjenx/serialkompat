@@ -136,8 +136,9 @@ sequenceDiagram
 ### Caching
 
 The baseline is cached per module under `build/serialkompat/baseline/`, keyed by
-the resolved commit SHA. A commit's source never changes, so the same SHA is never
-extracted twice.
+the resolved commit SHA and the serialkompat version. A commit's source never
+changes, so each SHA is extracted only once per serialkompat version. After an
+upgrade, the baseline is re-extracted rather than reusing an older version's.
 
 The cache can't hand you a bad baseline. Writes are atomic. An entry that doesn't
 parse as a snapshot counts as a miss: it is deleted and re-extracted.

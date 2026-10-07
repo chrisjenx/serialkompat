@@ -91,4 +91,32 @@ class JsonConfigReaderTest {
         assertEquals(false, JsonConfigReader.read(Json { useAlternativeNames = false }).useAlternativeNames)
         assertEquals(true, JsonConfigReader.read(Json).useAlternativeNames)
     }
+
+    @Test
+    fun `wire-shape and reader-acceptance flags are read`() {
+        val config =
+            JsonConfigReader.read(
+                Json {
+                    useArrayPolymorphism = true
+                    allowStructuredMapKeys = true
+                    allowSpecialFloatingPointValues = true
+                    isLenient = true
+                    decodeEnumsCaseInsensitive = true
+                    allowTrailingComma = true
+                    allowComments = true
+                },
+            )
+        assertEquals(
+            SnapshotConfig(
+                useArrayPolymorphism = true,
+                allowStructuredMapKeys = true,
+                allowSpecialFloatingPointValues = true,
+                isLenient = true,
+                decodeEnumsCaseInsensitive = true,
+                allowTrailingComma = true,
+                allowComments = true,
+            ),
+            config,
+        )
+    }
 }

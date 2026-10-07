@@ -4,6 +4,7 @@ import com.chrisjenx.serialkompat.core.Change
 import com.chrisjenx.serialkompat.core.Classifier
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
 import com.chrisjenx.serialkompat.core.Contract
+import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.Rules
 import com.chrisjenx.serialkompat.core.Severity
 import com.chrisjenx.serialkompat.core.Snapshot
@@ -15,6 +16,11 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.ClassDiscriminatorMode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonClassDiscriminator
@@ -1118,6 +1124,42 @@ class RoundTripOracleTest {
         assertEquals(Severity.BREAK, forwardAddedSubtype(oldNoDefault), "no default deserializer → forward BREAK")
     }
 
+    @Test
+    fun `an open base extracted without its module registrations is not read as safe`() {
+        // The open base's subtypes live only in the SerializersModule. When extraction can't see that
+        // module (no/unloadable jsonInstance), both versions used to record POLYMORPHIC with an empty
+        // subtype list, identical on both sides, so the diff came back all-clear. Real ground truth:
+        // removing the `cat` registration breaks reading old `cat` payloads.
+        val oldModule =
+            SerializersModule {
+                polymorphic(Pet::class) {
+                    subclass(Dog::class)
+                    subclass(Cat::class)
+                }
+            }
+        val newModule = SerializersModule { polymorphic(Pet::class) { subclass(Dog::class) } }
+        val oldData = Json { serializersModule = oldModule }.encodeToString(serializer<Pet>(), Cat(9))
+        assertFailsWith<Exception> {
+            Json { serializersModule = newModule }.decodeFromString(serializer<Pet>(), oldData)
+        }
+
+        // Extracted without the module, the gate can't see that change, so it must say so (a coverage
+        // gap in both directions) rather than pass silently: unanalysable ≠ safe.
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), EmptySerializersModule()),
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<Pet>().descriptor), EmptySerializersModule()),
+                ),
+            )
+        for (direction in listOf(CompatibilityDirection.BACKWARD, CompatibilityDirection.FORWARD)) {
+            assertTrue(
+                findings.any { it.direction == direction && it.rule == Rules.COVERAGE_GAP },
+                "$direction: an open base with no visible subtypes must surface as a coverage gap; got $findings",
+            )
+        }
+    }
+
     // --- sealed base + module default deserializer (the `Unknown` fallback idiom) ---
 
     @Serializable
@@ -1321,6 +1363,51 @@ class RoundTripOracleTest {
         )
     }
 
+    @Serializable
+    @SerialName("BoxListV1")
+    private data class BoxListV1<T>(
+        val items: List<T>,
+    )
+
+    @Serializable
+    @SerialName("BoxBareV2")
+    private data class BoxBareV2<T>(
+        val items: T, // List<T> -> T: the envelope around the hole changed (array -> scalar/object)
+    )
+
+    @Test
+    fun `oracle - an envelope change around a hole is a BREAK both ways, matching the real library`() {
+        // Both sides are hole-form (root-only) extractions: List<#0> -> #0. No fill-if-absent flip can
+        // produce hole-bearing types on both sides, so this is a declared-shape change, not coverage moving.
+        val baseline = renameContract(extractGeneric(BoxListV1::class), "BoxListV1", "BoxBareV2")
+        val current = extractGeneric(BoxBareV2::class)
+        val findings = Classifier().classify(SnapshotDiffer.diff(baseline, current), baseline.config, current.config)
+        val typeChanged = findings.filter { it.rule == Rules.PROPERTY_TYPE_CHANGED && it.contract == "BoxBareV2" }
+        assertEquals(
+            Severity.BREAK,
+            typeChanged.singleOrNull { it.direction == CompatibilityDirection.BACKWARD }?.severity,
+            "expected a backward PROPERTY_TYPE_CHANGED BREAK: $findings",
+        )
+        assertEquals(
+            Severity.BREAK,
+            typeChanged.singleOrNull { it.direction == CompatibilityDirection.FORWARD }?.severity,
+            "expected a forward PROPERTY_TYPE_CHANGED BREAK: $findings",
+        )
+
+        // The real library: old data (an array) can't decode under the new model, nor new data (a scalar)
+        // under the old one, for the same instantiation.
+        val oldJson = Json.encodeToString(BoxListV1.serializer(String.serializer()), BoxListV1(listOf("a")))
+        val newJson = Json.encodeToString(BoxBareV2.serializer(String.serializer()), BoxBareV2("a"))
+        assertTrue(
+            runCatching { Json.decodeFromString(BoxBareV2.serializer(String.serializer()), oldJson) }.isFailure,
+            "backward: the new reader must reject the old array payload $oldJson",
+        )
+        assertTrue(
+            runCatching { Json.decodeFromString(BoxListV1.serializer(String.serializer()), newJson) }.isFailure,
+            "forward: the old reader must reject the new scalar payload $newJson",
+        )
+    }
+
     // --- reader-tolerance + coerce-input config oracles (#119) -----------------
 
     @Serializable
@@ -1376,6 +1463,226 @@ class RoundTripOracleTest {
             strictReader = Json {},
             expectedRule = Rules.CONFIG_COERCE_INPUT,
         )
+    }
+
+    // --- previously-uncaptured wire-relevant Json flags ------------------------
+
+    @Serializable
+    @SerialName("MapKey")
+    private data class MapKey(
+        val a: Int,
+    )
+
+    @Serializable
+    @SerialName("StructuredMapHolder")
+    private data class StructuredMapHolder(
+        val m: Map<MapKey, Int>,
+    )
+
+    @Serializable
+    @SerialName("FloatHolder")
+    private data class FloatHolder(
+        val f: Double,
+    )
+
+    @Serializable
+    @SerialName("LenientHolder")
+    private data class LenientHolder(
+        val s: String,
+        val e: CaseEnum = CaseEnum.Alpha,
+    )
+
+    @Serializable
+    @SerialName("CaseEnum")
+    private enum class CaseEnum { Alpha, Beta }
+
+    /**
+     * Config-divergence oracle for a flag whose effect only shows on a specific payload. [rawPayload]
+     * is what the [direction]'s writer side produces/accepts; the real library proves that side
+     * decodes it and the other side's reader rejects it. Then the real reader→differ→classifier path
+     * must report exactly [expectedRule] at [expectedSeverity] in [direction], and nothing the other way.
+     */
+    private fun <T> assertConfigDivergence(
+        serializer: KSerializer<T>,
+        rawPayload: String,
+        oldJson: Json,
+        newJson: Json,
+        direction: CompatibilityDirection,
+        expectedRule: String,
+        expectedSeverity: Severity,
+    ) {
+        // backward = new reader <- old data; forward = old reader <- new data.
+        val (writerSide, readerSide) =
+            if (direction == CompatibilityDirection.BACKWARD) oldJson to newJson else newJson to oldJson
+        writerSide.decodeFromString(serializer, rawPayload)
+        assertFailsWith<Exception> { readerSide.decodeFromString(serializer, rawPayload) }
+        val oldConfig = JsonConfigReader.read(oldJson)
+        val newConfig = JsonConfigReader.read(newJson)
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(serializer.descriptor), config = oldConfig),
+                DescriptorSnapshotExtractor.extract(listOf(serializer.descriptor), config = newConfig),
+            )
+        val findings = Classifier().classify(changes, oldConfig, newConfig)
+        val finding = findings.single { it.direction == direction }
+        assertEquals(expectedRule, finding.rule)
+        assertEquals(expectedSeverity, finding.severity)
+        assertTrue(findings.none { it.direction != direction }, "unexpected opposite-direction finding: $findings")
+    }
+
+    @Test
+    fun `toggling useArrayPolymorphism reshapes every polymorphic payload — a real break both ways`() {
+        // Object form {"type":"a","x":1} vs array form ["a",{"x":1}]: each reader rejects the other's shape.
+        assertConfigOracle(
+            serializer<Poly>(),
+            Poly.A(1),
+            oldJson = strict,
+            newJson = Json { useArrayPolymorphism = true },
+        )
+        val oldCfg = JsonConfigReader.read(strict)
+        val newCfg = JsonConfigReader.read(Json { useArrayPolymorphism = true })
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<Poly>().descriptor), config = oldCfg),
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<Poly>().descriptor), config = newCfg),
+                ),
+                oldCfg,
+                newCfg,
+            )
+        assertEquals(
+            setOf(CompatibilityDirection.BACKWARD, CompatibilityDirection.FORWARD),
+            findings
+                .filter { it.rule == Rules.CONFIG_ARRAY_POLYMORPHISM && it.severity == Severity.BREAK }
+                .map { it.direction }
+                .toSet(),
+        )
+    }
+
+    @Test
+    fun `disabling allowStructuredMapKeys makes stored structured-key maps undecodable — backward BREAK`() {
+        val writer = Json { allowStructuredMapKeys = true }
+        val payload =
+            writer.encodeToString(
+                serializer<StructuredMapHolder>(),
+                StructuredMapHolder(mapOf(MapKey(1) to 2)),
+            )
+        assertEquals("""{"m":[{"a":1},2]}""", payload)
+        assertConfigDivergence(
+            serializer<StructuredMapHolder>(),
+            payload,
+            oldJson = writer,
+            newJson = strict,
+            direction = CompatibilityDirection.BACKWARD,
+            expectedRule = Rules.CONFIG_STRUCTURED_MAP_KEYS,
+            expectedSeverity = Severity.BREAK,
+        )
+    }
+
+    @Test
+    fun `enabling allowStructuredMapKeys emits maps an old reader rejects — forward BREAK`() {
+        val writer = Json { allowStructuredMapKeys = true }
+        val payload =
+            writer.encodeToString(
+                serializer<StructuredMapHolder>(),
+                StructuredMapHolder(mapOf(MapKey(1) to 2)),
+            )
+        assertConfigDivergence(
+            serializer<StructuredMapHolder>(),
+            payload,
+            oldJson = strict,
+            newJson = writer,
+            direction = CompatibilityDirection.FORWARD,
+            expectedRule = Rules.CONFIG_STRUCTURED_MAP_KEYS,
+            expectedSeverity = Severity.BREAK,
+        )
+    }
+
+    @Test
+    fun `disabling allowSpecialFloatingPointValues rejects stored NaN — backward WARN`() {
+        val writer = Json { allowSpecialFloatingPointValues = true }
+        val payload = writer.encodeToString(serializer<FloatHolder>(), FloatHolder(Double.NaN))
+        assertEquals("""{"f":NaN}""", payload)
+        assertConfigDivergence(
+            serializer<FloatHolder>(),
+            payload,
+            oldJson = writer,
+            newJson = strict,
+            direction = CompatibilityDirection.BACKWARD,
+            expectedRule = Rules.CONFIG_SPECIAL_FLOATS,
+            expectedSeverity = Severity.WARN,
+        )
+    }
+
+    @Test
+    fun `enabling allowSpecialFloatingPointValues emits NaN an old reader rejects — forward WARN`() {
+        val writer = Json { allowSpecialFloatingPointValues = true }
+        assertConfigDivergence(
+            serializer<FloatHolder>(),
+            writer.encodeToString(serializer<FloatHolder>(), FloatHolder(Double.POSITIVE_INFINITY)),
+            oldJson = strict,
+            newJson = writer,
+            direction = CompatibilityDirection.FORWARD,
+            expectedRule = Rules.CONFIG_SPECIAL_FLOATS,
+            expectedSeverity = Severity.WARN,
+        )
+    }
+
+    @Test
+    fun `disabling isLenient makes a tolerated unquoted string throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<LenientHolder>(),
+            rawPayload = """{"s":hello}""",
+            tolerant = Json { isLenient = true },
+            strictReader = Json {},
+            expectedRule = Rules.CONFIG_READER_STRICTNESS,
+        )
+    }
+
+    @Test
+    fun `disabling decodeEnumsCaseInsensitive makes a differently-cased constant throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<LenientHolder>(),
+            rawPayload = """{"s":"x","e":"BETA"}""",
+            tolerant = Json { decodeEnumsCaseInsensitive = true },
+            strictReader = Json {},
+            expectedRule = Rules.CONFIG_READER_STRICTNESS,
+        )
+    }
+
+    @Test
+    fun `disabling allowTrailingComma makes a trailing comma throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<LenientHolder>(),
+            rawPayload = """{"s":"x",}""",
+            tolerant = Json { allowTrailingComma = true },
+            strictReader = Json {},
+            expectedRule = Rules.CONFIG_READER_STRICTNESS,
+        )
+    }
+
+    @Test
+    fun `disabling allowComments makes a commented payload throw — backward WARN`() {
+        assertReaderToleranceObservable(
+            serializer<LenientHolder>(),
+            rawPayload = """{/* legacy */"s":"x"}""",
+            tolerant = Json { allowComments = true },
+            strictReader = Json {},
+            expectedRule = Rules.CONFIG_READER_STRICTNESS,
+        )
+    }
+
+    @Test
+    fun `reader-only acceptance flags never change what the writer emits`() {
+        // Why they're backward-only (reader-side) rules: the bytes written are identical with or without them.
+        val value = LenientHolder("x", CaseEnum.Beta)
+        val expected = strict.encodeToString(serializer<LenientHolder>(), value)
+        listOf(
+            Json { isLenient = true },
+            Json { decodeEnumsCaseInsensitive = true },
+            Json { allowTrailingComma = true },
+            Json { allowComments = true },
+        ).forEach { assertEquals(expected, it.encodeToString(serializer<LenientHolder>(), value)) }
     }
 
     // --- DISCRIMINATOR_CHANGED via @JsonClassDiscriminator ---------------------
@@ -1479,6 +1786,57 @@ class RoundTripOracleTest {
         )
     }
 
+    // --- baseline OPAQUE -> analysed: a coverage gap, not a removal ------------------
+
+    /** V1 of "Money": a hand-written serializer the extractor can't see into (records OPAQUE). */
+    private object MoneyAsStringSerializer : KSerializer<String> {
+        override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Money", PrimitiveKind.STRING)
+
+        override fun serialize(
+            encoder: Encoder,
+            value: String,
+        ) = encoder.encodeString(value)
+
+        override fun deserialize(decoder: Decoder): String = decoder.decodeString()
+    }
+
+    /** V2 of "Money": the same serial name, now a plain analysable class. */
+    @Serializable
+    @SerialName("Money")
+    private data class MoneyV2(
+        val amount: Long,
+        val currency: String,
+    )
+
+    @Test
+    fun `a baseline-opaque type that becomes analysable is a coverage gap, never a removal or safe`() {
+        val cfg = JsonConfigReader.read(Json {})
+        val before = DescriptorSnapshotExtractor.extract(listOf(MoneyAsStringSerializer.descriptor), config = cfg)
+        val after = DescriptorSnapshotExtractor.extract(listOf(serializer<MoneyV2>().descriptor), config = cfg)
+        assertEquals(ContractKind.OPAQUE, before.contracts.single { it.serialName == "Money" }.kind)
+        assertEquals(ContractKind.CLASS, after.contracts.single { it.serialName == "Money" }.kind)
+
+        // Ground truth: the opaque V1's wire shape (a bare string) is incompatible with V2 both ways —
+        // which the gate could never have known, since it never saw V1's shape.
+        val v1 = strict.encodeToString(MoneyAsStringSerializer, "12.00 USD")
+        val v2 = strict.encodeToString(serializer<MoneyV2>(), MoneyV2(1200, "USD"))
+        assertFailsWith<Exception> { strict.decodeFromString(serializer<MoneyV2>(), v1) }
+        assertFailsWith<Exception> { strict.decodeFromString(MoneyAsStringSerializer, v2) }
+
+        // So the transition is unverifiable: a COVERAGE_GAP WARN in both directions (not silently safe),
+        // and not a CONTRACT_REMOVED — the type wasn't removed, the gate just couldn't see it before.
+        val findings = Classifier().classify(SnapshotDiffer.diff(before, after), cfg, cfg)
+        assertTrue(findings.none { it.rule == Rules.CONTRACT_REMOVED }, "not a removal: $findings")
+        for (direction in listOf(CompatibilityDirection.BACKWARD, CompatibilityDirection.FORWARD)) {
+            assertTrue(
+                findings.any {
+                    it.direction == direction && it.rule == Rules.COVERAGE_GAP && it.severity == Severity.WARN
+                },
+                "$direction: an unverifiable opaque → analysed transition must surface as a gap; got $findings",
+            )
+        }
+    }
+
     // --- exhaustiveness guard: every SnapshotConfig field maps to a rule -------
 
     // Note: not named `Named` — that identifier is already taken above (orderId/lineTotal, used by
@@ -1504,6 +1862,13 @@ class RoundTripOracleTest {
                 Json { explicitNulls = false },
                 Json { coerceInputValues = true },
                 Json { useAlternativeNames = false },
+                Json { useArrayPolymorphism = true },
+                Json { allowStructuredMapKeys = true },
+                Json { allowSpecialFloatingPointValues = true },
+                Json { isLenient = true },
+                Json { decodeEnumsCaseInsensitive = true },
+                Json { allowTrailingComma = true },
+                Json { allowComments = true },
             )
         val observed = mutableSetOf<String>()
         for (variant in variants) {
@@ -1536,5 +1901,80 @@ class RoundTripOracleTest {
                 .map { it.name }
                 .toSet()
         assertEquals(allFields, observed, "a SnapshotConfig field is not exercised by this guard")
+    }
+
+    // --- serial-name collision across sealed bases ---------------------------------
+
+    @Serializable
+    @SerialName("Ledger")
+    private sealed interface LedgerEvent {
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val ledgerId: String,
+        ) : LedgerEvent
+    }
+
+    @Serializable
+    @SerialName("Account")
+    private sealed interface AccountEventV1 {
+        // Shares the subtype serial name "created" with LedgerEvent.Created (legal across bases).
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val accountId: String,
+        ) : AccountEventV1
+    }
+
+    @Serializable
+    @SerialName("Account")
+    private sealed interface AccountEventV2 {
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val accountId: Int,
+        ) : AccountEventV2
+    }
+
+    @Serializable
+    @SerialName("Feed")
+    private data class FeedV1(
+        val ledger: LedgerEvent,
+        val account: AccountEventV1,
+    )
+
+    @Serializable
+    @SerialName("Feed")
+    private data class FeedV2(
+        val ledger: LedgerEvent,
+        val account: AccountEventV2,
+    )
+
+    @Test
+    fun `a change behind a colliding subtype serial name is never read as safe`() {
+        // Ground truth: Account's `created.accountId` changed String -> Int; old data no longer decodes.
+        val oldData =
+            Json.encodeToString(
+                FeedV1.serializer(),
+                FeedV1(LedgerEvent.Created("l-1"), AccountEventV1.Created("not-a-number")),
+            )
+        assertFailsWith<Exception> { Json.decodeFromString(FeedV2.serializer(), oldData) }
+
+        // The walk deduped "created" by serial name, so Account's subtype was never analysed and the
+        // diff came back empty. It must at least surface as a coverage gap (unanalysable ≠ safe).
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<FeedV1>().descriptor)),
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<FeedV2>().descriptor)),
+                ),
+            )
+        assertTrue(
+            findings.any {
+                it.direction == CompatibilityDirection.BACKWARD &&
+                    (it.severity == Severity.BREAK || it.rule == Rules.COVERAGE_GAP)
+            },
+            "real decode threw but the gate was silent; got $findings",
+        )
     }
 }
