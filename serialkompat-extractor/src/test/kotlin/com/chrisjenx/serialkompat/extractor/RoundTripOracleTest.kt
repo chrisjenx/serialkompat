@@ -4,6 +4,7 @@ import com.chrisjenx.serialkompat.core.Change
 import com.chrisjenx.serialkompat.core.Classifier
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
 import com.chrisjenx.serialkompat.core.Contract
+import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.Rules
 import com.chrisjenx.serialkompat.core.Severity
 import com.chrisjenx.serialkompat.core.Snapshot
@@ -15,6 +16,11 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.ClassDiscriminatorMode
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonClassDiscriminator
@@ -1778,6 +1784,57 @@ class RoundTripOracleTest {
         assertTrue(
             removed.any { it.direction == CompatibilityDirection.FORWARD && it.severity == Severity.BREAK },
         )
+    }
+
+    // --- baseline OPAQUE -> analysed: a coverage gap, not a removal ------------------
+
+    /** V1 of "Money": a hand-written serializer the extractor can't see into (records OPAQUE). */
+    private object MoneyAsStringSerializer : KSerializer<String> {
+        override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Money", PrimitiveKind.STRING)
+
+        override fun serialize(
+            encoder: Encoder,
+            value: String,
+        ) = encoder.encodeString(value)
+
+        override fun deserialize(decoder: Decoder): String = decoder.decodeString()
+    }
+
+    /** V2 of "Money": the same serial name, now a plain analysable class. */
+    @Serializable
+    @SerialName("Money")
+    private data class MoneyV2(
+        val amount: Long,
+        val currency: String,
+    )
+
+    @Test
+    fun `a baseline-opaque type that becomes analysable is a coverage gap, never a removal or safe`() {
+        val cfg = JsonConfigReader.read(Json {})
+        val before = DescriptorSnapshotExtractor.extract(listOf(MoneyAsStringSerializer.descriptor), config = cfg)
+        val after = DescriptorSnapshotExtractor.extract(listOf(serializer<MoneyV2>().descriptor), config = cfg)
+        assertEquals(ContractKind.OPAQUE, before.contracts.single { it.serialName == "Money" }.kind)
+        assertEquals(ContractKind.CLASS, after.contracts.single { it.serialName == "Money" }.kind)
+
+        // Ground truth: the opaque V1's wire shape (a bare string) is incompatible with V2 both ways —
+        // which the gate could never have known, since it never saw V1's shape.
+        val v1 = strict.encodeToString(MoneyAsStringSerializer, "12.00 USD")
+        val v2 = strict.encodeToString(serializer<MoneyV2>(), MoneyV2(1200, "USD"))
+        assertFailsWith<Exception> { strict.decodeFromString(serializer<MoneyV2>(), v1) }
+        assertFailsWith<Exception> { strict.decodeFromString(MoneyAsStringSerializer, v2) }
+
+        // So the transition is unverifiable: a COVERAGE_GAP WARN in both directions (not silently safe),
+        // and not a CONTRACT_REMOVED — the type wasn't removed, the gate just couldn't see it before.
+        val findings = Classifier().classify(SnapshotDiffer.diff(before, after), cfg, cfg)
+        assertTrue(findings.none { it.rule == Rules.CONTRACT_REMOVED }, "not a removal: $findings")
+        for (direction in listOf(CompatibilityDirection.BACKWARD, CompatibilityDirection.FORWARD)) {
+            assertTrue(
+                findings.any {
+                    it.direction == direction && it.rule == Rules.COVERAGE_GAP && it.severity == Severity.WARN
+                },
+                "$direction: an unverifiable opaque → analysed transition must surface as a gap; got $findings",
+            )
+        }
     }
 
     // --- exhaustiveness guard: every SnapshotConfig field maps to a rule -------

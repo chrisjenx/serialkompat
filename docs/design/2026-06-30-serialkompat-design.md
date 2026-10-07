@@ -622,6 +622,10 @@ the report. A model cannot silently fall out of the gate.
 - **Unanalyzable ≠ safe.** Any type the tool can't faithfully model is surfaced as
   an explicit **coverage gap**, governed by `failOnUnanalyzable` (default: WARN, so
   adoption isn't blocked by one exotic type — but loud, never assumed-safe).
+  The gap covers either side: a type that was opaque in the *baseline* but is
+  analysed now (a newer extractor, or a code change) has no prior shape to diff,
+  so it is one coverage gap, not a remove + add (a false BREAK). The reverse,
+  analysed → opaque, stays remove + add *plus* the gap: a coverage loss stays loud.
 - **Determinism:** sorted + normalized snapshot ⇒ re-runs byte-identical, field
   reordering yields zero diff. BFS + visited-set for cyclic graphs.
 

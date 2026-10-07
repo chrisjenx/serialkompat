@@ -141,6 +141,10 @@ public sealed interface Change {
      * could not derive its wire shape (e.g. a custom serializer), so the gate
      * cannot verify it. Surfaced on every diff so an unanalysable type is never
      * silently treated as compatible ("unanalysable ≠ safe", design §10).
+     *
+     * Also raised once for a contract that was `OPAQUE` in the *baseline* but is analysed
+     * in the current snapshot: its old wire shape was never seen, so the transition is
+     * unverifiable — a gap, not a removal.
      */
     public data class CoverageGap(
         val serialName: String,
