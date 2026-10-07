@@ -135,6 +135,17 @@ public object SnapshotDiffer {
                 Triple("ignoreUnknownKeys", old.ignoreUnknownKeys, new.ignoreUnknownKeys),
                 Triple("namingStrategy", old.namingStrategy, new.namingStrategy),
                 Triple("useAlternativeNames", old.useAlternativeNames, new.useAlternativeNames),
+                Triple("useArrayPolymorphism", old.useArrayPolymorphism, new.useArrayPolymorphism),
+                Triple("allowStructuredMapKeys", old.allowStructuredMapKeys, new.allowStructuredMapKeys),
+                Triple(
+                    "allowSpecialFloatingPointValues",
+                    old.allowSpecialFloatingPointValues,
+                    new.allowSpecialFloatingPointValues,
+                ),
+                Triple("isLenient", old.isLenient, new.isLenient),
+                Triple("decodeEnumsCaseInsensitive", old.decodeEnumsCaseInsensitive, new.decodeEnumsCaseInsensitive),
+                Triple("allowTrailingComma", old.allowTrailingComma, new.allowTrailingComma),
+                Triple("allowComments", old.allowComments, new.allowComments),
             )
         return fields
             .filter { (_, before, after) -> before != after }

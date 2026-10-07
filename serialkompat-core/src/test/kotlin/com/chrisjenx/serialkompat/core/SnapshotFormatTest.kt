@@ -65,6 +65,35 @@ class SnapshotFormatTest {
             card -> com.example.CardPayment
 
         @config
+          allowComments=false
+          allowSpecialFloatingPointValues=false
+          allowStructuredMapKeys=false
+          allowTrailingComma=false
+          classDiscriminator=type
+          classDiscriminatorMode=POLYMORPHIC
+          coerceInputValues=false
+          decodeEnumsCaseInsensitive=false
+          encodeDefaults=false
+          explicitNulls=true
+          ignoreUnknownKeys=false
+          isLenient=false
+          namingStrategy=none
+          useAlternativeNames=true
+          useArrayPolymorphism=false
+        """.trimIndent()
+
+    /**
+     * A snapshot as written by the previous format (before the wire-shape flags such as
+     * `useArrayPolymorphism` were captured): its `@config` block has only the original 8 keys.
+     * Recorded history snapshots and per-SHA cached baselines on disk look exactly like this.
+     */
+    private val preFlagText =
+        """
+        @contract com.example.Payment kind=SEALED discriminator=type
+          subtypes:
+            card -> com.example.CardPayment
+
+        @config
           classDiscriminator=type
           classDiscriminatorMode=POLYMORPHIC
           coerceInputValues=false
@@ -162,6 +191,52 @@ class SnapshotFormatTest {
     @Test
     fun `round-trips an empty snapshot`() {
         val s = Snapshot()
+        assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
+    }
+
+    @Test
+    fun `a pre-flag snapshot lacking the newer config keys parses with kotlinx defaults and diffs as no change`() {
+        val legacy = SnapshotFormat.parse(preFlagText)
+        // Missing keys fall back to the kotlinx-serialization Json defaults (all false).
+        assertEquals(SnapshotConfig(), legacy.config)
+        val current =
+            SnapshotFormat.parse(
+                SnapshotFormat.serialize(
+                    Snapshot(
+                        legacy.contracts,
+                        config =
+                            SnapshotConfig(
+                                useArrayPolymorphism = false,
+                                allowStructuredMapKeys = false,
+                                allowSpecialFloatingPointValues = false,
+                                isLenient = false,
+                                decodeEnumsCaseInsensitive = false,
+                                allowTrailingComma = false,
+                                allowComments = false,
+                            ),
+                    ),
+                ),
+            )
+        val changes = SnapshotDiffer.diff(legacy, current)
+        assertEquals(emptyList(), changes)
+        assertEquals(emptyList(), Classifier().classify(changes, legacy.config, current.config))
+    }
+
+    @Test
+    fun `round-trips every non-default wire-shape flag`() {
+        val s =
+            Snapshot(
+                config =
+                    SnapshotConfig(
+                        useArrayPolymorphism = true,
+                        allowStructuredMapKeys = true,
+                        allowSpecialFloatingPointValues = true,
+                        isLenient = true,
+                        decodeEnumsCaseInsensitive = true,
+                        allowTrailingComma = true,
+                        allowComments = true,
+                    ),
+            )
         assertEquals(s, SnapshotFormat.parse(SnapshotFormat.serialize(s)))
     }
 

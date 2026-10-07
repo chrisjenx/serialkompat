@@ -105,6 +105,49 @@ class ClassifierConfigTest {
         assertEquals(null, f.forward())
     }
 
+    private fun assertVerdict(
+        field: String,
+        from: String,
+        to: String,
+        rule: String,
+        backward: Severity?,
+        forward: Severity?,
+    ) {
+        val f = classify(Change.ConfigChanged(field, from, to))
+        assertEquals(backward, f.backward(), "$field $from->$to backward")
+        assertEquals(forward, f.forward(), "$field $from->$to forward")
+        assertTrue(f.all { it.rule == rule }, "$field $from->$to rule: $f")
+    }
+
+    @Test
+    fun `toggling useArrayPolymorphism reshapes polymorphic payloads — BREAK both ways`() {
+        val rule = Rules.CONFIG_ARRAY_POLYMORPHISM
+        assertVerdict("useArrayPolymorphism", "false", "true", rule, Severity.BREAK, Severity.BREAK)
+        assertVerdict("useArrayPolymorphism", "true", "false", rule, Severity.BREAK, Severity.BREAK)
+    }
+
+    @Test
+    fun `allowStructuredMapKeys breaks the direction whose reader lacks it`() {
+        val rule = Rules.CONFIG_STRUCTURED_MAP_KEYS
+        assertVerdict("allowStructuredMapKeys", "true", "false", rule, Severity.BREAK, null)
+        assertVerdict("allowStructuredMapKeys", "false", "true", rule, null, Severity.BREAK)
+    }
+
+    @Test
+    fun `allowSpecialFloatingPointValues warns the direction whose reader lacks it`() {
+        val rule = Rules.CONFIG_SPECIAL_FLOATS
+        assertVerdict("allowSpecialFloatingPointValues", "true", "false", rule, Severity.WARN, null)
+        assertVerdict("allowSpecialFloatingPointValues", "false", "true", rule, null, Severity.WARN)
+    }
+
+    @Test
+    fun `reader-only acceptance flags warn backward when tightened, safe when loosened`() {
+        for (field in listOf("isLenient", "decodeEnumsCaseInsensitive", "allowTrailingComma", "allowComments")) {
+            assertVerdict(field, "true", "false", Rules.CONFIG_READER_STRICTNESS, Severity.WARN, null)
+            assertTrue(classify(Change.ConfigChanged(field, "false", "true")).isEmpty(), "$field loosened")
+        }
+    }
+
     @Test
     fun `an unrecognized wire-relevant setting is a conservative WARN both ways`() {
         val f = classify(Change.ConfigChanged("prettyPrintIndent", "2", "4"))

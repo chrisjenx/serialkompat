@@ -7,18 +7,30 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 /**
- * A content-addressed cache of serialized snapshots keyed by commit SHA. Because
- * a commit's source is immutable, a cached snapshot for a SHA can be reused
- * without recomputing — the baseline never has to rebuild an unchanged ref twice
- * (design §5).
+ * A content-addressed cache of serialized snapshots keyed by commit SHA **and** the
+ * running serialkompat version. Because a commit's source is immutable, a cached
+ * snapshot for a SHA can be reused without recomputing — the baseline never has to
+ * rebuild an unchanged ref twice (design §5). The tool version is part of the key
+ * (design §5: "baseline SHA + tool version") so an upgrade never reuses a baseline
+ * cached under an older serialkompat: each version reads and writes its own
+ * subdirectory, and entries of any other version — including the legacy root-level
+ * `<sha>.snapshot` layout — are never consulted.
  *
  * Reads are validated and writes are atomic, so a corrupt or half-written cache
  * entry (e.g. a CI job killed mid-write) is never trusted as a baseline — that
  * would silently under-report changes (#16 "corrupt cache ⇒ refuse to run").
  */
 public class SnapshotCache(
-    private val cacheDir: File,
+    cacheRoot: File,
+    /**
+     * The running serialkompat version (the plugin jar's `Implementation-Version`), or `null`
+     * when unknown (TestKit/dev builds) — that maps to a fixed `unversioned` namespace which no
+     * real version can collide with.
+     */
+    toolVersion: String?,
 ) {
+    private val cacheDir: File = File(cacheRoot, versionDirName(toolVersion))
+
     /**
      * The cached snapshot text for [sha], or `null` on a miss. A cached entry that
      * does not parse as a snapshot is treated as a miss (and removed) so the caller
@@ -69,4 +81,26 @@ public class SnapshotCache(
     }
 
     private fun fileFor(sha: String): File = File(cacheDir, "$sha.snapshot")
+
+    private companion object {
+        /**
+         * Real versions live under `v-<version>`, an unknown one under `unversioned`; the `v-`
+         * prefix keeps the two namespaces disjoint. Characters outside a filename-safe set
+         * (`%` included) are escaped as `%xxxx`, so distinct versions map to distinct dirs.
+         */
+        fun versionDirName(toolVersion: String?): String {
+            if (toolVersion == null) return "unversioned"
+            val safe =
+                buildString {
+                    for (c in toolVersion) {
+                        if (c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c in "._-") {
+                            append(c)
+                        } else {
+                            append('%').append("%04x".format(c.code))
+                        }
+                    }
+                }
+            return "v-$safe"
+        }
+    }
 }

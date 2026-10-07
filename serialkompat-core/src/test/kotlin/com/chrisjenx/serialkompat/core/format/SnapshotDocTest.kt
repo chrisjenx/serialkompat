@@ -102,14 +102,21 @@ class SnapshotDocTest {
         assertEquals(Line(0, listOf(Token.Word("@config"))), config.lines.first())
         assertEquals(
             listOf(
+                "allowComments",
+                "allowSpecialFloatingPointValues",
+                "allowStructuredMapKeys",
+                "allowTrailingComma",
                 "classDiscriminator",
                 "classDiscriminatorMode",
                 "coerceInputValues",
+                "decodeEnumsCaseInsensitive",
                 "encodeDefaults",
                 "explicitNulls",
                 "ignoreUnknownKeys",
+                "isLenient",
                 "namingStrategy",
                 "useAlternativeNames",
+                "useArrayPolymorphism",
             ),
             config.lines.drop(1).map { (it.tokens.single() as Token.KeyValue).key },
         )

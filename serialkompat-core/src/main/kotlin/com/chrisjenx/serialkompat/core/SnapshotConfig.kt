@@ -29,4 +29,24 @@ public data class SnapshotConfig(
     public val coerceInputValues: Boolean = false,
     /** Whether `@JsonNames` alternative keys are honored on decode. */
     public val useAlternativeNames: Boolean = true,
+    /**
+     * Whether polymorphic values are written/read as `["type",{...}]` arrays instead of
+     * `{"type":"type",...}` objects. Each shape is rejected by a reader expecting the other.
+     */
+    public val useArrayPolymorphism: Boolean = false,
+    /**
+     * Whether maps with non-primitive (structured) keys are allowed, written as a flat
+     * `[k1,v1,k2,v2]` array. Without it such maps can be neither encoded nor decoded.
+     */
+    public val allowStructuredMapKeys: Boolean = false,
+    /** Whether `NaN`/`Infinity` are written and accepted (otherwise encode and decode both throw). */
+    public val allowSpecialFloatingPointValues: Boolean = false,
+    /** Whether the reader accepts malformed-but-common JSON (unquoted strings, quoted literals). */
+    public val isLenient: Boolean = false,
+    /** Whether the reader matches enum constants case-insensitively. */
+    public val decodeEnumsCaseInsensitive: Boolean = false,
+    /** Whether the reader accepts a trailing comma in objects and arrays. */
+    public val allowTrailingComma: Boolean = false,
+    /** Whether the reader accepts C/Java-style comments. */
+    public val allowComments: Boolean = false,
 )

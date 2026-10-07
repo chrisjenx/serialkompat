@@ -350,10 +350,16 @@ shape or decode behavior; hand-re-declaring them would silently drift:
   and whether it's emitted.
 - `useAlternativeNames` (does `@JsonNames` apply?), `coerceInputValues`,
   `ignoreUnknownKeys`, `encodeDefaults`, `explicitNulls`.
+- `useArrayPolymorphism` (object vs `["type",{...}]` array polymorphism),
+  `allowStructuredMapKeys`, `allowSpecialFloatingPointValues` — change what is
+  written *and* accepted.
+- `isLenient`, `decodeEnumsCaseInsensitive`, `allowTrailingComma`, `allowComments` —
+  reader-only acceptance (kotlinx writes the same bytes either way).
+- Not captured: `prettyPrint`/`prettyPrintIndent` (whitespace only).
 
 **Config is part of the contract, so config *changes* are classified too:**
 - flip `namingStrategy` → every key renamed → **BREAK** (both directions)
-- change `classDiscriminator`/mode → polymorphic **BREAK**
+- change `classDiscriminator`/mode, or toggle `useArrayPolymorphism` → polymorphic **BREAK**
 - tighten `ignoreUnknownKeys` true→false → your own readers got stricter →
   **WARN** ("previously-safe additions now break for your services")
 

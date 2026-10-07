@@ -62,7 +62,7 @@ class GitRefBaselineTest {
                     "worktree remove --force $worktree" to "",
                 ),
             )
-        val cache = SnapshotCache(tempDir.resolve("cache"))
+        val cache = SnapshotCache(tempDir.resolve("cache"), toolVersion = "1.0.0")
         var extractCalls = 0
         val extract: (File) -> String = { _ ->
             extractCalls++
@@ -99,7 +99,7 @@ class GitRefBaselineTest {
                     }
                 }
             }
-        val cache = SnapshotCache(tempDir.resolve("cache"))
+        val cache = SnapshotCache(tempDir.resolve("cache"), toolVersion = "1.0.0")
 
         GitRefBaseline(git).snapshotAt("main", tempDir, cache) { "@config\n  namingStrategy=none" }
 
@@ -159,7 +159,7 @@ class GitRefBaselineTest {
                     "worktree remove --force ${tempDir.resolve("sha2").absolutePath}" to "",
                 ),
             )
-        val cache = SnapshotCache(tempDir.resolve("cache"))
+        val cache = SnapshotCache(tempDir.resolve("cache"), toolVersion = "1.0.0")
         assertFailsWith<IllegalStateException> {
             GitRefBaseline(git).snapshotAt("main", tempDir, cache) { error("boom") }
         }
