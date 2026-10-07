@@ -534,7 +534,9 @@ Base contracts' `subtypes:` lines and `Element.type` references stay bare.
   pair by bare name when exactly one contract on each side has it (the upgrade
   path from older snapshots and history). A name with leftovers on one side only
   is a plain add/remove. A name ambiguous on both sides is `ContractUnpaired`,
-  scored as a `COVERAGE_GAP` WARN — never a remove/add.
+  scored as a `COVERAGE_GAP` WARN — never a remove/add. This fallback needs an
+  unqualified (pre-#200) record among the leftovers; subtypes of two different
+  bases never pair, so they read as a plain remove + add.
 - **Display and config.** Findings name a subtype `Base/sub`. `renames`,
   accepted-break `type`, and `Scope` include/exclude accept `Base/sub` (exactly
   that contract) or the bare `sub` (every contract with that serial name; a bare

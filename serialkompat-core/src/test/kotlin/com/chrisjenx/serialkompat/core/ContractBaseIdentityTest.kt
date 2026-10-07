@@ -147,6 +147,21 @@ class ContractBaseIdentityTest {
     }
 
     @Test
+    fun `same-named subtypes of different bases never pair, even when each is the only one`() {
+        val old = Snapshot(listOf(sealed("OrderEvent", "created"), orderCreated))
+        val new = Snapshot(listOf(sealed("UserEvent", "created"), userCreated))
+        assertEquals(
+            listOf<Change>(
+                Change.ContractRemoved("OrderEvent", ContractKind.SEALED),
+                Change.ContractAdded("UserEvent", ContractKind.SEALED),
+                Change.ContractRemoved("OrderEvent/created", ContractKind.CLASS),
+                Change.ContractAdded("UserEvent/created", ContractKind.CLASS),
+            ),
+            SnapshotDiffer.diff(old, new),
+        )
+    }
+
+    @Test
     fun `a subtype removed from one base only is removed under its qualified name`() {
         val new = Snapshot(listOf(sealed("OrderEvent", "created"), sealed("UserEvent"), orderCreated))
         val changes = SnapshotDiffer.diff(twoBases(), new)

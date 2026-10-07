@@ -157,11 +157,30 @@ public object SnapshotDiffer {
         for (name in oldLeft.keys + newLeft.keys) {
             val before = oldLeft[name].orEmpty()
             val after = newLeft[name].orEmpty()
+            // Only an unqualified (pre-#200) record can stand for a qualified one; two different bases'
+            // subtypes are different contracts, so they never pair — plain remove + add.
+            val upgrade = (before + after).any { it.base == null }
             when {
-                before.size == 1 && after.size == 1 -> pairings += Pairing(before.single(), after.single())
-                before.isEmpty() -> after.forEach { pairings += Pairing(null, it) }
-                after.isEmpty() -> before.forEach { pairings += Pairing(it, null) }
-                else -> after.forEach { pairings += Pairing(null, it, unpaired = true) }
+                !upgrade -> {
+                    before.forEach { pairings += Pairing(it, null) }
+                    after.forEach { pairings += Pairing(null, it) }
+                }
+
+                before.size == 1 && after.size == 1 -> {
+                    pairings += Pairing(before.single(), after.single())
+                }
+
+                before.isEmpty() -> {
+                    after.forEach { pairings += Pairing(null, it) }
+                }
+
+                after.isEmpty() -> {
+                    before.forEach { pairings += Pairing(it, null) }
+                }
+
+                else -> {
+                    after.forEach { pairings += Pairing(null, it, unpaired = true) }
+                }
             }
         }
         return pairings.sortedWith(compareBy(CONTRACT_ORDER) { it.after ?: it.before!! })
