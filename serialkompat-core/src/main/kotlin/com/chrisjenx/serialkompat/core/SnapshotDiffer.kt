@@ -247,9 +247,7 @@ public object SnapshotDiffer {
                             disqualified += enumName
                         }
 
-                        EnumRef.NONE -> {
-                            Unit
-                        }
+                        EnumRef.NONE -> {}
                     }
                 }
             }

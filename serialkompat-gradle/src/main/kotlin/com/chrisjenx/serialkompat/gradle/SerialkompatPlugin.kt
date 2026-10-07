@@ -442,7 +442,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         val gradlew = if (System.getProperty("os.name").startsWith("Windows")) "gradlew.bat" else "gradlew"
         val launcher = File(rootDir, gradlew).takeIf(File::exists)?.absolutePath ?: "gradle"
         val process =
-            ProcessBuilder(launcher, "$projectPath:$EXTRACT_TASK_NAME", "--quiet")
+            ProcessBuilder(launcher, nestedExtractTask(projectPath), "--quiet")
                 .directory(worktreeDir)
                 .redirectErrorStream(true)
                 .start()

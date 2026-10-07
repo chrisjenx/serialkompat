@@ -27,7 +27,10 @@ public class GitRefBaseline(
         ref: String,
         parentDir: File,
         block: (File) -> T,
-    ): T = useWorktree(ref, File(parentDir, resolveSha(ref)), block)
+    ): T {
+        val sha = resolveSha(ref)
+        return useWorktree(sha, File(parentDir, sha), block)
+    }
 
     /**
      * Returns the serialized snapshot for [ref], extracting it in a worktree via
@@ -41,13 +44,15 @@ public class GitRefBaseline(
     ): String {
         val sha = resolveSha(ref)
         cache.get(sha)?.let { return it }
-        val text = useWorktree(ref, File(parentDir, sha), extract)
+        // Check out the SHA just resolved, never the ref again: a ref that moves in between (a
+        // concurrent fetch/push) would otherwise cache the newer commit's schema under the old SHA.
+        val text = useWorktree(sha, File(parentDir, sha), extract)
         cache.put(sha, text)
         return text
     }
 
     private fun <T> useWorktree(
-        ref: String,
+        sha: String,
         worktreeDir: File,
         block: (File) -> T,
     ): T {
@@ -60,7 +65,7 @@ public class GitRefBaseline(
             runCatching { git.run("worktree", "remove", "--force", worktreeDir.absolutePath) }
             worktreeDir.deleteRecursively()
         }
-        git.run("worktree", "add", "--detach", worktreeDir.absolutePath, ref)
+        git.run("worktree", "add", "--detach", worktreeDir.absolutePath, sha)
         try {
             return block(worktreeDir)
         } finally {
