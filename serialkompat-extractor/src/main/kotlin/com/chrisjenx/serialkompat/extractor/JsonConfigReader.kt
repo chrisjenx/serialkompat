@@ -11,9 +11,12 @@ import kotlinx.serialization.json.JsonNamingStrategy
  *
  * This is a correctness requirement, not a convenience: `namingStrategy`,
  * `classDiscriminator`, `classDiscriminatorMode`, `ignoreUnknownKeys`,
- * `encodeDefaults`, `explicitNulls`, `coerceInputValues`, and
- * `useAlternativeNames` all change the wire shape or decode behavior, so
+ * `encodeDefaults`, `explicitNulls`, `coerceInputValues`, `useAlternativeNames`,
+ * `useArrayPolymorphism`, `allowStructuredMapKeys`, `allowSpecialFloatingPointValues`,
+ * and the reader-acceptance flags (`isLenient`, `decodeEnumsCaseInsensitive`,
+ * `allowTrailingComma`, `allowComments`) all change the wire shape or decode behavior, so
  * re-declaring them by hand would silently drift from what the app actually does.
+ * (`prettyPrint`/`prettyPrintIndent` only change whitespace, so they are not captured.)
  */
 @OptIn(ExperimentalSerializationApi::class)
 public object JsonConfigReader {
@@ -29,6 +32,13 @@ public object JsonConfigReader {
             explicitNulls = configuration.explicitNulls,
             coerceInputValues = configuration.coerceInputValues,
             useAlternativeNames = configuration.useAlternativeNames,
+            useArrayPolymorphism = configuration.useArrayPolymorphism,
+            allowStructuredMapKeys = configuration.allowStructuredMapKeys,
+            allowSpecialFloatingPointValues = configuration.allowSpecialFloatingPointValues,
+            isLenient = configuration.isLenient,
+            decodeEnumsCaseInsensitive = configuration.decodeEnumsCaseInsensitive,
+            allowTrailingComma = configuration.allowTrailingComma,
+            allowComments = configuration.allowComments,
         )
     }
 

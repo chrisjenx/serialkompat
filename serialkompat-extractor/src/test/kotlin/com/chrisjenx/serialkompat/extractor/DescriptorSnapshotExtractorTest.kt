@@ -179,6 +179,15 @@ class DescriptorSnapshotExtractorTest {
     }
 
     @Test
+    fun `an open base with no registered subtypes is an opaque coverage gap, not an empty hierarchy`() {
+        // The subtypes of an open base are only knowable from the module; with none visible the
+        // hierarchy is unanalysed, and recording it as a fully-analysed empty POLYMORPHIC would
+        // let every subtype change pass unseen (unanalysable ≠ safe).
+        val snapshot = extract(serializer<Shape>().descriptor, module = SerializersModule {})
+        assertEquals(ContractKind.OPAQUE, snapshot.contracts.single().kind)
+    }
+
+    @Test
     fun `cyclic references terminate and are captured once`() {
         val snapshot = extract(serializer<Node>().descriptor)
         assertEquals(1, snapshot.contracts.count { it.serialName == "Node" })
@@ -272,5 +281,140 @@ class DescriptorSnapshotExtractorTest {
         val box = snapshot.contracts.single { it.serialName == "Box" }
         assertEquals("kotlin.String", box.elements.single { it.name == "value" }.type)
         assertTrue(box.elements.none { it.type.contains("#") }, "concrete instantiation must not carry holes")
+    }
+
+    // --- serial-name collisions (two different shapes behind one contract identity) ---
+
+    @Serializable
+    @SerialName("Inner")
+    private data class Inner(
+        val code: Int,
+    )
+
+    @Serializable
+    @SerialName("TwoBoxes")
+    private data class TwoBoxes(
+        val names: Box<String>,
+        val inners: Box<Inner>,
+    )
+
+    @Serializable
+    @SerialName("SameBoxes")
+    private data class SameBoxes(
+        val a: Box<String>,
+        val b: Box<String>,
+    )
+
+    @Test
+    fun `two instantiations of a generic with different shapes degrade to an opaque gap`() {
+        // Type args are dropped from the contract identity, so Box<String> and Box<Inner> share the
+        // serial name "Box". Keeping only the first one walked would leave the second unchecked.
+        val snapshot = extract(serializer<TwoBoxes>().descriptor)
+        assertEquals(ContractKind.OPAQUE, snapshot.contract("Box").kind)
+    }
+
+    @Test
+    fun `a type reachable only through a colliding instantiation is still walked`() {
+        val snapshot = extract(serializer<TwoBoxes>().descriptor)
+        assertEquals("kotlin.Int", snapshot.element("Inner", "code").type)
+    }
+
+    @Test
+    fun `identical revisits of a shared type are unaffected`() {
+        val snapshot = extract(serializer<SameBoxes>().descriptor)
+        assertEquals(ContractKind.CLASS, snapshot.contract("Box").kind)
+        assertEquals(1, snapshot.contracts.count { it.serialName == "Box" })
+    }
+
+    @Serializable
+    @SerialName("OrderEvent")
+    private sealed interface OrderEvent {
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val orderId: String,
+        ) : OrderEvent
+    }
+
+    @Serializable
+    @SerialName("UserEvent")
+    private sealed interface UserEvent {
+        // Same subtype serial name as OrderEvent.Created; legal, since names are scoped per base.
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val userId: Int,
+        ) : UserEvent
+    }
+
+    @Serializable
+    @SerialName("Events")
+    private data class Events(
+        val order: OrderEvent,
+        val user: UserEvent,
+    )
+
+    @Test
+    fun `sealed subtypes sharing a serial name across bases degrade to an opaque gap`() {
+        val snapshot = extract(serializer<Events>().descriptor)
+        assertEquals(ContractKind.OPAQUE, snapshot.contract("created").kind)
+        // The bases themselves are still analysed.
+        assertEquals(ContractKind.SEALED, snapshot.contract("OrderEvent").kind)
+        assertEquals(ContractKind.SEALED, snapshot.contract("UserEvent").kind)
+    }
+
+    @Serializable
+    @SerialName("Chain")
+    private data class Chain<T>(
+        val value: T,
+        val next: Chain<List<T>>? = null,
+    )
+
+    @Serializable
+    @SerialName("ChainHolder")
+    private data class ChainHolder(
+        val chain: Chain<String>,
+    )
+
+    @Test
+    fun `a generic that instantiates itself ever deeper still terminates`() {
+        // Every level is a new shape of "Chain" (value: String, List<String>, List<List<String>>, ...).
+        val snapshot = extract(serializer<ChainHolder>().descriptor)
+        assertEquals(ContractKind.OPAQUE, snapshot.contract("Chain").kind)
+    }
+
+    @Serializable
+    @SerialName("Addr")
+    private data class Addr(
+        @EncodeDefault(EncodeDefault.Mode.ALWAYS) val city: String = "x",
+    )
+
+    @Serializable
+    @SerialName("AddrUsers")
+    private data class AddrUsers(
+        val home: Addr,
+        val work: Addr?,
+    )
+
+    @Serializable
+    @SerialName("Tree")
+    private data class Tree(
+        val parent: Tree?,
+        val label: String,
+    )
+
+    @Test
+    fun `a type referenced both as T and T? is one shape, not a collision`() {
+        // The nullable reference arrives as a wrapper descriptor; it must analyse identically
+        // (including the bytecode-recovered @EncodeDefault) so it isn't mistaken for a second shape.
+        val snapshot = extract(serializer<AddrUsers>().descriptor)
+        assertEquals(ContractKind.CLASS, snapshot.contract("Addr").kind)
+        assertEquals(EncodeDefaultMode.ALWAYS, snapshot.element("Addr", "city").encodeDefault)
+    }
+
+    @Test
+    fun `a self-reference through a nullable field is one shape, not a collision`() {
+        val snapshot = extract(serializer<Tree>().descriptor)
+        assertEquals(ContractKind.CLASS, snapshot.contract("Tree").kind)
     }
 }

@@ -421,6 +421,53 @@ public class Classifier(
                     )
                 }
 
+                // Reader-only acceptance flags: they never change what is written (kotlinx emits the
+                // same bytes either way), but tightening one makes the NEW reader reject input the
+                // old one accepted — e.g. a non-kotlinx producer's unquoted strings, differently-cased
+                // enum constants, trailing commas, or comments. Conditional on the data → WARN.
+                "isLenient", "decodeEnumsCaseInsensitive", "allowTrailingComma", "allowComments" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_READER_STRICTNESS,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        Severity.SAFE,
+                        "A stricter reader now rejects input the previous reader accepted.",
+                    )
+                }
+
+                // Reshapes EVERY polymorphic payload ({"type":..} object <-> ["..",{..}] array);
+                // each reader rejects the other shape — both directions, like a discriminator change.
+                "useArrayPolymorphism" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_ARRAY_POLYMORPHISM,
+                        Severity.BREAK,
+                        Severity.BREAK,
+                        "Toggling useArrayPolymorphism changes the shape of every polymorphic payload; " +
+                            "keep it stable or bump major.",
+                    )
+                }
+
+                // Without it a structured-key map can be neither encoded nor decoded, so the reader
+                // that lacks it rejects every such map the other side writes. Conservatively BREAK in
+                // that direction (exact only when the model has a structured-key map).
+                "allowStructuredMapKeys" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_STRUCTURED_MAP_KEYS,
+                        if (disabled) Severity.BREAK else Severity.SAFE,
+                        if (disabled) Severity.SAFE else Severity.BREAK,
+                        "A reader without allowStructuredMapKeys rejects maps with non-primitive keys.",
+                    )
+                }
+
+                // NaN/Infinity: the reader that lacks it rejects such values — only if the data has them.
+                "allowSpecialFloatingPointValues" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_SPECIAL_FLOATS,
+                        if (disabled) Severity.WARN else Severity.SAFE,
+                        if (disabled) Severity.SAFE else Severity.WARN,
+                        "A reader without allowSpecialFloatingPointValues rejects NaN/Infinity values.",
+                    )
+                }
+
                 // Writer-side (forward only): the NEW writer may omit fields the old reader expects.
                 "encodeDefaults" -> {
                     ConfigSpec(

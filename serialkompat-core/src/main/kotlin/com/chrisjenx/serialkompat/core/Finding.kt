@@ -27,6 +27,9 @@ public object Rules {
     public const val CONFIG_ENCODE_DEFAULTS: String = "CONFIG_ENCODE_DEFAULTS"
     public const val CONFIG_EXPLICIT_NULLS: String = "CONFIG_EXPLICIT_NULLS"
     public const val CONFIG_COERCE_INPUT: String = "CONFIG_COERCE_INPUT"
+    public const val CONFIG_ARRAY_POLYMORPHISM: String = "CONFIG_ARRAY_POLYMORPHISM"
+    public const val CONFIG_STRUCTURED_MAP_KEYS: String = "CONFIG_STRUCTURED_MAP_KEYS"
+    public const val CONFIG_SPECIAL_FLOATS: String = "CONFIG_SPECIAL_FLOATS"
     public const val COVERAGE_GAP: String = "COVERAGE_GAP"
 
     /**
@@ -57,6 +60,9 @@ public object Rules {
             CONFIG_ENCODE_DEFAULTS,
             CONFIG_EXPLICIT_NULLS,
             CONFIG_COERCE_INPUT,
+            CONFIG_ARRAY_POLYMORPHISM,
+            CONFIG_STRUCTURED_MAP_KEYS,
+            CONFIG_SPECIAL_FLOATS,
             COVERAGE_GAP,
         )
 }
