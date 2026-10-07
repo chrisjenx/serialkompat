@@ -10,15 +10,15 @@ and GitHub Action, see [Setup](setup.md).
 |---|---|---|---|
 | `types` | `ListProperty<String>` | `[]` (required under `EXPLICIT` discovery) | FQNs of `@Serializable` root types to check |
 | `discovery` | `Property<DiscoveryMode>` | `EXPLICIT` | How checked types are found when `types` is empty: `EXPLICIT` (only `types`), `OPT_OUT` (everything discovered minus `@SerialkompatIgnore`), `OPT_IN` (only `@SerialkompatChecked`) |
-| `jsonInstance` | `Property<String>` | unset | FQN of a `Json` instance describing the wire (e.g. `com.example.WireJson.instance`); unset = default `Json` |
+| `jsonInstance` | `Property<String>` | unset | FQN of a `Json` instance describing the wire (e.g. `com.example.WireJson.instance`); unset = default `Json`. If set but it can't be loaded, extraction fails |
 | `baselineRef` | `Property<String>` | auto-detected | Git ref the current schema is checked against. Unset ⇒ auto-detect the default branch (`origin/HEAD` → `origin/main` → `origin/master` → local `main`/`master`) |
 | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
 | `failOnBreaking` | `Property<Boolean>` | `true` | A `BREAK` finding fails the build |
 | `failOnEmptyBaseline` | `Property<Boolean>` | `true` | Empty baseline fails the build (prevents silently masking removed types); set `false` for first adoption |
-| `include` | `ListProperty<String>` | `[""]` | Serial-name prefixes in scope (`""` = all) |
-| `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded |
-| `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION]"` |
-| `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break) |
+| `include` | `ListProperty<String>` | `[""]` | Serial-name prefixes in scope (`""` = all). A sealed subtype also matches by its base or by `Base/sub` |
+| `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded (same matching as `include`) |
+| `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION]"`. Name a subtype `Base/sub` (that base only) or bare `sub` (any base) |
+| `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break). Keys and values accept `Base/sub` or bare `sub` |
 | `history.dir` | `DirectoryProperty` | `serialkompat/history` | Source-controlled dir of recorded per-version snapshots for the transitive check ([Recipes](recipes.md#persisted-data-horizon-multi-version-history)) |
 | `history.sinceVersion` | `Property<String>` | unset | Retention: only check against versions `>=` this (semver) |
 | `history.depth` | `Property<Int>` | unset | Retention: only check against the newest N recorded versions (unset or `<= 0` = no limit) |
@@ -134,8 +134,11 @@ serialkompat {
    changes against your *actual* wire config (`ignoreUnknownKeys`,
    `encodeDefaults`, `explicitNulls`, and so on), not kotlinx-serialization's
    defaults. The instance must be reachable on the module's runtime classpath. If
-   it can't be loaded, serialkompat prints a warning and falls back to the default
-   `Json` config. Leave it unset only if you really serialize with a plain `Json`.
+   it can't be loaded, `serialkompatExtract` fails and names the instance. It never
+   falls back to the default config, because that would judge every type against
+   the wrong settings and without your module's polymorphic registrations. Leave it
+   unset only if you really serialize with a plain `Json`; unset uses the default
+   `Json` config.
    A per-property `@EncodeDefault` overrides `encodeDefaults`, and serialkompat
    reads it from your compiled classes (see [Rules](rules.md)).
 3. The git ref whose schema is the baseline. Any ref `git` resolves works: a
@@ -154,7 +157,8 @@ serialkompat {
    "everything is compatible". Set `false` only while adopting serialkompat, when
    the baseline ref really predates these types.
 7. Limits the check to serial names that start with this prefix. The default,
-   `[""]` (an empty string), matches everything.
+   `[""]` (an empty string), matches everything. A sealed or polymorphic subtype
+   matches by its own serial name, its base's, or the qualified `Base/sub` form.
 8. Prefixes to drop even when they match `include`. `exclude` wins. Use it for
    intentionally unstable types (internal-only, no cross-version contract).
 9. Declares that the serial name `LegacyOrder` became `OrderEvent`. serialkompat
@@ -164,6 +168,10 @@ serialkompat {
     Omit it to accept the break in every direction you check, or give `BACKWARD`
     or `FORWARD` to accept it in only one. Each entry matches only findings with
     that serial name and rule. Other findings on the same type still fail.
+    A sealed or polymorphic subtype is reported as `Base/sub`, because its serial
+    name only has to be unique within its base. Write `Base/sub` to accept the
+    break under that base only, or the bare `sub` to accept it under every base.
+    `renames` accepts the same two forms; a bare rename keeps each subtype's base.
 
 ## Choosing a direction
 

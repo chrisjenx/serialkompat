@@ -63,14 +63,14 @@ GitHub Action. Most projects start with the Gradle plugin.
     |---|---|---|---|
     | `types` | `ListProperty<String>` | `[]` (required under `EXPLICIT` discovery) | FQNs of `@Serializable` root types to check |
     | `discovery` | `Property<DiscoveryMode>` | `EXPLICIT` | How types are found when `types` is empty: `EXPLICIT`, `OPT_OUT`, or `OPT_IN`. See [Discovery modes](configuration.md#discovery-modes) |
-    | `jsonInstance` | `Property<String>` | unset | FQN of a `Json` instance describing the wire; unset = default `Json` |
+    | `jsonInstance` | `Property<String>` | unset | FQN of a `Json` instance describing the wire; unset = default `Json`. If set but it can't be loaded, extraction fails |
     | `baselineRef` | `Property<String>` | auto-detected | Git ref to check against. Unset ⇒ auto-detect the default branch (`origin/HEAD` → `origin/main` → `origin/master` → local `main`/`master`) |
     | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
     | `failOnBreaking` | `Property<Boolean>` | `true` | A `BREAK` finding fails the build |
     | `failOnEmptyBaseline` | `Property<Boolean>` | `true` | An empty baseline fails the build, so removals can't be masked; set `false` for first adoption |
     | `include` | `ListProperty<String>` | `[""]` | Serial-name prefixes in scope (`""` = all) |
     | `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded |
-    | `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, `"<serialName> <RULE> [DIRECTION]"` |
+    | `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, `"<serialName> <RULE> [DIRECTION]"`. A subtype is `Base/sub` or bare `sub` |
     | `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove + add) |
 
     If neither `types` nor a non-`EXPLICIT` `discovery` mode is set, every serialkompat
@@ -114,7 +114,7 @@ GitHub Action. Most projects start with the Gradle plugin.
     as you like.
 
     ```text
-    serialkompat diff <baseline.snapshot> <current.snapshot> [--direction=FULL|BACKWARD|FORWARD] [--format=console|json|sarif|github] [--no-fail]
+    serialkompat diff <baseline.snapshot> <current.snapshot> [--direction=FULL|BACKWARD|FORWARD] [--format=console|json|sarif|github] [--no-fail] [--allow-empty-baseline]
     ```
 
     The first file is the old schema and the second is the new one.
@@ -124,6 +124,7 @@ GitHub Action. Most projects start with the Gradle plugin.
     | `--direction=FULL\|BACKWARD\|FORWARD` | Compatibility direction to enforce (default `FULL`) |
     | `--format=console\|json\|sarif\|github` | Output format for the report (default `console`). See [Report formats](report-formats.md) |
     | `--no-fail` | Exit `0` even if the diff finds breaking changes (the report still prints) |
+    | `--allow-empty-baseline` | Accept a baseline with no contracts. Use it only for first-time adoption |
     | `--help`, `-h` | Print usage and exit `0` |
 
     For example, `serialkompat diff a.snapshot b.snapshot --format=sarif > report.sarif`
@@ -132,11 +133,18 @@ GitHub Action. Most projects start with the Gradle plugin.
     The CLI never crashes on bad input. A missing file, an unknown flag, or an invalid
     `--direction` prints `error: <message>` and the usage line, then exits `2`.
 
+    The CLI also fails closed on an empty baseline. If the baseline file has no
+    contracts but the current one has some, the diff would read as "everything was
+    added" and hide every removal. So the CLI prints an `error:` line, renders no
+    report, and exits `2`. `--no-fail` doesn't skip this check. Pass
+    `--allow-empty-baseline` when an empty baseline is expected, such as on first-time
+    adoption. Two empty snapshots still pass.
+
     | Exit code | Meaning |
     |---|---|
     | `0` | No breaking findings |
     | `1` | At least one active `BREAK` finding (unless `--no-fail`) |
-    | `2` | Usage error |
+    | `2` | Usage error, unreadable snapshot, or an empty baseline (unless `--allow-empty-baseline`) |
 
     #### Producing snapshots
 
@@ -195,8 +203,11 @@ GitHub Action. Most projects start with the Gradle plugin.
 
     The action declares no outputs. The job fails when the Gradle task exits
     non-zero. On pull requests, the sticky comment
-    (marked `<!-- serialkompat -->` and updated in place on every push) shows ❌ for a
-    failing check, ⚠️ for warnings only, and ✅ otherwise.
+    (marked `<!-- serialkompat -->` and updated in place on every push) follows the
+    check's exit code. It shows ❌ when the check failed, even with no `BREAK` (for
+    example an empty baseline). It shows ⚠️ when the check passed with findings,
+    including `BREAK`s when `failOnBreaking` is `false`. It shows ✅ when the check
+    passed clean. See [CI setup → The sticky comment](ci.md#the-sticky-comment).
 
     See [CI setup](ci.md) for wiring this into a larger pipeline or other CI systems
     such as GitLab.

@@ -106,7 +106,7 @@ The standalone [CLI](setup.md#cli) has a finer-grained contract:
 |---|---|
 | `0` | No breaking findings (there may still be `WARN`s) |
 | `1` | At least one active `BREAK` finding |
-| `2` | Usage error (bad arguments, unreadable snapshot, etc.) |
+| `2` | Usage error (bad arguments, unreadable snapshot, etc.), or an empty baseline without `--allow-empty-baseline` |
 
 ## Next
 

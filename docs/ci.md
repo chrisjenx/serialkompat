@@ -62,11 +62,20 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
 
     The comment runs on `pull_request` events only. It posts even when the check
     failed. It is marked `<!-- serialkompat -->` and updated in place on each push,
-    not duplicated. Its icon shows:
+    not duplicated, however many comments the PR has.
 
-    - ❌ at least one active `BREAK` finding
-    - ⚠️ `WARN` findings only, nothing breaking
-    - ✅ clean
+    The icon follows the check's exit code, the same signal that passes or fails
+    the job:
+
+    - ❌ the check failed. Usually that means an active `BREAK`, but not always: an
+      empty baseline or a build error also fails the check. In that case the comment
+      adds a note pointing you at the job log.
+    - ⚠️ the check passed with findings: `WARN`s, or `BREAK`s that don't fail the
+      build because `failOnBreaking` is `false` (the comment says so).
+    - ✅ the check passed and the report is clean.
+
+    If the check fails without writing a report, the comment shows ❌ and points you
+    at the job log.
 
     The comment is built from the JSON report. If you turn that report off
     (`reports { json { required.set(false) } }`) or move it, set `report-path` to
@@ -106,7 +115,7 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
     | Integration | Pass | Fail |
     |---|---|---|
     | Gradle tasks (and the Action) | `0` | Non-zero. Gradle exits `1` for an active `BREAK` and also for a misconfiguration or any other build failure |
-    | CLI (`serialkompat diff`) | `0` | `1` = at least one active `BREAK` finding; `2` = usage error (bad arguments, unreadable snapshot) |
+    | CLI (`serialkompat diff`) | `0` | `1` = at least one active `BREAK` finding; `2` = usage error (bad arguments, unreadable snapshot) or an empty baseline without `--allow-empty-baseline` |
 
     `0` can still come with `WARN` findings.
 
@@ -161,6 +170,8 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
   extracting their baselines through one shared build service. That avoids
   competing git worktree operations and many nested Gradle builds starting at once.
 - All tasks support the configuration cache and Gradle's Isolated Projects mode.
+- A custom `layout.buildDirectory` is honored, including one set in the build
+  script body, and the plugin works on the root project of a single-module build.
 
 ## Next
 

@@ -45,7 +45,9 @@ records:
 - the **wire key**: the actual JSON key after `@SerialName` and any
   `namingStrategy`, not the Kotlin property name;
 - whether it's optional and whether it's nullable;
-- its type;
+- its type. A value class is recorded as its underlying type, and that value's
+  nullability is part of the type: `@JvmInline value class Id(val raw: String?)`
+  is `kotlin.String?`, so narrowing it to `String` is caught;
 - for optional fields, its `@EncodeDefault` mode.
 
 `@EncodeDefault` isn't visible through the descriptor, so the extractor reads it
@@ -56,18 +58,48 @@ assumes the annotation is absent.
 Enum values, sealed subtypes, and open polymorphism resolved through the
 `SerializersModule` all go into the same `Snapshot`.
 
+A subtype's `@SerialName` only has to be unique within its base, so two sealed
+bases can each have a `created` subtype. serialkompat therefore identifies a
+subtype by its serial name *and* its base, and reports it as `Base/sub` (for
+example `OrderEvent/created`). Each one is checked against its own base. A subtype
+of two bases is recorded once per base. In `renames`, `acceptedBreaks`, `include`,
+and `exclude` you can write `Base/sub` for one base or the bare `sub` for all of
+them (see [Configuration](configuration.md)).
+
 ### When a type can't be analysed
 
-Some types can't be analysed. Examples are a `@Contextual` field (its real
-serializer is picked at runtime, so the descriptor doesn't show its shape), an
-unrecognized `SerialKind`, a generic sealed hierarchy, or a class file that can't
-be read. The extractor doesn't skip these or guess. It records each one as an
-`OPAQUE` contract: present in the snapshot, diffable, and round-trippable, but
-flagged.
+Some types can't be analysed. The extractor doesn't skip these or guess. It
+records each one as an `OPAQUE` contract: present in the snapshot, diffable, and
+round-trippable, but flagged. Examples:
+
+- a `@Contextual` field. Its real serializer is picked at runtime, so the
+  descriptor doesn't show its shape.
+- an open polymorphic base with no visible subtypes, for example because it isn't
+  registered in the `SerializersModule` you pointed serialkompat at. Its subtypes
+  are only knowable from the module, so an empty list can't be trusted.
+- a type whose serializer can't load, such as a field type missing from the
+  runtime classpath (`NoClassDefFoundError`) or a serializer whose static
+  initializer throws.
+- a generic type used with different type arguments in the same graph, such as
+  `Page<User>` and `Page<Order>`. Type arguments aren't part of a contract's
+  identity yet, so serialkompat can't check each instantiation separately.
+- a generic sealed hierarchy, an unrecognized `SerialKind`, or a class file that
+  can't be read.
 
 This is a core guarantee: **the extractor never throws on a model it can't fully
 analyse, and unanalysable never means safe.** The classifier reports every opaque
 type as a `COVERAGE_GAP` `WARN`, never a silent pass.
+
+A type that was opaque in the baseline but is analysed now (after a code change, or
+a newer serialkompat) has no old shape to compare with. It is reported as one
+`COVERAGE_GAP` `WARN`, not as a removal plus an addition. The reverse, analysed to
+opaque, is still a `CONTRACT_REMOVED` `BREAK` plus the gap, so lost coverage stays
+loud.
+
+!!! note
+    A broken *configuration* is different from a hard-to-analyse model. If you set
+    `jsonInstance` and it can't be loaded, extraction fails instead of guessing
+    with the default `Json` config.
 
 ## Classification and the oracle
 
@@ -108,8 +140,9 @@ file you commit and then forget to update. You name a git ref with `baselineRef`
 (or let the plugin detect your default branch), and `GitRefBaseline` rebuilds the
 baseline from that ref's source on demand.
 
-It checks the ref out into a temporary, detached git worktree. Inside it, it runs a
-nested Gradle build of that module's `serialkompatExtract` task. So every run
+It resolves the ref to a commit SHA and checks that exact commit out into a
+temporary, detached git worktree. Inside it, it runs a nested Gradle build of that
+module's `serialkompatExtract` task. So every run
 compares against what's *actually* on that ref right now.
 
 ```mermaid
@@ -120,13 +153,13 @@ sequenceDiagram
     participant Cache as SnapshotCache
 
     Task->>Git: resolve baselineRef
-    Git->>Cache: lookup by commit SHA
+    Git->>Cache: lookup by commit SHA + version
     alt cache hit
         Cache-->>Git: cached Snapshot
     else cache miss
-        Git->>WT: git worktree add (detached, at ref)
+        Git->>WT: git worktree add (detached, at SHA)
         WT->>Git: extract Snapshot
-        Git->>Cache: store, keyed by SHA
+        Git->>Cache: store, keyed by SHA + version
         Git->>WT: remove worktree
     end
     Git-->>Task: baseline Snapshot

@@ -30,12 +30,15 @@ Useful flags:
 
 - `--direction=BACKWARD|FORWARD|FULL` narrows the check (default `FULL`).
 - `--no-fail` prints findings without failing.
+- `--allow-empty-baseline` accepts a baseline file with no contracts. Without it,
+  an empty baseline against a non-empty current snapshot exits `2` (see
+  [First-time adoption](#first-time-adoption)).
 - `--format=console|json|sarif|github` picks the output format. For example,
   `--format=sarif > report.sarif` writes a SARIF log, and `--format=github` emits
   inline annotations on a CI runner that doesn't use the Action (see
   [Report formats](report-formats.md)).
 
-Exit codes: `0` ok, `1` breaking, `2` usage error.
+Exit codes: `0` ok, `1` breaking, `2` usage error or empty baseline.
 
 ## First-time adoption
 
@@ -71,6 +74,10 @@ serialkompat {
 Once `baselineRef` (for example `origin/main`) contains the commit that added these
 types, remove the override. `failOnEmptyBaseline` goes back to its default, `true`,
 and catches a real misconfiguration again.
+
+The [CLI](setup.md#cli) has the same guard. An empty baseline file against a
+non-empty current one exits `2`, even with `--no-fail`. Pass
+`--allow-empty-baseline` for that one comparison.
 
 ## Gradual adoption with discovery modes
 
@@ -251,8 +258,10 @@ The two checks are independent. `serialkompatCheck` (against `baselineRef`) cove
 compatibility between live services. The history check covers persisted data.
 
 !!! note "Recording from the release flow"
-    `serialkompatRecord` uses the project `version` by default. Pass
-    `-Pserialkompat.recordVersion=X.Y.Z` to override it. Run it in your release job
+    `serialkompatRecord` uses the project `version` by default. It reads `version`
+    when the task runs, so you can set it anywhere in your build script. Pass
+    `-Pserialkompat.recordVersion=X.Y.Z` to override it. An unversioned project
+    still configures fine; only `serialkompatRecord` itself fails without a version. Run it in your release job
     right after publishing, and commit the new `serialkompat/history/*.snapshot`
     file so the next transitive check can use it.
 
