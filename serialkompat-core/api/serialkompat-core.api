@@ -82,6 +82,17 @@ public final class com/chrisjenx/serialkompat/core/Change$ContractRemoved : com/
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class com/chrisjenx/serialkompat/core/Change$ContractUnpaired : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/Change$ContractUnpaired;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ContractUnpaired;Ljava/lang/String;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ContractUnpaired;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContract ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class com/chrisjenx/serialkompat/core/Change$CoverageGap : com/chrisjenx/serialkompat/core/Change {
 	public fun <init> (Ljava/lang/String;)V
 	public final fun component1 ()Ljava/lang/String;
@@ -324,14 +335,16 @@ public final class com/chrisjenx/serialkompat/core/ConsoleReporter {
 }
 
 public final class com/chrisjenx/serialkompat/core/Contract {
-	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;Z)V
-	public synthetic fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBase ()Ljava/lang/String;
 	public final fun getDiscriminator ()Ljava/lang/String;
 	public final fun getElements ()Ljava/util/List;
 	public final fun getEnumValues ()Ljava/util/List;
 	public final fun getHasPolymorphicDefault ()Z
 	public final fun getKind ()Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public final fun getQualifiedName ()Ljava/lang/String;
 	public final fun getSerialName ()Ljava/lang/String;
 	public final fun getSubtypes ()Ljava/util/List;
 	public fun hashCode ()I
@@ -488,6 +501,7 @@ public final class com/chrisjenx/serialkompat/core/Scope {
 	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/util/List;
 	public final fun component2 ()Ljava/util/List;
+	public final fun contains (Lcom/chrisjenx/serialkompat/core/Contract;)Z
 	public final fun contains (Ljava/lang/String;)Z
 	public final fun copy (Ljava/util/List;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/Scope;
 	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Scope;

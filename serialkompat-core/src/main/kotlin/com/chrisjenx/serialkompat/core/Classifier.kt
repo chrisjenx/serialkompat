@@ -352,6 +352,23 @@ public class Classifier(
                     fixHint = "Provide an analysable @Serializable form, or accept this coverage gap explicitly.",
                 )
             }
+
+            // Neither removed nor added: the differ could not tell which baseline contract this one
+            // continues, so it was not compared at all (#200). Unverified ≠ safe.
+            is Change.ContractUnpaired -> {
+                Verdict(
+                    Rules.COVERAGE_GAP,
+                    change.contract,
+                    "type ${change.contract}",
+                    backward = Severity.WARN,
+                    forward = Severity.WARN,
+                    message =
+                        "type ${change.contract} could not be paired with a baseline contract (its serial " +
+                            "name is shared by several subtypes and the baseline does not record their bases) " +
+                            "— the gate cannot verify it",
+                    fixHint = "Re-record the baseline with this serialkompat version, or accept this gap explicitly.",
+                )
+            }
         }
 
     /**

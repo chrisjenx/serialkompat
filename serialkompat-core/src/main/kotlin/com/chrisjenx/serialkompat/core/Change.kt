@@ -147,6 +147,18 @@ public sealed interface Change {
     ) : Change
 
     /**
+     * A current contract that could not be paired with a baseline one (#200): no baseline contract
+     * has the same `(serialName, base)` identity, and its bare serial name is shared by several
+     * contracts on at least one side (e.g. a pre-base-identity baseline recorded one bare `created`
+     * while the current snapshot has `OrderEvent/created` and `UserEvent/created`). Pairing by guess
+     * could diff the wrong bodies, and calling it added/removed would be false, so — like a
+     * [CoverageGap] — it is surfaced as unverified. [contract] is the qualified display name.
+     */
+    public data class ContractUnpaired(
+        val contract: String,
+    ) : Change
+
+    /**
      * A sealed/polymorphic [contract] whose class [discriminator] key collides with
      * a property of its [subtype] of the same name. Such a model is **unserializable**
      * — kotlinx-serialization refuses to encode it — so, like a [CoverageGap], it is a

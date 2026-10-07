@@ -25,6 +25,8 @@ private fun contractBlock(contract: Contract): Block {
             add(Token.Word(FormatGrammar.CONTRACT_MARKER))
             add(Token.Word(contract.serialName))
             add(Token.KeyValue(FormatGrammar.KEY_KIND, contract.kind.name))
+            // Emitted only for a subtype (#200); a pre-#200 header has no base= and parses to null.
+            contract.base?.let { add(Token.KeyValue(FormatGrammar.KEY_BASE, it)) }
             contract.discriminator?.let { add(Token.KeyValue(FormatGrammar.KEY_DISCRIMINATOR, it)) }
             // Emitted only when set, so every existing snapshot round-trips
             // unchanged and old readers never see the token (#128).
@@ -159,6 +161,7 @@ private fun contractOf(block: Block): Contract {
         discriminator = kvs[FormatGrammar.KEY_DISCRIMINATOR],
         subtypes = subtypes,
         hasPolymorphicDefault = kvs[FormatGrammar.KEY_POLYMORPHIC_DEFAULT]?.toBooleanStrict() ?: false,
+        base = kvs[FormatGrammar.KEY_BASE],
     )
 }
 
