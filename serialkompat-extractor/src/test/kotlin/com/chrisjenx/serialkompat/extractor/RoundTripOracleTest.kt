@@ -1357,6 +1357,51 @@ class RoundTripOracleTest {
         )
     }
 
+    @Serializable
+    @SerialName("BoxListV1")
+    private data class BoxListV1<T>(
+        val items: List<T>,
+    )
+
+    @Serializable
+    @SerialName("BoxBareV2")
+    private data class BoxBareV2<T>(
+        val items: T, // List<T> -> T: the envelope around the hole changed (array -> scalar/object)
+    )
+
+    @Test
+    fun `oracle - an envelope change around a hole is a BREAK both ways, matching the real library`() {
+        // Both sides are hole-form (root-only) extractions: List<#0> -> #0. No fill-if-absent flip can
+        // produce hole-bearing types on both sides, so this is a declared-shape change, not coverage moving.
+        val baseline = renameContract(extractGeneric(BoxListV1::class), "BoxListV1", "BoxBareV2")
+        val current = extractGeneric(BoxBareV2::class)
+        val findings = Classifier().classify(SnapshotDiffer.diff(baseline, current), baseline.config, current.config)
+        val typeChanged = findings.filter { it.rule == Rules.PROPERTY_TYPE_CHANGED && it.contract == "BoxBareV2" }
+        assertEquals(
+            Severity.BREAK,
+            typeChanged.singleOrNull { it.direction == CompatibilityDirection.BACKWARD }?.severity,
+            "expected a backward PROPERTY_TYPE_CHANGED BREAK: $findings",
+        )
+        assertEquals(
+            Severity.BREAK,
+            typeChanged.singleOrNull { it.direction == CompatibilityDirection.FORWARD }?.severity,
+            "expected a forward PROPERTY_TYPE_CHANGED BREAK: $findings",
+        )
+
+        // The real library: old data (an array) can't decode under the new model, nor new data (a scalar)
+        // under the old one, for the same instantiation.
+        val oldJson = Json.encodeToString(BoxListV1.serializer(String.serializer()), BoxListV1(listOf("a")))
+        val newJson = Json.encodeToString(BoxBareV2.serializer(String.serializer()), BoxBareV2("a"))
+        assertTrue(
+            runCatching { Json.decodeFromString(BoxBareV2.serializer(String.serializer()), oldJson) }.isFailure,
+            "backward: the new reader must reject the old array payload $oldJson",
+        )
+        assertTrue(
+            runCatching { Json.decodeFromString(BoxListV1.serializer(String.serializer()), newJson) }.isFailure,
+            "forward: the old reader must reject the new scalar payload $newJson",
+        )
+    }
+
     // --- reader-tolerance + coerce-input config oracles (#119) -----------------
 
     @Serializable
