@@ -120,9 +120,10 @@ public class SerialkompatPlugin : Plugin<Project> {
         // A Provider (not project.findProperty at execution) keeps -Pserialkompat.ref config-cache-safe.
         val refProperty = target.providers.gradleProperty(REF_PROPERTY)
         val recordVersionProperty = target.providers.gradleProperty(RECORD_VERSION_PROPERTY)
-        // Captured at configuration time (a String, not the Project) so the record action never
-        // touches `Task.project` at execution — config-cache-safe like the rest of the plugin.
-        val projectVersion = target.version.toString()
+        // A Provider (not the Project) so the record action never touches `Task.project` at execution,
+        // and lazy so a `version = ...` assigned in the build script body (after this plugin is applied)
+        // is seen. Under the configuration cache it is evaluated when the entry is stored.
+        val projectVersion = target.provider { target.version.toString() }
         // One build-wide lock: under --parallel, modules take turns extracting their baseline
         // (git worktree + nested Gradle build) instead of racing on the same repo.
         val baselineService =
@@ -217,8 +218,10 @@ public class SerialkompatPlugin : Plugin<Project> {
                 extension.history.dir
                     .get()
                     .asFile
-            val version = resolveRecordVersion(recordVersionProperty.orNull, projectVersion)
             task.doLast { t ->
+                // Validated at execution, not configuration: an unversioned project must still configure
+                // (IDE sync, `tasks --all`) and only fail if someone actually runs the record.
+                val version = resolveRecordVersion(recordVersionProperty.orNull, projectVersion.get())
                 runRecord(t.logger, currentSnapshot.get().asFile, historyDir, version)
             }
         }

@@ -105,6 +105,46 @@ class SerialkompatHistoryFunctionalTest {
     }
 
     @Test
+    fun `serialkompatRecord uses a project version set in the build script body`() {
+        settings()
+        // `version` is assigned after `plugins {}` applied the plugin — the usual place for it.
+        write(
+            "build.gradle.kts",
+            """
+            plugins { id("com.chrisjenx.serialkompat") }
+            version = "1.4.0"
+            serialkompat { types.set(listOf("com.example.Order")) }
+            """,
+        )
+        seedCurrent(order(Element("id", "kotlin.String")))
+
+        val result = runner("serialkompatRecord", "-x", "serialkompatExtract", "--configuration-cache").build()
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatRecord")?.outcome)
+        assertTrue(
+            File(projectDir, "serialkompat/history/1.4.0.snapshot").isFile,
+            "expected the entry under the script-body version; output:\n${result.output}",
+        )
+    }
+
+    @Test
+    fun `an unversioned project configures fine and only fails when serialkompatRecord actually runs`() {
+        settings()
+        buildFile()
+        seedCurrent(order(Element("id", "kotlin.String")))
+
+        // Realizing every task (IDE sync, `tasks --all`) must not trip the record-version check.
+        runner("tasks", "--all").build()
+
+        val result = runner("serialkompatRecord", "-x", "serialkompatExtract").buildAndFail()
+        assertEquals(TaskOutcome.FAILED, result.task(":serialkompatRecord")?.outcome)
+        assertTrue(
+            result.output.contains("cannot record history without a version"),
+            "expected the missing-version message; output:\n${result.output}",
+        )
+    }
+
+    @Test
     fun `serialkompatRecord refuses to record a zero-contract snapshot`() {
         settings()
         write(
