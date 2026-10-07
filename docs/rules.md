@@ -35,6 +35,10 @@ otherwise: `ignoreUnknownKeys = false`, `encodeDefaults = false`,
 In each cell, the **reader** is the side decoding the payload and the **writer** is
 the side encoding it. Backward, the reader is your new code; forward, it's your old code.
 
+Findings name each type by its serial name. A sealed or polymorphic subtype is
+named `Base/sub` (for example `OrderEvent/created`), because a subtype's
+`@SerialName` only has to be unique within its base.
+
 | Rule | Detects | Backward | Forward | Config-aware |
 |---|---|---|---|---|
 | `CONTRACT_REMOVED` | Whole type deleted | ❌ BREAK | ❌ BREAK | — |
@@ -42,9 +46,9 @@ the side encoding it. Backward, the reader is your new code; forward, it's your 
 | [`PROPERTY_REMOVED`](#property_removed) | Field deleted | ⚠️ WARN if reader has `ignoreUnknownKeys` (silent drop), else ❌ BREAK | ✅ SAFE if it was optional, ⚠️ WARN if nullable & reader `explicitNulls=false` (absent → null), else ❌ BREAK | yes |
 | `PROPERTY_OPTIONALITY` | Optional ↔ required | ❌ BREAK if became required, ✅ SAFE if became optional | ✅ SAFE if became required; if became optional: ❌ BREAK unless the new writer always emits it (`@EncodeDefault(ALWAYS)`, or `encodeDefaults` without `@EncodeDefault(NEVER)`), ⚠️ WARN if `encodeDefaults` but the field's `@EncodeDefault` couldn't be read | yes |
 | `PROPERTY_NULLABILITY` | Nullable ↔ non-null | ✅ SAFE if became nullable, ❌ BREAK if became non-null | ❌ BREAK if became nullable & writer `explicitNulls = true`; ⚠️ WARN if `false` | yes |
-| `PROPERTY_TYPE_CHANGED` | Field type changed | ✅ SAFE if numeric widening, else ❌ BREAK | ❌ BREAK | no |
+| `PROPERTY_TYPE_CHANGED` | Field type changed, including a shape change around a generic type parameter (`List<T>` → `T`) | ✅ SAFE if numeric widening, else ❌ BREAK | ❌ BREAK | no |
 | `PROPERTY_JSON_NAMES` | `@JsonNames` alias dropped | ⚠️ WARN | ✅ SAFE | no |
-| [`ENUM_VALUE_ADDED`](#enum_value_added) | Enum value added | ✅ SAFE | ❌ BREAK, ⚠️ WARN if the reader coerces **and** every field reading the enum has a default | yes |
+| [`ENUM_VALUE_ADDED`](#enum_value_added) | Enum value added | ✅ SAFE | ❌ BREAK, ⚠️ WARN if the reader coerces **and** every field reading the enum (in scope or not) has a default | yes |
 | `ENUM_VALUE_REMOVED` | Enum value removed | ❌ BREAK | ✅ SAFE | no |
 | `SUBTYPE_ADDED` | Polymorphic variant added | ✅ SAFE | ❌ BREAK, ⚠️ WARN if the base registers a default deserializer **and** the reader has `ignoreUnknownKeys`² | yes |
 | `SUBTYPE_REMOVED` | Polymorphic variant removed | ❌ BREAK | ✅ SAFE | no |
@@ -61,7 +65,7 @@ the side encoding it. Backward, the reader is your new code; forward, it's your 
 | `CONFIG_EXPLICIT_NULLS` | `explicitNulls` toggled | ⚠️ WARN | ⚠️ WARN | — |
 | `CONFIG_COERCE_INPUT` | `coerceInputValues` toggled | ⚠️ WARN if disabled, ✅ SAFE if enabled | ✅ SAFE | — |
 | `CONFIG_CHANGED` | Any other wire-relevant `Json` setting changed (catch-all) | ⚠️ WARN | ⚠️ WARN | — |
-| `COVERAGE_GAP` | Opaque/unanalyzable type | ⚠️ WARN | ⚠️ WARN | — |
+| `COVERAGE_GAP` | Opaque/unanalyzable type, or one that was opaque in the baseline and is analysed now | ⚠️ WARN | ⚠️ WARN | — |
 
 ¹ `DISCRIMINATOR_COLLISION` is not a difference between two versions. It flags a
 single model that is *already* unserializable. A sealed or polymorphic subtype
@@ -181,6 +185,11 @@ A constant is added to an enum. **Backward:** ✅ SAFE. **Forward:** ❌ BREAK, 
     contain element with name 'ARCHIVED'`. With `coerceInputValues` **and** a
     defaulted reading field, the value silently becomes that default instead (⚠️).
 
+The `WARN` needs *every* field that reads the enum to have a default. serialkompat
+checks every reader in the baseline snapshot, not just the types in your `include` /
+`exclude` scope. A required reader in an out-of-scope type, even one another module
+owns, still keeps the verdict at `BREAK`.
+
 **Proof:** [`adding an enum value`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt) · [`an added enum value on a DEFAULTED field is a coercing-reader WARN, a strict-reader BREAK (#129)`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
 
 ## Config awareness
@@ -197,6 +206,10 @@ be `SAFE` under one config and `BREAK` under another:
 | `coerceInputValues` | `false` | `ENUM_VALUE_ADDED` forward: `BREAK` → `WARN`, but **only when the reading field has a default** to coerce to. The extractor records this per field; config alone isn't enough. An unknown constant then becomes that default: decode succeeds but yields the default, not the written value, so it's a `WARN` (silent substitution), never `SAFE`. A required field, a `List`/`Map` element, or a top-level enum has no default, so it still throws (`BREAK`). Disabling the setting is itself a `CONFIG_COERCE_INPUT` `WARN` backward. |
 | `namingStrategy` | none | Any change is a blanket `CONFIG_NAMING_STRATEGY` `BREAK` in both directions, because every generated JSON key moves at once. |
 | `classDiscriminator` | `"type"` | Any change is a blanket `CONFIG_DISCRIMINATOR` `BREAK` in both directions, because every polymorphic payload's discriminator key moves at once. Changing `classDiscriminatorMode` is the same `BREAK`. |
+| `useArrayPolymorphism` | `false` | Toggling it is a `CONFIG_ARRAY_POLYMORPHISM` `BREAK` in both directions. Every polymorphic payload changes between `{"type":..}` objects and `["..",{..}]` arrays, and each reader rejects the other shape. |
+| `allowStructuredMapKeys` | `false` | Toggling it is `CONFIG_STRUCTURED_MAP_KEYS`. A reader without it rejects maps with non-primitive keys, so it's a `BREAK` on the side that lacks it: backward if disabled, forward if enabled. |
+| `allowSpecialFloatingPointValues` | `false` | Toggling it is `CONFIG_SPECIAL_FLOATS`. A reader without it rejects `NaN` and `Infinity`, so it's a `WARN` (only payloads carrying those values fail) on the side that lacks it: backward if disabled, forward if enabled. |
+| `isLenient`, `decodeEnumsCaseInsensitive`, `allowTrailingComma`, `allowComments` | `false` | Reader-only. kotlinx writes the same bytes either way, but turning one off makes the new reader reject input the old one accepted (for example from a non-kotlinx producer). That is a `CONFIG_READER_STRICTNESS` `WARN` backward; turning one on is `SAFE`. |
 
 ## The oracle guarantee
 
@@ -209,6 +222,11 @@ real runtime behavior, config by config, not from reading its source or spec.
 `COVERAGE_GAP` is where that guarantee shows. When the extractor can't fully
 analyse a type, it records it as `OPAQUE` and never guesses `SAFE`. It reports a
 `WARN` and asks you to look. Unanalysable is never treated as compatible.
+
+A type that was `OPAQUE` in the baseline and is analysed now gets the same `WARN`,
+not a `CONTRACT_REMOVED`. The old shape was never seen, so the change can't be
+verified either way. [Deep dive](deep-dive.md#when-a-type-cant-be-analysed) lists
+what makes a type opaque.
 
 ## Keeping this page in sync
 

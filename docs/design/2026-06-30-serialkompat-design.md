@@ -521,7 +521,7 @@ says what downgrades them. The authoritative per-rule table, with rule IDs, is
 | required → **optional** | SAFE | **BREAK** | forward per field (#158/#176): `@EncodeDefault(ALWAYS)`→SAFE; `NEVER`→BREAK; no annotation→SAFE iff writer `encodeDefaults`; mode unknown→WARN under `encodeDefaults=true`, else BREAK |
 | non-null → **nullable** (`T`→`T?`) | SAFE | **BREAK** | forward: old reader chokes on emitted `null`; new writer `explicitNulls=false`→**WARN** |
 | nullable → **non-null** (`T?`→`T`) | **BREAK** | SAFE | backward: old `null` can't decode |
-| Change type (`String`↔`Int`, restructure) | **BREAK** | **BREAK** | numeric widening (`Byte`/`Short`/`Int`→wider int, `Float→Double`): B SAFE / F BREAK. A change where either side bears a generic hole is not a finding (§14) |
+| Change type (`String`↔`Int`, restructure) | **BREAK** | **BREAK** | numeric widening (`Byte`/`Short`/`Int`→wider int, `Float→Double`): B SAFE / F BREAK. A change where exactly one side bears a generic hole, or only hole ordinals differ, is not a finding; a different shape with holes on both sides (`List<#0>` → `#0`) is BREAK (§14) |
 | Drop a `@JsonNames` alias | **WARN** | SAFE | `PROPERTY_JSON_NAMES`; adding an alias is SAFE |
 | Enum **add** value | SAFE | **BREAK** | forward WARN iff old reader `coerceInputValues` AND every reading field has a default (#129) |
 | Enum **remove** value | **BREAK** | SAFE | |

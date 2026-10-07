@@ -191,6 +191,9 @@ shared report renders as:
                 { "id": "CONFIG_ENCODE_DEFAULTS", "name": "CONFIG_ENCODE_DEFAULTS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
                 { "id": "CONFIG_EXPLICIT_NULLS", "name": "CONFIG_EXPLICIT_NULLS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
                 { "id": "CONFIG_COERCE_INPUT", "name": "CONFIG_COERCE_INPUT", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
+                { "id": "CONFIG_ARRAY_POLYMORPHISM", "name": "CONFIG_ARRAY_POLYMORPHISM", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
+                { "id": "CONFIG_STRUCTURED_MAP_KEYS", "name": "CONFIG_STRUCTURED_MAP_KEYS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
+                { "id": "CONFIG_SPECIAL_FLOATS", "name": "CONFIG_SPECIAL_FLOATS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
                 { "id": "COVERAGE_GAP", "name": "COVERAGE_GAP", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" }
               ]
             }
