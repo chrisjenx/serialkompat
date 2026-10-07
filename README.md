@@ -164,12 +164,12 @@ Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.8.0), Kotlin 2.4.20, and kot
 | `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` | `mavenCentralUsername` / `mavenCentralPassword` |
 | `SIGNING_KEY_ID` / `SIGNING_KEY` / `SIGNING_KEY_PASSWORD` | `signingInMemoryKeyId` / `signingInMemoryKey` / `signingInMemoryKeyPassword` |
 
-**Release.** Dispatch the `Release` workflow from `main` with a version: `X.Y.Z`, or `X.Y.Z-suffix` for a prerelease. It runs these jobs in order:
+**Release.** First, in a PR, rename `## [Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` above it. Then dispatch the `Release` workflow from `main` with the version: `X.Y.Z`, or `X.Y.Z-suffix` for a prerelease. It runs these jobs in order:
 
-1. **Validate.** Fails before anything ships if the run isn't on `main`, any of the five secrets is missing, the version is malformed, or tag `vX.Y.Z` already exists.
+1. **Validate.** Fails before anything ships if the run isn't on `main`, any of the five secrets is missing, the version is malformed, tag `vX.Y.Z` already exists, or (for a final release) `CHANGELOG.md` has no `## [X.Y.Z]` section.
 2. **Test.** `./gradlew build` on JDK 17 and 21, on macOS so the KMP klibs are complete.
 3. **Publish.** `publishAndReleaseToMavenCentral`.
-4. **Tag and release.** Tags `vX.Y.Z` on the tested commit and creates the GitHub release, marked as a prerelease if the version has a suffix. Stable releases also move the floating major tag that Action users pin (`v0` for 0.x, `v1` for 1.x).
+4. **Tag and release.** Tags `vX.Y.Z` on the tested commit and creates the GitHub release (notes: that version's CHANGELOG section, then GitHub's generated PR list), marked as a prerelease if the version has a suffix. Stable releases also move the floating major tag that Action users pin (`v0` for 0.x, `v1` for 1.x).
 5. **Bump.** Opens a PR moving `gradle.properties` to the next `-SNAPSHOT` (the next patch after a final release, or the same version after a prerelease: `1.0.0-rc1` → `1.0.0-SNAPSHOT`), because `main` is branch-protected. This needs **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**. Without it the release still completes, and the job warns you to bump the version by hand.
 
 Tagging, the GitHub release, and the bump PR all use the workflow's own `GITHUB_TOKEN`.
