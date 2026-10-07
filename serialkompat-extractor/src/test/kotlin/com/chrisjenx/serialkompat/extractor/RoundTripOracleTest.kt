@@ -1618,4 +1618,79 @@ class RoundTripOracleTest {
                 .toSet()
         assertEquals(allFields, observed, "a SnapshotConfig field is not exercised by this guard")
     }
+
+    // --- serial-name collision across sealed bases ---------------------------------
+
+    @Serializable
+    @SerialName("Ledger")
+    private sealed interface LedgerEvent {
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val ledgerId: String,
+        ) : LedgerEvent
+    }
+
+    @Serializable
+    @SerialName("Account")
+    private sealed interface AccountEventV1 {
+        // Shares the subtype serial name "created" with LedgerEvent.Created (legal across bases).
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val accountId: String,
+        ) : AccountEventV1
+    }
+
+    @Serializable
+    @SerialName("Account")
+    private sealed interface AccountEventV2 {
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val accountId: Int,
+        ) : AccountEventV2
+    }
+
+    @Serializable
+    @SerialName("Feed")
+    private data class FeedV1(
+        val ledger: LedgerEvent,
+        val account: AccountEventV1,
+    )
+
+    @Serializable
+    @SerialName("Feed")
+    private data class FeedV2(
+        val ledger: LedgerEvent,
+        val account: AccountEventV2,
+    )
+
+    @Test
+    fun `a change behind a colliding subtype serial name is never read as safe`() {
+        // Ground truth: Account's `created.accountId` changed String -> Int; old data no longer decodes.
+        val oldData =
+            Json.encodeToString(
+                FeedV1.serializer(),
+                FeedV1(LedgerEvent.Created("l-1"), AccountEventV1.Created("not-a-number")),
+            )
+        assertFailsWith<Exception> { Json.decodeFromString(FeedV2.serializer(), oldData) }
+
+        // The walk deduped "created" by serial name, so Account's subtype was never analysed and the
+        // diff came back empty. It must at least surface as a coverage gap (unanalysable ≠ safe).
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<FeedV1>().descriptor)),
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<FeedV2>().descriptor)),
+                ),
+            )
+        assertTrue(
+            findings.any {
+                it.direction == CompatibilityDirection.BACKWARD &&
+                    (it.severity == Severity.BREAK || it.rule == Rules.COVERAGE_GAP)
+            },
+            "real decode threw but the gate was silent; got $findings",
+        )
+    }
 }
