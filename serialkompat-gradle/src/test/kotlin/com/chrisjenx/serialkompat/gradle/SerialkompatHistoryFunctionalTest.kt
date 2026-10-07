@@ -215,6 +215,31 @@ class SerialkompatHistoryFunctionalTest {
     }
 
     @Test
+    fun `serialkompatCheckHistory follows a build directory relocated in the build script body`() {
+        settings()
+        // Set after the plugin applied: the current snapshot and report paths must resolve lazily.
+        write(
+            "build.gradle.kts",
+            """
+            plugins { id("com.chrisjenx.serialkompat") }
+            serialkompat { types.set(listOf("com.example.Order")) }
+            layout.buildDirectory.set(layout.projectDirectory.dir("out"))
+            """,
+        )
+        seedHistory("1.0.0", order(Element("id", "kotlin.String")))
+        write("out/serialkompat/current.snapshot", SnapshotFormat.serialize(order(Element("id", "kotlin.String"))))
+
+        val result = runner("serialkompatCheckHistory", "-x", "serialkompatExtract", "--configuration-cache").build()
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheckHistory")?.outcome)
+        assertTrue(
+            File(projectDir, "out/serialkompat/report-history.json").isFile,
+            "the history report must land under the relocated build dir",
+        )
+        assertTrue(!File(projectDir, "build").exists(), "nothing may be written to the default build dir")
+    }
+
+    @Test
     fun `history retention narrows the horizon so an old-version break outside the window is not checked`() {
         settings()
         // depth=1 checks only the newest recorded version (2.0.0), dropping 1.0.0 from the horizon.
