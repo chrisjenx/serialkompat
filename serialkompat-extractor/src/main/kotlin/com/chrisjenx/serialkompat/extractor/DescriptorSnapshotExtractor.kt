@@ -78,7 +78,10 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     ) {
         while (queue.isNotEmpty()) {
             val descriptor = queue.removeFirst()
-            val serialName = contractName(descriptor)
+            // Even the serial name can fail to resolve (a lazily-built descriptor whose class is
+            // missing at runtime); key such a node deterministically so it still surfaces as a gap.
+            val serialName =
+                guarded { contractName(descriptor) } ?: "<unresolvable:${descriptor::class.java.name}>"
             if (!visited.add(serialName)) continue
 
             // A gate must never crash and never silently drop a type it can't
@@ -86,19 +89,31 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             // explicit OPAQUE coverage gap instead.
             val referenced = mutableListOf<SerialDescriptor>()
             val contract =
-                try {
-                    contractOf(descriptor, serialName, config, openPoly, referenced)
-                        ?: Contract(serialName, ContractKind.OPAQUE)
-                } catch (
-                    @Suppress("TooGenericExceptionCaught") error: Exception,
-                ) {
-                    referenced.clear()
-                    Contract(serialName, ContractKind.OPAQUE)
-                }
+                guarded { contractOf(descriptor, serialName, config, openPoly, referenced) }
+                    ?: Contract(serialName, ContractKind.OPAQUE).also { referenced.clear() }
             contracts += contract
             queue += referenced
         }
     }
+
+    /**
+     * Runs [block], mapping any failure to `null` so the caller records an OPAQUE gap. Walking a
+     * descriptor resolves serializers lazily, so a broken model surfaces as an [Error] as often as
+     * an [Exception]: [NoClassDefFoundError] for a type missing at runtime,
+     * [ExceptionInInitializerError] for a serializer whose static init throws. Both are per-type
+     * failures and must not abort the whole extraction. A [VirtualMachineError] (out of memory,
+     * stack overflow) is not about one type, so it still propagates.
+     */
+    private inline fun <T> guarded(block: () -> T): T? =
+        try {
+            block()
+        } catch (error: VirtualMachineError) {
+            throw error
+        } catch (
+            @Suppress("TooGenericExceptionCaught") error: Throwable,
+        ) {
+            null
+        }
 
     /**
      * Builds the contract for [descriptor], appending any referenced descriptors

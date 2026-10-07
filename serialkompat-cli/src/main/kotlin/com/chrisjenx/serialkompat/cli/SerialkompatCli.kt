@@ -22,14 +22,17 @@ import kotlin.system.exitProcess
 public object SerialkompatCli {
     private const val USAGE =
         "usage: serialkompat diff <baseline.snapshot> <current.snapshot> " +
-            "[--direction=FULL|BACKWARD|FORWARD] [--format=console|json|sarif|github] [--no-fail]"
+            "[--direction=FULL|BACKWARD|FORWARD] [--format=console|json|sarif|github] [--no-fail] " +
+            "[--allow-empty-baseline]"
 
     /**
      * Runs the CLI, writing output (including error messages) to [out], and returns
      * the process exit code. The tool never throws on bad input (design §10): a
      * missing/unreadable/malformed snapshot file, an unknown flag, or an invalid
      * `--direction` all yield a controlled [EXIT_USAGE] with an `error:` message,
-     * never a stack trace.
+     * never a stack trace. So does a zero-contract baseline against a non-empty
+     * current snapshot (unless `--allow-empty-baseline`), mirroring Gradle's
+     * `failOnEmptyBaseline`.
      */
     public fun run(
         args: Array<String>,
@@ -113,6 +116,22 @@ public object SerialkompatCli {
 
         val baseline = readSnapshot(positional[1], out) ?: return EXIT_USAGE
         val current = readSnapshot(positional[2], out) ?: return EXIT_USAGE
+        // Fail closed on a degenerate baseline, mirroring Gradle's failOnEmptyBaseline (#78): a
+        // zero-contract baseline against a non-empty current would otherwise diff as "everything
+        // added -> safe" and mask any removal. It is a misconfiguration (wrong file/ref), so it is
+        // EXIT_USAGE, not bypassed by --no-fail, and no report is rendered (keeps json/sarif output
+        // parseable). First-time adoption opts out with --allow-empty-baseline.
+        if (!args.contains("--allow-empty-baseline") &&
+            baseline.contracts.isEmpty() &&
+            current.contracts.isNotEmpty()
+        ) {
+            out.appendLine(
+                "error: the baseline '${positional[1]}' has 0 contracts but the current schema has " +
+                    "${current.contracts.size} — refusing to pass (check the baseline file, or pass " +
+                    "--allow-empty-baseline if this is first-time adoption).",
+            )
+            return EXIT_USAGE
+        }
         val report = CompatibilityEngine.check(baseline, current, CompatibilityProfile(direction = direction))
 
         val rendered =
@@ -147,7 +166,7 @@ public object SerialkompatCli {
         return if (i >= 0 && i + 1 < args.size && !args[i + 1].startsWith("--")) args[i + 1] else null
     }
 
-    private val KNOWN_OPTIONS = setOf("--direction", "--format", "--no-fail", "--help", "-h")
+    private val KNOWN_OPTIONS = setOf("--direction", "--format", "--no-fail", "--allow-empty-baseline", "--help", "-h")
 
     /** Space-form value options — the CLI must consume their following token as a value, not a positional. */
     private val VALUE_OPTIONS = setOf("--direction", "--format")
