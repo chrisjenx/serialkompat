@@ -1,6 +1,7 @@
 package com.chrisjenx.serialkompat.core
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -99,5 +100,55 @@ class CompatibilityEngineTest {
                 current = Snapshot(config = SnapshotConfig(ignoreUnknownKeys = false)),
             )
         assertTrue(report.active.any { it.rule == Rules.CONFIG_READER_STRICTNESS })
+    }
+    // --- Enum coercibility is a wire fact, computed over the unscoped baseline (#129) --------------
+
+    private val coerce = SnapshotConfig(coerceInputValues = true)
+
+    private fun status(vararg values: String) =
+        Contract("com.example.orders.Status", ContractKind.ENUM, enumValues = values.toList())
+
+    private fun forwardEnumAdded(
+        baselineReaders: List<Contract>,
+        scope: Scope,
+    ): Severity? {
+        val baseline = Snapshot(baselineReaders + status("OPEN"), coerce)
+        val current = Snapshot(baselineReaders + status("OPEN", "CLOSED"), coerce)
+        return check(baseline, current, profile = CompatibilityProfile(CompatibilityDirection.FORWARD), scope = scope)
+            .findings
+            .singleOrNull { it.rule == Rules.ENUM_VALUE_ADDED }
+            ?.severity
+    }
+
+    @Test
+    fun `a required reader in an out-of-scope contract still disqualifies coercion of an in-scope enum`() {
+        // Monorepo scoping: orders owns Status; audit (another module, still on the wire) reads it
+        // required. The added value throws when audit decodes, so it can't be a coerce-rescued WARN.
+        val severity =
+            forwardEnumAdded(
+                listOf(
+                    clazz("com.example.orders.Order", Element("status", "com.example.orders.Status", optional = true)),
+                    clazz("com.example.audit.AuditRecord", Element("status", "com.example.orders.Status")),
+                ),
+                Scope(include = listOf("com.example.orders")),
+            )
+        assertEquals(Severity.BREAK, severity)
+    }
+
+    @Test
+    fun `an out-of-scope defaulted reader counts toward coercion of an in-scope enum`() {
+        // The only reader is defaulted, in a contract outside the scope: coerceInputValues rescues it,
+        // so the outcome is the truthful WARN rather than "no in-scope reader" BREAK.
+        val severity =
+            forwardEnumAdded(
+                listOf(
+                    clazz(
+                        "com.example.audit.AuditRecord",
+                        Element("status", "com.example.orders.Status", optional = true),
+                    ),
+                ),
+                Scope(include = listOf("com.example.orders")),
+            )
+        assertEquals(Severity.WARN, severity)
     }
 }
