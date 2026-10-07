@@ -1,9 +1,15 @@
 # serialkompat — design
 
 **Date:** 2026-06-30
-**Status:** Design approved; ready for implementation planning
+**Status:** Implemented (living design doc). Last reconciled against the code on
+2026-10-06 (through #183). Where the shipped behaviour moved away from the
+original design, the section carries an **Updated (#NNN):** note rather than a
+silent rewrite. The CI-gated, user-facing rule matrix is
+[`docs/rules.md`](../rules.md) (`checkRulesDoc` / `checkRulesProof`); if it and
+§7 below ever disagree, `docs/rules.md` and the `Classifier` win.
 **Repo:** `github.com/chrisjenx/serialkompat` (public, personal)
 **Coordinates:** plugin id `com.chrisjenx.serialkompat`, Maven group `com.chrisjenx`
+(Maven Central only; the plugin marker is not yet on the Gradle Plugin Portal)
 
 ---
 
@@ -82,13 +88,18 @@ Everything hangs off one swappable artifact — the `Snapshot`.
                     walk, JVM)
                          ▲                              ▲
                     swappable                      reads two Snapshots;
-              (compiler plugin later)          never knows their origin
+                                               never knows their origin
 ```
 
 The diff/classify engine is fully decoupled from extraction and from where
-baselines come from. This is what lets git-ref mode, local mode, and (v1)
-published-history mode share one engine, and lets a compiler-plugin extractor drop
-in later without touching the rules.
+baselines come from. This is what lets git-ref mode, local mode, the standalone
+CLI, and the published-history mode share one engine (`CompatibilityEngine`),
+and would let a different extractor drop in without touching the rules.
+
+**Updated (#55, #176):** the diagram originally anticipated a compiler-plugin
+extractor. That producer is retired: discovery shipped as class-dir scanning
+(§4), and `@EncodeDefault` turned out to be recoverable from bytecode (§14), so
+nothing currently needs a compiler plugin.
 
 ### Modules
 
@@ -96,15 +107,17 @@ in later without touching the rules.
 |---|---|---|
 | `serialkompat-core` | `Snapshot` model + canonical serialize/parse, `Differ`, `Classifier`, rule set, `Report`. **Pure Kotlin, no kotlinx-serialization runtime, no I/O.** | — |
 | `serialkompat-extractor` | Walk `SerialDescriptor` → build `Snapshot`, behind an `Extractor` interface (anti-corruption layer), incl. `SerializersModule` polymorphism. Vendors its own walk (see §12); does **not** depend on `kotlinx-schema`. Runs on JVM. | kotlinx-serialization |
-| `serialkompat-gradle` | `serialkompatCheck` / `serialkompatCheckAgainst` / `serialkompatExtract` tasks; config extension. | core, extractor |
-| `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` for non-Gradle / cross-repo use. | core |
-| `serialkompat-cli` | Thin CLI for cross-repo / non-Gradle use. v1. | core, extractor |
+| `serialkompat-gradle` | `serialkompatExtract` / `serialkompatCheck` / `serialkompatCheckAgainst` / `serialkompatRecord` / `serialkompatCheckHistory` tasks; `serialkompat { }` extension (§9). | core, extractor |
+| `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` over two snapshot files, for non-Gradle / cross-repo use. Does no extraction. | core |
+| `serialkompat-annotations` | `@SerialkompatIgnore` / `@SerialkompatChecked` discovery markers (§4, #115). The only Kotlin Multiplatform module; `RUNTIME` retention so the scanner reads them from bytecode. | — |
 
 ### The `Snapshot` format
 
 The canonical model of the wire contract. Serialized to a **deterministic,
 sorted, human-readable text form** (BCV's lesson) so it is diffable and
-reviewable; a machine-readable JSON form may be emitted alongside for tooling.
+reviewable. (**Updated:** no JSON form of the snapshot shipped; the text form
+is the only snapshot format. Machine-readable output exists for the *report*
+instead — see §7 "Report".)
 
 **Elements are sorted by serial name, not declaration order** — JSON does not care
 about field order, so reordering produces zero diff (and a rename correctly
@@ -130,32 +143,43 @@ whitespace-free output stays byte-identical).
 Blocks are sorted by serial name; within a contract, elements sort by key, enum
 values sort, and subtypes sort by discriminator value — so reordering fields
 produces a zero diff. An element whose type is another contract simply records
-that contract's serial name as its type ref (no distinguishing `->` marker):
+that contract's serial name as its type ref (no distinguishing `->` marker).
+Primitive type refs are the descriptor's serial name (`kotlin.String`), and a
+generic type-parameter hole renders as `#0` (§4):
 
 ```
 @contract com.mercury.orders.OrderEvent kind=CLASS
-  amountCents: Long
-  id: String
-  note: String optional
+  amountCents: kotlin.Long
+  id: kotlin.String
+  note: kotlin.String optional nullable encodeDefault=ALWAYS
   status: com.mercury.orders.OrderStatus
-  tags: List<String> optional jsonNames=[labels]
+  tags: List<kotlin.String> optional jsonNames=[labels]
 
 @contract com.mercury.orders.OrderStatus kind=ENUM
   values=[CANCELLED,CREATED,PAID]
 
-@contract com.mercury.orders.Payment kind=SEALED discriminator=type
+@contract com.mercury.orders.Payment kind=SEALED discriminator=type polymorphicDefault=true
   subtypes:
     ach -> com.mercury.orders.AchPayment
     card -> com.mercury.orders.CardPayment
 
 @config
   classDiscriminator=type
+  classDiscriminatorMode=POLYMORPHIC
   coerceInputValues=false
   encodeDefaults=false
   explicitNulls=true
   ignoreUnknownKeys=false
   namingStrategy=none
+  useAlternativeNames=true
 ```
+
+Element flags are emitted only when set: `optional`, `nullable`, `jsonNames=[…]`,
+and `encodeDefault=ALWAYS|NEVER|ABSENT` (absent token = mode unknown, #158/#176). The
+contract header carries `polymorphicDefault=true` only when the base registered a
+default deserializer (#128 for open, #181 for sealed), so older snapshots
+round-trip unchanged. `@config` always emits all eight keys in alphabetical order.
+`OPAQUE` contracts have a header and no body.
 
 Per element it records the compat-bearing facts: **JSON key** (post-`@SerialName`
 and post-`namingStrategy`), **type ref**, **`nullable`**, **`optional`** (straight
@@ -171,6 +195,16 @@ of the snapshot (see §5) so config changes are themselves diffed.
 A Gradle task runs a small program on the JVM target's runtime classpath. It
 discovers in-scope `@Serializable` types, calls `Type.serializer().descriptor`,
 and walks the descriptor tree (BFS + visited-set for cyclic graphs).
+
+**Updated (#180): classpath order.** `serialkompatExtract` is a forked
+`JavaExec` whose classpath is, in order: the project's runtime classpath
+(`runtimeClasspath`, or `jvmRuntimeClasspath` for KMP), then the project's own
+compiled class dirs, then the tool jars. The project's generated serializers
+were compiled against the project's kotlinx-serialization and stdlib, so those
+must win. The tool jars come from the plugin classloader (the plugin's
+kotlinx-serialization, Gradle's embedded stdlib) and only fill what the project
+lacks. Earlier builds put the tool jars first and shadowed newer project
+runtimes.
 
 The `SerialDescriptor` already contains exactly what wire compatibility depends
 on: `elementNames` (real JSON keys), `isElementOptional(i)` (authoritative
@@ -286,6 +320,46 @@ the target ref:
 The SHA-keyed cache is safe because it is content-addressed (a commit SHA
 deterministically produces one schema), not hand-synced.
 
+**Updated: what shipped.**
+
+- **Cache key is the commit SHA only** (`SnapshotCache`, one
+  `build/serialkompat/baseline/<sha>.snapshot` per resolved ref), not
+  `(SHA + tool version + config hash)`. It lives in the module's `build/`, so
+  `clean` drops it. Note that a tool-version or `serialkompat { }` config change
+  does not by itself invalidate an entry; a `clean` does.
+- **Fail-closed is "never trust", not "refuse to run".** Writes are atomic
+  (temp file + move). A cached entry that does not parse is deleted and treated
+  as a miss, so the gate re-extracts rather than diffing against a corrupt
+  baseline. A failed baseline extraction fails the check. A stale or
+  half-registered worktree from a killed run is pruned before `worktree add`, so
+  the gate self-heals.
+- **Degenerate baseline (#78).** A baseline with zero contracts while the
+  current schema has some fails the gate (`failOnEmptyBaseline`, default `true`),
+  since it would otherwise diff as "everything added, all safe". First-time
+  adopters set it to `false`.
+- **Default ref (#116).** With `baselineRef` unset, the check auto-detects the
+  repository's default branch at execution time, so `master` repos work too.
+- **Baseline extraction is a nested Gradle build** of
+  `<projectPath>:serialkompatExtract` in the worktree (using the repo's
+  `gradlew` when present).
+- **Build cache (#182).** `serialkompatExtract` is build-cacheable and
+  relocatable: its key is the typed `ExtractArguments` inputs (`types`,
+  `discovery`, `jsonInstance`, the `@Classpath` class dirs) plus the classpath,
+  with no absolute paths. A checkout at another path, such as the baseline
+  worktree, can therefore get `FROM-CACHE` from a shared or remote cache. So
+  "`main` compiles at most once per commit, reused across all PRs" holds across
+  machines only with a shared build cache; otherwise it holds per checkout via the
+  SHA cache above. The check tasks are **intentionally never cached**: their
+  verdict depends on what the baseline ref points at *now*, which is not a task
+  input.
+- **Multi-module builds (#183).** A build-wide `BaselineExtractionService`
+  (`maxParallelUsages = 1`), used by `serialkompatCheck` and
+  `serialkompatCheckAgainst`, makes modules take turns extracting their baseline.
+  That avoids concurrent `git worktree add`/`prune` on one repo and N nested
+  daemons at once. Extract and compile tasks stay fully parallel. The plugin is
+  tested under `--parallel`, the configuration cache, and Gradle Isolated
+  Projects (build services are the IP-safe way to share state across projects).
+
 ### Persisted-data horizon (v1: append-only published history)
 
 git-ref-vs-`main` fully covers **live-service** compat (main = deployed) but not
@@ -298,7 +372,9 @@ from the exact release commit. The gate then diffs against the latest
 Append-only ⇒ no "dump defeats the gate" hazard; a periodic drift audit
 re-extracts a tag and fails closed if it disagrees with what was published.
 
-**Wired (#88):** `serialkompatRecord` writes `<version>.snapshot` into a
+**Wired (#88):** the history is a source-controlled directory the consumer
+commits, not an artifact repository, and the periodic drift audit (re-extract a
+tag, compare to what was recorded) is not implemented. `serialkompatRecord` writes `<version>.snapshot` into a
 source-controlled `history { dir }` (default `serialkompat/history/`), keyed by
 version, atomically and append-only (refuses to overwrite). Each entry carries an
 `@history version=… recordedAt=…` header — a block key `SnapshotFormat` never
@@ -308,7 +384,13 @@ failing closed on a torn/corrupt one rather than under-reporting. Entries load i
 `serialkompatCheckHistory` runs `TransitiveCompatibility` over the history and is
 wired into `check`, but no-ops until a version is recorded. Recording is decoupled
 from Maven publishing (#24): a consumer can record + commit manually or from any
-release step.
+release step. `serialkompatRecord` is **not** wired into `check`; it records
+under `-Pserialkompat.recordVersion=<X.Y.Z>` (else the project `version`), rejects
+an unset or whitespace-bearing version, and refuses to record a snapshot with
+zero checked (non-`OPAQUE`) contracts, since an append-only entry can't be
+corrected later. The history check writes its own
+`build/serialkompat/report-history.{json,sarif}` so it never clobbers the
+pairwise `report.json` (#122).
 
 **Retention (#121):** `history { sinceVersion / depth / maxAge }` bounds how far
 back the check reaches (the persisted-data horizon isn't "forever"). Each bound
@@ -343,6 +425,13 @@ extension → else conservative/strict *with a loud "assuming" warning*. A
 rather than falling back: the fallback would silently check every type under
 the wrong config and without the module's polymorphic registrations.
 
+**Updated: what shipped.** There is no "explicit config in the extension" step.
+`SchemaExtractionMain` loads the `jsonInstance` FQN if set; otherwise (or if it
+can't be loaded) it uses kotlinx's default `Json`, which is already the strict
+profile (`ignoreUnknownKeys=false`, `explicitNulls=true`, …). The "assuming
+default config" warning is logged only when a configured `jsonInstance` fails to
+load; leaving `jsonInstance` unset is silent.
+
 **This is correctness, not convenience.** These `Json` settings change the wire
 shape or decode behavior; hand-re-declaring them would silently drift:
 - `namingStrategy` (e.g. `SnakeCase`) — renames every key.
@@ -363,11 +452,28 @@ shape or decode behavior; hand-re-declaring them would silently drift:
 - tighten `ignoreUnknownKeys` true→false → your own readers got stricter →
   **WARN** ("previously-safe additions now break for your services")
 
+As shipped, config changes are classified per direction (the rule IDs and exact
+verdicts are in `docs/rules.md`): `namingStrategy` → `CONFIG_NAMING_STRATEGY`
+and `classDiscriminator` / `classDiscriminatorMode` → `CONFIG_DISCRIMINATOR`
+(BREAK both ways); disabling `ignoreUnknownKeys` or `useAlternativeNames` →
+`CONFIG_READER_STRICTNESS` and disabling `coerceInputValues` →
+`CONFIG_COERCE_INPUT` (backward WARN only); disabling `encodeDefaults` →
+`CONFIG_ENCODE_DEFAULTS` (forward WARN only); any `explicitNulls` toggle →
+`CONFIG_EXPLICIT_NULLS` (WARN both ways); anything else → `CONFIG_CHANGED` (WARN).
+Loosening a reader-side flag is SAFE.
+
 **Honest limit:** reading *your* `Json` config describes the sides you own (Kotlin
 producers/consumers). A non-Kotlin client's tolerance is not in there, so for
 externally-facing scopes you can pin a stricter assumption
 (`readerTolerance = STRICT`) to override "what my own Json does." Multiple wire
 boundaries → map scope → `Json` instance.
+
+**Updated: not surfaced yet.** `ReaderTolerance.STRICT` exists in `-core`
+(`CompatibilityProfile.readerTolerance`), but neither the Gradle extension nor
+the CLI exposes it; both build `CompatibilityProfile(direction = …)` only, so the
+reader's own `ignoreUnknownKeys` is always used. There is one `jsonInstance` per
+module; per-scope `Json` mapping is not implemented. A multi-boundary project
+splits boundaries into modules today.
 
 ---
 
@@ -384,28 +490,43 @@ boundaries → map scope → `Json` instance.
 Severity tiers: **BREAK** (a decode will throw), **WARN** (config-dependent, or a
 *silent* semantic break — no exception but wrong/lost data), **SAFE**.
 
+**Updated: knobs as shipped.** Direction is one value per module
+(`serialkompat { direction }`, default `FULL`); per-type overrides are not
+implemented. Reader tolerance always comes from the reader's `Json` config (the
+`STRICT` override is `-core`-only, see §6). The fail floor is fixed at `BREAK`:
+`failOnBreaking` (default `true`) toggles whether active BREAK findings fail the
+build, and WARN findings are reported but never fail. A finding that is SAFE in a
+direction produces no finding at all.
+
 ### The matrix
 
 `B` = backward (new code reads old data). `F` = forward (old code reads new data).
 Under `FULL` + **strict reader**:
 
+**Updated (2026-10-06):** cells below are corrected to the shipped
+`Classifier`. The original draft used `WARN→BREAK` to mean "conditional"; under a
+strict reader those cells are plain **BREAK**, and the "What flips it" column
+says what downgrades them. The authoritative per-rule table, with rule IDs, is
+`docs/rules.md`.
+
 | Change | B (new◄old) | F (old◄new) | What flips it |
 |---|:---:|:---:|---|
-| Add field **with default** (optional) | SAFE | **WARN→BREAK** | `ignoreUnknownKeys`→SAFE forward |
-| Add field **no default / `@Required`** | **BREAK** | **WARN→BREAK** | backward = `MissingFieldException`; nullable + reader `explicitNulls=false`→**SAFE**³ |
-| Remove **optional** field | **WARN→BREAK** | SAFE¹ | `ignoreUnknownKeys`→**WARN** (silent data-loss) backward² |
-| Remove **required** field | WARN→BREAK | **BREAK** | forward = old code needs it; nullable + reader `explicitNulls=false`→**WARN**³ |
-| **Rename** key (no `@JsonNames`) | **BREAK** | **BREAK** | if new field optional: silent data-loss = **WARN** |
-| Rename **with `@JsonNames(old)`** | SAFE | **BREAK** | alias fixes *backward* only |
+| Add field **with default** (optional) | SAFE | **BREAK** | old reader `ignoreUnknownKeys`→SAFE forward |
+| Add field **no default / `@Required`** | **BREAK** | **BREAK** | backward = `MissingFieldException`; nullable + new reader `explicitNulls=false`→**SAFE**³; forward as above |
+| Remove **optional** field | **BREAK** | SAFE¹ | new reader `ignoreUnknownKeys`→**WARN** (silent data-loss) backward² |
+| Remove **required** field | **BREAK** | **BREAK** | backward as above; forward = old code needs it; nullable + old reader `explicitNulls=false`→**WARN**³ |
+| **Rename** key (no `@JsonNames`) | **BREAK** | **BREAK** | decomposed into remove + add; tolerant readers → backward **WARN** (silent data-loss), forward SAFE² |
+| Rename **with `@JsonNames(old)`** | **BREAK** (designed: SAFE) | **BREAK** | **Not implemented:** elements pair by key only, so an alias-bridged rename is still scored as a plain rename (remove + add). Conservative: never a false SAFE |
 | optional → **required** | **BREAK** | SAFE | backward = old payloads omit it |
-| required → **optional** | SAFE | **WARN→BREAK** | forward depends on `encodeDefaults` |
-| non-null → **nullable** (`T`→`T?`) | SAFE | **WARN→BREAK** | forward: old reader chokes on emitted `null` |
+| required → **optional** | SAFE | **BREAK** | forward per field (#158/#176): `@EncodeDefault(ALWAYS)`→SAFE; `NEVER`→BREAK; no annotation→SAFE iff writer `encodeDefaults`; mode unknown→WARN under `encodeDefaults=true`, else BREAK |
+| non-null → **nullable** (`T`→`T?`) | SAFE | **BREAK** | forward: old reader chokes on emitted `null`; new writer `explicitNulls=false`→**WARN** |
 | nullable → **non-null** (`T?`→`T`) | **BREAK** | SAFE | backward: old `null` can't decode |
-| Change type (`String`↔`Int`, restructure) | **BREAK** | **BREAK** | numeric widen `Int→Long`: B SAFE / F BREAK |
-| Enum **add** value | SAFE | **BREAK→WARN** | forward WARN iff `coerceInputValues` AND every reading field has a default (else BREAK) |
+| Change type (`String`↔`Int`, restructure) | **BREAK** | **BREAK** | numeric widening (`Byte`/`Short`/`Int`→wider int, `Float→Double`): B SAFE / F BREAK. A change where exactly one side bears a generic hole, or only hole ordinals differ, is not a finding; a different shape with holes on both sides (`List<#0>` → `#0`) is BREAK (§14) |
+| Drop a `@JsonNames` alias | **WARN** | SAFE | `PROPERTY_JSON_NAMES`; adding an alias is SAFE |
+| Enum **add** value | SAFE | **BREAK** | forward WARN iff old reader `coerceInputValues` AND every reading field has a default (#129) |
 | Enum **remove** value | **BREAK** | SAFE | |
 | Enum/subtype **rename** (serial name) | **BREAK** | **BREAK** | discriminator/name mismatch |
-| Polymorphic **add** subtype | SAFE | **BREAK→WARN** | forward WARN (coerced to the sentinel) iff the base registered a default deserializer, else BREAK |
+| Polymorphic **add** subtype | SAFE | **BREAK** | forward WARN (coerced to the sentinel) iff the base — open **or sealed** — registered a default deserializer **and** the old reader has `ignoreUnknownKeys` (#128, #181); a strict reader still throws on the new subtype's fields |
 | Polymorphic **remove** subtype | **BREAK** | SAFE | |
 | Change **discriminator** key | **BREAK** | **BREAK** | |
 | **Delete** a whole contract type | **BREAK** (persisted) | **BREAK** | |
@@ -451,6 +572,16 @@ means no discriminator is emitted (nothing to collide with).
 
 ### Escape hatches & accepting a break
 
+**Updated (#57): what shipped.** The `@JsonNames` mitigation below is not
+implemented (see the matrix). The exceptions *file* and the inline annotation
+were not built either. Accepted breaks are declared in the build script instead:
+`serialkompat { acceptedBreaks.set(listOf("<serialName> <RULE> [DIRECTION]")) }`
+(omit the direction to accept both). The CLI has no equivalent. A matching
+finding is downgraded to *acknowledged*: listed with an `[acknowledged]` tag,
+never failing. An unlisted break fails, but the console report does not print a
+ready-to-paste stanza. The review property still holds: the build-script diff is
+the precise breakage the PR sanctions.
+
 - **`@JsonNames` understood as mitigation** — a rename bridged by an alias is
   auto-downgraded (backward), rewarding the right fix.
 - **Accepted breaks in a committed exceptions file** `serialkompat-exceptions.yaml`,
@@ -475,6 +606,12 @@ Emitted by pure `serialkompat-core` reporters as **console**, **versioned machin
 JSON** (top-level `schemaVersion`, documented and stable — see the "Report formats"
 docs page), **SARIF 2.1.0** (logical locations only), and **GitHub Actions
 annotations**; posted as a PR comment on CI (§9).
+
+As shipped (#122): the Gradle check always logs the console form and writes the
+formats enabled in `serialkompat { reports { json { } sarif { } } }` (JSON on by
+default at `build/serialkompat/report.json`, SARIF off by default at
+`report.sarif`). The CLI picks one with `--format=console|json|sarif|github`.
+The GitHub Action renders annotations itself from `report.json`.
 
 ---
 
@@ -515,6 +652,13 @@ polymorphic move `DISCRIMINATOR_VALUE_CHANGED` (BREAK). Only renames whose both
 endpoints exist are honored, so a stale entry can't drop a contract. The
 `@PreviousSerialName` annotation form and the structural rename-detection
 heuristic remain for v0.5.
+
+**Updated (2026-10-06):** neither `@PreviousSerialName` nor the rename-detection
+heuristic has shipped; the `renames` map (Gradle extension only, not the CLI) is
+the only way to declare a move. There is no `TYPE_MOVED` rule: a declared plain
+move produces **no finding** (SAFE findings are never emitted), only the diff of
+its contents. An undeclared rename of a contract type surfaces as
+`CONTRACT_REMOVED` (BREAK) for the old name; the new name is a SAFE add.
 
 **Base-qualified subtype identity (#200).** A subtype's `serialName` only has to
 be unique within its base, so two sealed bases may each have a `created`
@@ -563,32 +707,52 @@ plugins {
 
 serialkompat {
   types.set(listOf("com.mercury.wire.OrderEvent"))        // roots to check
+  // or, with types empty: discovery.set(DiscoveryMode.OPT_OUT)  // EXPLICIT (default) | OPT_OUT | OPT_IN (§4)
   jsonInstance.set("com.mercury.wire.WireJson.instance")  // real Json config — read, not re-declared
   direction.set(CompatibilityDirection.FULL)
-  baselineRef.set("origin/main")                          // recomputed live from this ref
+  baselineRef.set("origin/main")                          // recomputed live; unset = auto-detect default branch (#116)
   failOnBreaking.set(true)
+  failOnEmptyBaseline.set(true)                           // false only for first-time adoption (§5)
   // Scope by serial-name prefix (exclude wins); a module that never crosses the wire can be left out.
   include.set(listOf(""))                                 // default: everything
   exclude.set(listOf("com.mercury.internal."))
   // Escape hatches:
   acceptedBreaks.set(listOf("com.mercury.wire.OrderEvent PROPERTY_REMOVED"))  // "<serialName> <RULE> [DIRECTION]"
   renames.set(mapOf("com.mercury.old.Name" to "com.mercury.new.Name"))        // old → new serial name
+  history { dir.set(layout.projectDirectory.dir("serialkompat/history")) }   // + sinceVersion / depth / maxAge (§5)
+  reports { sarif { required.set(true) } }                                   // json on, sarif off by default (§7)
 }
 ```
+
+The heading says KMP, but the example is a plain JVM module. A KMP module works
+the same way provided it declares a `jvm()` target (§4); the plugin then reads
+`jvmRuntimeClasspath` and the jvm target's class dirs. Because the plugin is
+published to Maven Central only (no Plugin Portal yet), consumers need
+`mavenCentral()` in `pluginManagement { repositories { } }`.
 
 ### Tasks
 
 | Task | Does | Wired to |
 |---|---|---|
 | `serialkompatCheck` | extract current → resolve baseline → diff → classify → report; non-zero exit on unlisted breaks | **`check` lifecycle** |
-| `serialkompatCheckAgainst -Pref=<ref>` | same, against an arbitrary ref | ad-hoc / local |
-| `serialkompatExtract` | emit current schema to `build/` (internal) | dependency of the above |
+| `serialkompatCheckAgainst -Pserialkompat.ref=<ref>` | same, against an arbitrary ref (falls back to the configured/auto-detected baseline) | ad-hoc / local; the GitHub Action's default task |
+| `serialkompatExtract` | emit current schema to `build/serialkompat/current.snapshot`; build-cacheable (§5) | dependency of the above |
+| `serialkompatRecord` | append the current schema to the published history (`-Pserialkompat.recordVersion=<X.Y.Z>`) | release step; **not** in `check` |
+| `serialkompatCheckHistory` | transitive check vs every retained history entry | **`check` lifecycle**; no-op until a version is recorded |
 
 No "commit the baseline" task in the v0 gate path (that was the staleness trap).
 
+**Updated:** `serialkompatRecord` and `serialkompatCheckHistory` landed with #88.
+The ad-hoc ref property is `-Pserialkompat.ref`, not `-Pref`. Every task is gated
+by `onlyIf`: with `discovery = EXPLICIT` and no `types`, applying the plugin is a
+no-op, so `check` never fails on an unconfigured module. All tasks are
+configuration-cache safe (state is captured at configuration time; nothing
+touches `Task.project` at execution).
+
 ### Two loops
-- **Local (zero maintenance):** `./gradlew serialkompatCheck` compares working tree
-  vs `origin/main`, fast after first cached baseline. Optional pre-push hook.
+- **Local (zero maintenance):** `./gradlew serialkompatCheck` compares the working
+  tree vs `baselineRef` (else the auto-detected default branch), fast after the
+  first cached baseline. Optional pre-push hook.
 - **CI gate:** same task; baseline = the PR's target branch. Unlisted break → fail;
   post findings + schema diff as a **sticky PR comment / job summary**.
 
@@ -596,6 +760,14 @@ No "commit the baseline" task in the v0 gate path (that was the staleness trap).
 Every in-scope `@Serializable` type is either checked or *explicitly, visibly*
 suppressed; anything that is neither **fails the gate**. Suppressions are listed in
 the report. A model cannot silently fall out of the gate.
+
+**Updated: how strong this is today.** Suppression is always explicit config
+(`include`/`exclude`, `@SerialkompatIgnore`, or not listing a type under
+`EXPLICIT`), but the excluded set is not printed in any report (`Coverage.excluded`
+is computed in `-core` and then dropped by `CompatibilityEngine`). An
+unanalysable type is surfaced as a `COVERAGE_GAP` **WARN**, which is reported on
+every run but does not fail the gate (§10). "Fails the gate" is therefore not
+yet true for coverage gaps.
 
 ### Packaging
 - **`serialkompat-gradle`** — primary interface (KMP compiles through Gradle anyway).
@@ -606,7 +778,11 @@ the report. A model cannot silently fall out of the gate.
   a `notice` summarizing any overflow) from the same report, and — because findings are
   logical-only (no source `file:line`) — does **not** upload SARIF to GitHub code
   scanning.
-- **`serialkompat-cli`** — v1, for non-Gradle / cross-repo use.
+- **`serialkompat-cli`** — shipped, for non-Gradle / cross-repo use:
+  `serialkompat diff <baseline> <current> [--direction=BACKWARD|FORWARD|FULL]
+  [--format=console|json|sarif|github] [--no-fail]`. It diffs two snapshot files
+  (no extraction, no `acceptedBreaks`/`renames`/scope). Exit codes: `0` ok, `1`
+  breaking, `2` usage error.
 
 ---
 
@@ -629,6 +805,22 @@ the report. A model cannot silently fall out of the gate.
 - **Determinism:** sorted + normalized snapshot ⇒ re-runs byte-identical, field
   reordering yields zero diff. BFS + visited-set for cyclic graphs.
 
+**Updated: what shipped.**
+
+- `failOnUnanalyzable` was never added. A coverage gap is always a `COVERAGE_GAP`
+  **WARN** in both directions: reported on every run, never failing the gate.
+  It can be acknowledged through `acceptedBreaks` like any other finding.
+- What becomes `OPAQUE`: an unknown `SerialKind`, an unresolved `@Contextual`
+  serializer (#131), a type that fails to load or resolve (each root resolves
+  independently, #81), an unreadable class file during the scan (#55), and a
+  generic sealed/polymorphic hierarchy (#139).
+- Custom serializers carry no "shape derived from custom serializer" marker. The
+  extractor records whatever the custom descriptor exposes. For example, a
+  `@Serializable(with = …)` class whose descriptor is `PrimitiveKind.STRING` is
+  recorded as a string-typed field, not as its constructor fields. A custom
+  serializer whose descriptor under-describes its real output is therefore the
+  remaining fidelity ceiling, and it is not flagged.
+
 ---
 
 ## 11. Testing the tool (verify rules against the real library)
@@ -643,7 +835,7 @@ assertion first, then the rule.
 | **Golden fixture pairs** | `(old, new)` model pairs, each tagged `{rule, direction, severity}` — one+ per matrix row, incl. moves/renames and config changes. |
 | **Snapshot determinism** | extract-twice-identical; reorder-fields-identical. |
 | **Extractor fidelity** | rich model (nested, sealed, enums, generics, value classes, contextual) → assert captured structure. |
-| **kotlinx version matrix** | run across supported kotlinx-serialization versions. |
+| **kotlinx version matrix** | run across supported kotlinx-serialization versions. **Updated:** not a CI matrix today. CI runs on JDK 17 and 21; the tool builds against the kotlinx-serialization in `libs.versions.toml`, and one TestKit test extracts a consumer on Kotlin 2.3.21 / kotlinx-serialization 1.9.0 to prove the project-runtime-first classpath (#180). |
 
 Those verdicts are surfaced for readers on the [Rules](../rules.md) page: a
 per-rule **Rule reference** section shows the change as a red/green diff, the
@@ -714,6 +906,17 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
 - **Later (only if needed):** CBOR/ProtoBuf rules (field order / `@ProtoNumber`);
   IDE inspection.
 
+**Updated (2026-10-06): status.** v0, v1 and the post-v1 milestones are
+implemented, with these exceptions still open: the v0.5 rename-detection
+heuristic and `@PreviousSerialName` (§8), the exceptions file (§7, replaced by
+`acceptedBreaks`), `@JsonNames` rename mitigation (§7), per-scope reader
+tolerance / `Json` mapping (§6), and Gradle Plugin Portal publishing. Shipped
+beyond the original roadmap: discovery modes + `serialkompat-annotations`
+(#115), generic-root envelopes (#139), JSON/SARIF/GitHub reporters and the
+`reports { }` DSL (#122), history retention (#121), `@EncodeDefault` recovery
+(#158/#176), sealed default deserializers (#181), a cacheable extract task
+(#182), and multi-module/Isolated Projects support (#183).
+
 ---
 
 ## 14. Residual risks to validate in the plan
@@ -741,7 +944,8 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
   direct property can coerce an added value to its default → WARN; a required field,
   a `List`/`Map` usage, or a top-level decode has no default and throws → BREAK),
   not on a recorded sentinel value. A compiler-plugin extractor could record the
-  actual default (and a designated `UNKNOWN` sentinel) for a tighter verdict.
+  actual default (and a designated `UNKNOWN` sentinel) for a tighter verdict;
+  that producer is retired (§3), so this stays a known limit.
   Residual: this is best-effort per snapshot — an enum read *both* by a defaulted
   direct field *and* at a top level or inside an `OPAQUE` contract (neither visible
   as a field) is still classified coercible, so that hidden use is not proven sound.
@@ -789,7 +993,11 @@ pattern is reflected in the spike. The walk was never the hard part — the rule
    shipped as class-dir scanning inside the extractor (#55 re-scope); **KSP
    rejected** (#22); the compiler-plugin producer is retired.
 5. **Scope:** check-by-default per applied module, with module/package/file/type
-   suppression; no-silent-exclusions coverage invariant.
+   suppression; no-silent-exclusions coverage invariant. **Updated (#115):** the
+   default is `discovery = EXPLICIT` (only listed `types`); check-by-default is
+   opt-in via `OPT_OUT`. Suppression is by module (don't apply the plugin),
+   serial-name prefix (`include`/`exclude`), or type (`@SerialkompatIgnore`);
+   there is no file-level suppression.
 6. **Config:** read from the real `Json` instance; config is part of the snapshot;
    config changes are classified; strict override for third-party-facing scopes.
 7. **Identity:** match by `serialName`; `@PreviousSerialName`/`renames` to track

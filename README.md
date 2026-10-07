@@ -7,9 +7,7 @@
 
 **A backward/forward compatibility gate for [kotlinx-serialization](https://github.com/Kotlin/kotlinx.serialization) `@Serializable` models — like [`buf breaking`](https://buf.build/docs/breaking/), but for JSON.**
 
-📖 **[Full documentation → chrisjenx.github.io/serialkompat](https://chrisjenx.github.io/serialkompat/)** — [quick start](https://chrisjenx.github.io/serialkompat/quickstart/) · [rules](https://chrisjenx.github.io/serialkompat/rules/) · [CI setup](https://chrisjenx.github.io/serialkompat/ci/) · [API](https://chrisjenx.github.io/serialkompat/api/)
-
-> 🚧 **Status: early development, built in the open one reviewed PR at a time.** `-SNAPSHOT`s publish to Maven Central on every push to `main`; there is no stable release yet and the plugin is not on the Gradle Plugin Portal ([resolve via `mavenCentral()`](https://chrisjenx.github.io/serialkompat/setup/#gradle-plugin)). Follow along in the [issues](https://github.com/chrisjenx/serialkompat/issues) and [milestones](https://github.com/chrisjenx/serialkompat/milestones).
+📖 **[Full documentation → chrisjenx.github.io/serialkompat](https://chrisjenx.github.io/serialkompat/)** · [quick start](https://chrisjenx.github.io/serialkompat/quickstart/) · [rules](https://chrisjenx.github.io/serialkompat/rules/) · [CI setup](https://chrisjenx.github.io/serialkompat/ci/) · [API](https://chrisjenx.github.io/serialkompat/api/)
 
 You delete a field. Payloads in queues, caches, and old app versions still carry it:
 
@@ -33,9 +31,9 @@ serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
 
 ## Why
 
-`kotlinx-serialization-json` has no safety net for schema evolution. Rename a property, drop a default, make a field non-null — every old client sending the old shape breaks, and persisted JSON can become undecodable. The usual defence is hand-written round-trip tests.
+`kotlinx-serialization-json` has no safety net for schema evolution. Rename a property, drop a default, or make a field non-null, and every old client still sending the old shape breaks. Persisted JSON can become undecodable. The usual defence is hand-written round-trip tests.
 
-`serialkompat` makes wire compatibility a CI gate: it reads the JSON schema from your compiled `@Serializable` models, diffs it against a baseline, and fails on incompatible changes. The rules are grounded in how kotlinx-serialization actually behaves.
+serialkompat turns wire compatibility into a CI gate. It reads the JSON schema from your compiled `@Serializable` models, diffs it against a baseline, and fails the build on incompatible changes. The rules are grounded in how kotlinx-serialization actually behaves.
 
 ## How it works
 
@@ -46,23 +44,35 @@ serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
                    walk, JVM)
 ```
 
-- **Extraction** walks the compiled `SerialDescriptor` graph, so it sees exactly what goes on the wire — real JSON keys (post-`@SerialName`/`namingStrategy`), optionality (`isElementOptional`), nullability, enums, and `SerializersModule`-resolved polymorphism.
-- **Baseline** is extracted **live from a git ref** (e.g. your target branch) — no hand-maintained baseline file. For long-horizon persisted-data checks there is also an append-only [schema history](https://chrisjenx.github.io/serialkompat/recipes/) (`serialkompatRecord` / `serialkompatCheckHistory`).
-- **Classification** is direction-aware (`BACKWARD` / `FORWARD` / `FULL`) and **config-aware** — it reads your actual `Json { }` settings, because whether a change is safe depends on `ignoreUnknownKeys`, `namingStrategy`, `encodeDefaults`, and friends.
-- **Every rule is verified against real kotlinx-serialization** via a round-trip oracle: serialize with the old model, decode with the new one, and assert the classifier predicted what actually happened.
+- **Extraction** walks the compiled `SerialDescriptor` graph, so it sees exactly what goes on the wire: the real JSON keys (after `@SerialName` and `namingStrategy`), optionality, nullability, enums, and polymorphism resolved through your `SerializersModule`.
+- **The baseline** is the "old" schema you compare against. It is extracted **live from a git ref**, such as your target branch, so there is no baseline file to maintain. For long-lived persisted data there is also an append-only [schema history](https://chrisjenx.github.io/serialkompat/recipes/#persisted-data-horizon-multi-version-history) (`serialkompatRecord` / `serialkompatCheckHistory`).
+- **Classification** is direction-aware and config-aware. *Backward* compatible means new code can read old data. *Forward* compatible means old code can read new data. `FULL` checks both. It also reads your actual `Json { }` settings, because whether a change is safe depends on `ignoreUnknownKeys`, `namingStrategy`, `encodeDefaults`, and friends.
+- **Every rule is verified against real kotlinx-serialization** by a round-trip oracle test: serialize with the old model, decode with the new one, and assert the classifier predicted what actually happened.
 
 ## Usage
 
-See the [quick start](https://chrisjenx.github.io/serialkompat/quickstart/) for the 5-minute path and [setup](https://chrisjenx.github.io/serialkompat/setup/) for the CLI and GitHub Action. Until the plugin is on the Gradle Plugin Portal, resolve it via `mavenCentral()` in `pluginManagement` — see [setup](https://chrisjenx.github.io/serialkompat/setup/#gradle-plugin).
+The plugin is published to Maven Central, not the Gradle Plugin Portal, so add `mavenCentral()` to your plugin repositories:
 
 ```kotlin
-// build.gradle.kts of a module holding @Serializable wire/persisted contracts
+// settings.gradle.kts
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+```
+
+Then apply it to the module that holds your `@Serializable` wire or persisted models:
+
+```kotlin
+// build.gradle.kts
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
 
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
-    id("com.chrisjenx.serialkompat")
+    id("com.chrisjenx.serialkompat") version "0.1.0"
 }
 
 serialkompat {
@@ -76,44 +86,53 @@ serialkompat {
 }
 ```
 
-Two tasks are registered:
+The two tasks you'll use most:
 
-- **`serialkompatExtract`** — dumps the current schema to `build/serialkompat/current.snapshot`.
-- **`serialkompatCheck`** — recomputes the baseline from `baselineRef` (a throwaway worktree, no committed baseline to go stale), diffs, and fails on an unacknowledged breaking change. Wired into `check`, so it runs on every build and on CI. Applying the plugin without configuring `types` is a no-op.
+- **`serialkompatExtract`** writes the current schema to `build/serialkompat/current.snapshot`.
+- **`serialkompatCheck`** extracts the baseline from `baselineRef` in a temporary git worktree, diffs it against the current schema, and fails on any unacknowledged breaking change. It is wired into `check`, so it runs on every `./gradlew build`.
 
-The report also renders as JSON (`build/serialkompat/report.json`), SARIF, and GitHub annotations — see [report formats](https://chrisjenx.github.io/serialkompat/report-formats/).
+If you set neither `types` nor a [discovery mode](https://chrisjenx.github.io/serialkompat/configuration/#discovery-modes), the plugin does nothing.
+
+The report also renders as JSON (`build/serialkompat/report.json`), SARIF, and GitHub annotations; see [report formats](https://chrisjenx.github.io/serialkompat/report-formats/). For a 5-minute walkthrough, read the [quick start](https://chrisjenx.github.io/serialkompat/quickstart/). For the CLI and every option, see [setup](https://chrisjenx.github.io/serialkompat/setup/).
 
 ## CI (GitHub Action)
 
-A composite action runs the gate, posts a **sticky PR comment**, and adds inline annotations for the findings (the Gradle task stays CI-agnostic — it emits a JSON report and an exit code; the action does the GitHub-specific posting):
+The composite action runs the gate, posts a **sticky PR comment** with the findings, and (on pull requests) adds annotations to the workflow run. The Gradle task itself stays CI-agnostic: it writes a JSON report and sets the exit code.
 
 ```yaml
 # .github/workflows/serialkompat.yml
+on: pull_request
 jobs:
   serialkompat:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write              # needed to post the sticky comment
     steps:
       - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }        # git-ref-live needs history for the baseline
+        with: { fetch-depth: 0 }        # the baseline is extracted from git history
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: 17 }
-      - uses: chrisjenx/serialkompat@v1  # ref: origin/<base> resolved from the PR
+      - uses: chrisjenx/serialkompat@v0
+        with:
+          ref: origin/${{ github.base_ref }}
 ```
+
+`@v0` is a floating tag that tracks the latest stable 0.x release. See [CI setup](https://chrisjenx.github.io/serialkompat/ci/) for the action's inputs and for other CI systems.
 
 ## What counts as breaking?
 
-A change's severity depends on **direction** and your **reader config**. A few examples under `FULL` with a strict reader:
+Severity depends on the **direction** and on your **reader config**. A few examples, with default `Json { }` settings:
 
 | Change | Backward (new reads old) | Forward (old reads new) |
 |---|:---:|:---:|
-| Add optional field | ✅ safe | ⚠️ breaks unless `ignoreUnknownKeys` |
-| Add required field | ❌ break | ⚠️ |
+| Add optional field | ✅ safe | ❌ break, unless the old reader has `ignoreUnknownKeys` |
+| Add required field | ❌ break | ❌ break, unless the old reader has `ignoreUnknownKeys` |
 | Rename key (no `@JsonNames`) | ❌ break | ❌ break |
-| Make field nullable | ✅ safe | ⚠️ old readers choke on `null` |
-| Enum: add value | ✅ safe | ⚠️ old readers reject it |
+| Make field nullable | ✅ safe | ❌ break: old readers reject `null` (⚠️ warn with `explicitNulls = false`) |
+| Enum: add value | ✅ safe | ❌ break: old readers reject the new value |
 | Enum: remove value | ❌ break | ✅ safe |
 
-See the [rules reference](https://chrisjenx.github.io/serialkompat/rules/) for the full 21-rule matrix and config-aware semantics, and the [deep dive](https://chrisjenx.github.io/serialkompat/deep-dive/) for how extraction, classification, and the git-ref baseline work.
+See the [rules reference](https://chrisjenx.github.io/serialkompat/rules/) for the full rule matrix and how your config changes each verdict. The [deep dive](https://chrisjenx.github.io/serialkompat/deep-dive/) explains extraction, classification, and the git-ref baseline.
 
 ## Modules
 
@@ -138,24 +157,36 @@ Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.8.0), Kotlin 2.4.20, and kot
 
 ## Publishing
 
-The library modules publish to **Maven Central** via the [vanniktech `maven-publish`](https://github.com/vanniktech/gradle-maven-publish-plugin) plugin. Credentials are never committed — they are read from CI secrets:
+`serialkompat-core`, `-extractor`, `-gradle` (with its plugin marker), and `-annotations` publish to **Maven Central** through the [vanniktech `maven-publish`](https://github.com/vanniktech/gradle-maven-publish-plugin) plugin. Gradle Plugin Portal publishing is not configured. Credentials live only in repository secrets:
 
 | Repo secret | Maps to (`ORG_GRADLE_PROJECT_…`) |
 |---|---|
 | `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` | `mavenCentralUsername` / `mavenCentralPassword` |
 | `SIGNING_KEY_ID` / `SIGNING_KEY` / `SIGNING_KEY_PASSWORD` | `signingInMemoryKeyId` / `signingInMemoryKey` / `signingInMemoryKeyPassword` |
-- **Release** (`Release` workflow, `workflow_dispatch` from `main` with a version): validates (refuses to start if any secret above is missing, so nothing is published by a half-configured run) → tests → `publishAndReleaseToMavenCentral` → tags `vX.Y.Z` + GitHub release → moves the floating major tag (`v1`) → opens a PR bumping `gradle.properties` to the next `-SNAPSHOT` (`main` is branch-protected, so the bump can't be pushed directly). The floating `vN` tag is what Action consumers pin (`uses: chrisjenx/serialkompat@v1`); it moves only on stable (non-prerelease) releases. Tagging and the GitHub release use the workflow's own `GITHUB_TOKEN` (no extra setup). Only the bump PR additionally needs **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**; without it the release still completes and the job warns you to bump the version by hand.
-- **Snapshot**: pushes to `main` publish `-SNAPSHOT`s automatically.
 
-Locally, `./gradlew publishToMavenLocal` publishes to `~/.m2` (signing uses your `signing.*` Gradle properties). Gradle Plugin Portal publishing (for `plugins { id("com.chrisjenx.serialkompat") }` resolution) is not yet configured.
+**Release.** Dispatch the `Release` workflow from `main` with a version: `X.Y.Z`, or `X.Y.Z-suffix` for a prerelease. It runs these jobs in order:
+
+1. **Validate.** Fails before anything ships if the run isn't on `main`, any of the five secrets is missing, the version is malformed, or tag `vX.Y.Z` already exists.
+2. **Test.** `./gradlew build` on JDK 17 and 21, on macOS so the KMP klibs are complete.
+3. **Publish.** `publishAndReleaseToMavenCentral`.
+4. **Tag and release.** Tags `vX.Y.Z` on the tested commit and creates the GitHub release, marked as a prerelease if the version has a suffix. Stable releases also move the floating major tag that Action users pin (`v0` for 0.x, `v1` for 1.x).
+5. **Bump.** Opens a PR moving `gradle.properties` to the next `-SNAPSHOT` (the next patch after a final release, or the same version after a prerelease: `1.0.0-rc1` → `1.0.0-SNAPSHOT`), because `main` is branch-protected. This needs **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**. Without it the release still completes, and the job warns you to bump the version by hand.
+
+Tagging, the GitHub release, and the bump PR all use the workflow's own `GITHUB_TOKEN`.
+
+**Snapshot.** Pushes to `main` that touch module sources or build files publish a `-SNAPSHOT`. The `Snapshot Publish` workflow refuses to run if `gradle.properties` holds a non-SNAPSHOT version.
+
+Locally, `./gradlew publishToMavenLocal` publishes to `~/.m2`. Signing uses your `signing.*` Gradle properties.
 
 ### GitHub Actions Marketplace
 
-The composite action (`action.yml`) already carries the Marketplace metadata (name, description, `branding`), and the release workflow keeps the floating major tag current — so listing it is a **one-time manual step** on the first stable release (GitHub can't automate the Marketplace toggle):
+`action.yml` already carries the Marketplace metadata (name, description, `branding`). Listing it is a **one-time manual step** after the first stable release, because GitHub can't automate the Marketplace toggle:
 
-1. Cut a stable release via the **Release** workflow (this creates the `vX.Y.Z` release and moves `v1`).
+1. Cut a stable release with the **Release** workflow. This creates the `vX.Y.Z` release and moves the major tag.
 2. On that release's page (**Releases → Edit**), tick **"Publish this Action to the GitHub Marketplace"** and accept the Marketplace Developer Agreement (repo owner, first time only).
-3. Pick the primary/secondary categories and save. Later releases can each be published to the Marketplace from the same checkbox, but `uses: chrisjenx/serialkompat@v1` already resolves the moment `v1` exists — Marketplace listing is discoverability, not a functional prerequisite.
+3. Pick the primary and secondary categories, then save.
+
+Listing is for discoverability only. `uses: chrisjenx/serialkompat@v0` works as soon as the `v0` tag exists.
 
 ## Contributing
 

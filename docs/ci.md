@@ -1,16 +1,19 @@
 # CI setup
 
-Every path into serialkompat ends at the same contract: an exit code. `0` pass,
-`1` breaking, `2` usage error. The GitHub Action wraps that contract with a sticky
-PR comment; anything else — GitLab, Jenkins, Buildkite — just needs to run a Gradle
-task and check its exit code.
+serialkompat fails your CI job when a change would break compatibility with the
+baseline. Every integration comes down to an exit code: zero means pass, non-zero
+means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
+(GitLab, Jenkins, Buildkite) you run a Gradle task and let its exit code decide.
 
 === "GitHub Actions"
 
     ### GitHub Actions {: #github-actions }
 
-    Recommended for GitHub repos. Runs a Gradle task and posts a sticky PR comment
-    with the summary and findings — no report parsing to write yourself.
+    Use this for GitHub repos. The Action runs a Gradle task and posts a sticky PR
+    comment with the summary and findings, so you don't parse any report yourself.
+
+    !!! note
+        Requires serialkompat 0.1.0 or later.
 
     ```yaml title=".github/workflows/serialkompat.yml"
     name: serialkompat
@@ -21,91 +24,112 @@ task and check its exit code.
         permissions:
           pull-requests: write
         steps:
-          - uses: actions/checkout@v5
+          - uses: actions/checkout@v7
             with: { fetch-depth: 0 }
-          - uses: actions/setup-java@v5
+          - uses: actions/setup-java@v6
             with: { distribution: temurin, java-version: "17" }
-          - uses: chrisjenx/serialkompat@v1
+          - uses: chrisjenx/serialkompat@v0
             with:
               ref: origin/main
     ```
 
-    Two settings on the **caller** workflow are required, not optional:
+    `@v0` is a floating tag. Each stable release moves `v<major>` to the newest
+    release with that major version.
 
-    - `permissions: pull-requests: write` — without it, posting the sticky comment
+    The **calling** workflow needs two settings:
+
+    - `permissions: pull-requests: write`. Without it, posting the sticky comment
       gets a 403 and the step fails for a reason unrelated to compatibility.
-    - `fetch-depth: 0` on `actions/checkout` — the baseline isn't a file, it's
-      extracted live from `ref` via a temporary git worktree. A shallow clone
-      doesn't have the history to check that ref out.
+    - `fetch-depth: 0` on `actions/checkout`. The baseline isn't a committed file.
+      serialkompat checks `ref` out in a temporary git worktree and extracts it, and
+      a shallow clone doesn't have the history to do that.
 
     #### Inputs
 
     | Input | Default | Purpose |
     |---|---|---|
-    | `ref` | `""` (empty) | Baseline git ref to check against; passed as `-Pserialkompat.ref=`. Empty = use the plugin's configured `baselineRef` |
+    | `ref` | `""` (empty) | Baseline git ref to check against; passed as `-Pserialkompat.ref=`. Empty = use the plugin's configured `baselineRef` (or its auto-detected default branch) |
     | `task` | `serialkompatCheckAgainst` | Gradle task to run |
     | `report-path` | `build/serialkompat/report.json` | Path to the JSON report the sticky comment is built from |
     | `gradle-args` | `""` (empty) | Extra arguments passed to Gradle |
 
-    #### Output
+    #### Outputs
 
-    | Output | Value |
-    |---|---|
-    | `exit_code` | The Gradle task's exit code |
+    The Action declares no outputs. If the Gradle task exits non-zero, the Action's
+    last step fails, and so does your job.
 
-    The workflow step fails whenever `exit_code != 0`. The sticky comment (marked
-    `<!-- serialkompat -->`, updated in place across pushes rather than duplicated)
-    runs on `pull_request`, `always()` — it posts even if the check itself failed —
-    and shows:
+    #### The sticky comment
 
-    - ❌ at least one active `BREAK` finding
-    - ⚠️ `WARN` findings only, nothing breaking
-    - ✅ clean
+    The comment runs on `pull_request` events only. It posts even when the check
+    failed. It is marked `<!-- serialkompat -->` and updated in place on each push,
+    not duplicated, however many comments the PR has.
 
-    Alongside the sticky comment, the action posts inline **annotations** for each
-    active finding — `BREAK` → error, `WARN` → warning — capped at GitHub's limit of
-    10 errors + 10 warnings per step, with a single notice summarizing any overflow so
-    nothing is silently dropped. Findings carry no source line, so they attach to the
-    run and job summary. See [Report formats](report-formats.md#github-annotations).
+    The icon follows the check's exit code, the same signal that passes or fails
+    the job:
+
+    - ❌ the check failed. Usually that means an active `BREAK`, but not always: an
+      empty baseline or a build error also fails the check. In that case the comment
+      adds a note pointing you at the job log.
+    - ⚠️ the check passed with findings: `WARN`s, or `BREAK`s that don't fail the
+      build because `failOnBreaking` is `false` (the comment says so).
+    - ✅ the check passed and the report is clean.
+
+    If the check fails without writing a report, the comment shows ❌ and points you
+    at the job log.
+
+    The comment is built from the JSON report. If you turn that report off
+    (`reports { json { required.set(false) } }`) or move it, set `report-path` to
+    match. Otherwise the comment says no report was produced.
+
+    The default path is relative to the repository root. If you apply the plugin
+    to a subproject (say `:shared:api`), point `report-path` at that module's
+    report: `shared/api/build/serialkompat/report.json`. The comment covers one
+    report, so in a multi-module build pick the module that matters most.
+
+    On pull requests, the Action also posts an **annotation** for each active finding: `BREAK`
+    becomes an error and `WARN` a warning. It posts at most 10 errors and 10
+    warnings, plus one notice that counts any overflow, so nothing is dropped
+    silently. Findings have no source line, so the annotations attach to the run and
+    the job summary. See [Report formats](report-formats.md#github-annotations).
 
 === "Manual Gradle"
 
     ### Manual Gradle (any CI) {: #manual-gradle }
 
-    No Action available for your runner? Run the task directly and branch on the
-    exit code — this is the same mechanism the GitHub Action uses internally.
+    No Action for your runner? Run the task directly and let the exit code decide.
+    The GitHub Action does the same thing internally.
 
     ```console
     $ ./gradlew serialkompatCheckAgainst -Pserialkompat.ref=origin/main
     ```
 
-    `serialkompatCheckAgainst` accepts `-Pserialkompat.ref=<ref>` to override the
-    baseline per-invocation (e.g. the PR's target branch), without editing
-    `build.gradle.kts`. Omit the property and it falls back to the plugin's
-    configured `baselineRef` — or use plain `serialkompatCheck`, which always uses
-    the configured `baselineRef` and is already wired into `check`.
+    `-Pserialkompat.ref=<ref>` sets the baseline for one run, for example to the
+    PR's target branch, without editing `build.gradle.kts`. Leave it out and
+    `serialkompatCheckAgainst` uses the configured `baselineRef`.
+
+    You can also run plain `serialkompatCheck`. It is already wired into `check`,
+    always uses the configured `baselineRef`, and ignores `-Pserialkompat.ref`.
 
     #### The exit-code contract
 
-    Every integration — Action, plain Gradle, the CLI — resolves to this:
+    | Integration | Pass | Fail |
+    |---|---|---|
+    | Gradle tasks (and the Action) | `0` | Non-zero. Gradle exits `1` for an active `BREAK` and also for a misconfiguration or any other build failure |
+    | CLI (`serialkompat diff`) | `0` | `1` = at least one active `BREAK` finding; `2` = usage error (bad arguments, unreadable snapshot) or an empty baseline without `--allow-empty-baseline` |
 
-    | Code | Meaning |
-    |---|---|
-    | `0` | No breaking findings (there may still be `WARN`s) |
-    | `1` | At least one active `BREAK` finding |
-    | `2` | Usage error (bad config, unreadable snapshot, etc.) |
+    `0` can still come with `WARN` findings.
 
-    Same rule as the Action: the checkout needs full history (`fetch-depth: 0` on
-    GitHub Actions, `GIT_DEPTH: 0`/`--unshallow` elsewhere), because the baseline is
-    recomputed live from the ref via a temporary git worktree, not read from a
-    committed file.
+    As with the Action, the checkout needs full history: `fetch-depth: 0` on
+    GitHub Actions, `GIT_DEPTH: 0` or `git fetch --unshallow` elsewhere.
+    serialkompat rebuilds the baseline from the ref in a temporary git worktree. It
+    doesn't read it from a committed file.
 
 === "GitLab CI"
 
     ### GitLab CI {: #gitlab-ci }
 
-    A minimal job: full-history checkout, JDK, run the check, let the exit code
-    decide the job's pass/fail.
+    A minimal job checks out full history, sets up a JDK, and runs the check. The
+    exit code decides whether the job passes.
 
     ```yaml title=".gitlab-ci.yml"
     serialkompat:
@@ -119,28 +143,35 @@ task and check its exit code.
         - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     ```
 
-    1. Disables GitLab's default shallow clone. Same reason as `fetch-depth: 0`
-       on GitHub Actions — the baseline is checked out from `ref` via a git
-       worktree at run time, so the runner's clone needs full history to reach it.
+    1. Turns off GitLab's default shallow clone. This is the same reason as
+       `fetch-depth: 0` on GitHub Actions: the baseline is checked out from `ref`
+       at run time, so the clone needs full history.
 
-    GitLab surfaces the job's exit code directly (no extra `if` needed): `0`
-    passes the job, `1` or `2` fails it. There's no built-in sticky-comment
-    equivalent — parse `build/serialkompat/report.json` yourself and post via the
-    GitLab MR notes API if you want inline findings.
+    GitLab uses the job's exit code directly, so you don't need an extra `if`.
+    `0` passes the job and anything else fails it. There is no built-in sticky
+    comment. To show findings on a merge request, parse
+    `build/serialkompat/report.json` and post it through the GitLab MR notes API.
 
 ## Build cache & configuration cache
 
 - **`serialkompatExtract` is cacheable and relocatable.** Its cache key is the
-  module's classpath plus the `types` / `discovery` / `jsonInstance` settings —
-  no absolute paths — so with a shared (e.g. remote) build cache, the baseline
-  extraction for a commit that CI has already built (run inside a git worktree
-  at a different path) is restored `FROM-CACHE` instead of forking a JVM.
-- **The check tasks are deliberately never cached or up-to-date.** Their verdict
-  depends on what the baseline ref points at *now*, which is not a task input;
-  the expensive part (the baseline snapshot) is memoized per commit SHA and
-  serialkompat version in `build/serialkompat/baseline/` and benefits from the
-  extract cache above.
-- All tasks are configuration-cache compatible.
+  module's classpath plus the `types`, `discovery`, and `jsonInstance` settings.
+  It contains no absolute paths. With a shared (for example remote) build cache, the
+  baseline extraction for a commit CI has already built is restored `FROM-CACHE`
+  instead of starting a new JVM, even though it runs in a git worktree at a
+  different path.
+- **The check tasks are never cached or up-to-date, on purpose.** Their result
+  depends on what the baseline ref points at *now*, which isn't a task input. The
+  expensive part, the baseline snapshot, is still reused: it is stored per commit
+  SHA and serialkompat version in `build/serialkompat/baseline/`, and benefits from
+  the extract cache above. Upgrading serialkompat re-extracts the baseline instead
+  of reusing one an older version produced.
+- **Parallel multi-module builds are safe.** Under `--parallel`, modules take turns
+  extracting their baselines through one shared build service. That avoids
+  competing git worktree operations and many nested Gradle builds starting at once.
+- All tasks support the configuration cache and Gradle's Isolated Projects mode.
+- A custom `layout.buildDirectory` is honored, including one set in the build
+  script body, and the plugin works on the root project of a single-module build.
 
 ## Next
 

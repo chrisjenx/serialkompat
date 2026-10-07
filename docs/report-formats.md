@@ -1,9 +1,10 @@
 # Report formats
 
-serialkompat runs the gate once and produces a single `Report`, then renders it in
-several formats. Every reporter is a **pure function in `serialkompat-core`** — no
-I/O, no kotlinx-serialization runtime — so each format is a read-only view of the
-same findings, and adding a format never changes the gate's result.
+serialkompat runs the gate once and produces a single `Report`. It then renders
+that report in one or more formats. Every reporter is a **pure function in
+`serialkompat-core`**, with no I/O and no kotlinx-serialization runtime. Each format
+is a read-only view of the same findings, so the format you pick never changes
+the gate's result.
 
 | Format | Surface | Enable |
 |---|---|---|
@@ -12,18 +13,21 @@ same findings, and adding a format never changes the gate's result.
 | SARIF 2.1.0 | IDEs, SARIF dashboards | `reports { sarif { required.set(true) } }`; CLI `--format=sarif` |
 | GitHub annotations | inline PR feedback | the `serialkompat` action (automatic); CLI `--format=github` |
 
-Every example below renders the **same report** — three findings from one
-`serialkompatCheck` run: an active breaking change (`PROPERTY_REMOVED` on
-`com.example.OrderEvent`), an active warning (`ENUM_VALUE_ADDED` on
-`com.example.Status`), and one break acknowledged via `acceptedBreaks`
-(`PROPERTY_REMOVED` on `com.example.LegacyPing`). Reading the four renderings
-side by side shows what each format keeps.
+Every example below renders the **same report**: three findings from one
+`serialkompatCheck` run.
+
+- An active breaking change: `PROPERTY_REMOVED` on `com.example.OrderEvent`.
+- An active warning: `ENUM_VALUE_ADDED` on `com.example.Status`.
+- A break you acknowledged with `acceptedBreaks`: `PROPERTY_REMOVED` on
+  `com.example.LegacyPing`.
+
+Compare the renderings to see what each format keeps.
 
 ## Console
 
-The default: printed to the Gradle log, and by the CLI when you pass no
-`--format`. Active findings first (each with its fix hint), then a short list of
-the acknowledged breaks.
+This is the default. It's printed to the Gradle log, and by the CLI when you pass
+no `--format`. Active findings come first, each with its fix hint, followed by a
+short list of acknowledged breaks.
 
 ```text
 serialkompat: 2 active finding(s) (1 breaking, 1 warning), 1 acknowledged
@@ -41,8 +45,8 @@ acknowledged:
 
 ## JSON
 
-The JSON report carries a top-level **`schemaVersion`** (currently `"1.0"`) as its
-first key, so external tooling can depend on the shape:
+The JSON report's first key is **`schemaVersion`** (currently `"1.0"`), so your
+tooling can rely on its shape:
 
 ```json
 {
@@ -89,16 +93,17 @@ first key, so external tooling can depend on the shape:
 }
 ```
 
-`summary.breaking` and `summary.warning` count only **active** findings —
-the acknowledged break is in `total` and `acknowledged`, but its
-`"acknowledged": true` keeps it out of the breaking count, so `failed` here is
-still `true` only because of the active `OrderEvent` break.
+`summary.breaking` and `summary.warning` count only **active** findings. The
+acknowledged break is counted in `total` and `acknowledged`, but not in
+`breaking`. So `failed` is `true` here only because of the active `OrderEvent`
+break.
 
-**Version policy:** an additive change (a new optional key) bumps the **minor**
-(`1.0` → `1.1`); a breaking shape change bumps the **major** (`2.0`). The shape is
-pinned by a byte-exact golden test, so a silent change can't slip through.
+**Version policy:** an additive change (such as a new optional key) bumps the
+**minor** version (`1.0` → `1.1`). A breaking shape change bumps the **major**
+(`2.0`). A byte-exact golden test pins the shape, so it can't change silently.
 
-It is written by default to `build/serialkompat/report.json`. Customize or disable it:
+By default the report is written to `build/serialkompat/report.json`. To move or
+disable it:
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
@@ -115,7 +120,8 @@ From the CLI, `--format=json` writes it to stdout.
 
 ## SARIF
 
-SARIF 2.1.0 output targets **IDEs and third-party SARIF dashboards**. Enable it:
+SARIF 2.1.0 output is for **IDEs and third-party SARIF dashboards**. It's off by
+default. To enable it:
 
 ```kotlin title="build.gradle.kts"
 serialkompat {
@@ -127,28 +133,28 @@ serialkompat {
 
 or `--format=sarif` from the CLI.
 
-**Logical locations only.** A finding carries a serial name (its `contract`, e.g.
-`com.example.OrderEvent`) but **no source file or line** — the extractor works from
-compiled `SerialDescriptor`s and bytecode, which don't reliably give a property's
-declaration site. So each result uses
-`locations[].logicalLocations[].fullyQualifiedName` and never a `physicalLocation`.
+**Logical locations only.** A finding has a serial name (its `contract`, such as
+`com.example.OrderEvent`) but **no source file or line**. The extractor works from
+compiled `SerialDescriptor`s and bytecode, which don't reliably say where a
+property was declared. So each result uses
+`locations[].logicalLocations[].fullyQualifiedName`, never a `physicalLocation`.
 
-**GitHub code scanning is out of scope.** Code scanning requires a
-`physicalLocation` (a file URI) to ingest a SARIF result, so a logical-only log
-would surface nothing in the Security tab. Rather than pin every finding to a fake
-`build.gradle.kts:1` — misleading, and against serialkompat's never-mislead ethos —
-the SARIF stays honest and serialkompat does **not** upload it to code scanning
-(the action has no `upload-sarif` step). Physical `file:line` locations would need
-source tracking in the extractor and remain possible future work.
+**GitHub code scanning is not supported.** Code scanning only ingests SARIF results
+that have a `physicalLocation` (a file URI), so a log with only logical locations
+would show nothing in the Security tab. serialkompat could pin every finding to a
+fake `build.gradle.kts:1`, but that would mislead you. Instead the SARIF stays
+accurate, and serialkompat does **not** upload it to code scanning. The action has
+no `upload-sarif` step. Real `file:line` locations would need source tracking in
+the extractor, which is possible future work.
 
-Acknowledged breaks (via `acceptedBreaks`) appear on their result as
-`suppressions: [{ kind: "external", status: "accepted", justification: … }]`, so a
-consumer can see *why* a break was sanctioned.
+An acknowledged break (from `acceptedBreaks`) carries
+`suppressions: [{ kind: "external", status: "accepted", justification: … }]` on its
+result, so a consumer can see *why* the break was allowed.
 
-`tool.driver.version` carries the plugin version (read from its jar manifest);
-it is omitted under dev or Gradle TestKit runs, where no manifest is present.
-The `rules` catalog always lists every rule id, so a consumer can resolve any
-`ruleIndex`. The shared report renders as:
+`tool.driver.version` holds the plugin version, read from its jar manifest. It's
+left out of dev and Gradle TestKit runs, which have no manifest. The `rules`
+catalog always lists every rule id, so a consumer can resolve any `ruleIndex`. The
+shared report renders as:
 
 ??? example "report.sarif (full log)"
 
@@ -185,6 +191,9 @@ The `rules` catalog always lists every rule id, so a consumer can resolve any
                 { "id": "CONFIG_ENCODE_DEFAULTS", "name": "CONFIG_ENCODE_DEFAULTS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
                 { "id": "CONFIG_EXPLICIT_NULLS", "name": "CONFIG_EXPLICIT_NULLS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
                 { "id": "CONFIG_COERCE_INPUT", "name": "CONFIG_COERCE_INPUT", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
+                { "id": "CONFIG_ARRAY_POLYMORPHISM", "name": "CONFIG_ARRAY_POLYMORPHISM", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
+                { "id": "CONFIG_STRUCTURED_MAP_KEYS", "name": "CONFIG_STRUCTURED_MAP_KEYS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
+                { "id": "CONFIG_SPECIAL_FLOATS", "name": "CONFIG_SPECIAL_FLOATS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
                 { "id": "COVERAGE_GAP", "name": "COVERAGE_GAP", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" }
               ]
             }
@@ -224,16 +233,19 @@ The `rules` catalog always lists every rule id, so a consumer can resolve any
 ## GitHub annotations
 
 On CI, the `serialkompat` action posts inline annotations for the **active**
-findings (`BREAK` → error, `WARN` → warning) in addition to the sticky PR comment.
-GitHub caps annotations at **10 errors + 10 warnings** per step; when more exist,
-the action emits a single **notice** summarizing the dropped count, so nothing is
-silently lost — the sticky comment remains the complete surface. Findings have no
-source file/line, so annotations attach to the run and the job summary, not a
-specific line of code. Acknowledged breaks are not annotated.
+findings, alongside its sticky PR comment. A `BREAK` becomes an error and a `WARN`
+becomes a warning. Acknowledged breaks are not annotated.
 
-Outside the action — for non-GitHub CI that captures stdout — `--format=github`
-emits the same GitHub workflow-command lines (`::error` / `::warning`, plus the
-`::notice` summary).
+GitHub caps annotations at **10 errors + 10 warnings** per step. When there are
+more, the action adds one **notice** with the number left out, so nothing is
+silently lost. The sticky comment always lists every finding.
+
+Findings have no source file or line, so annotations attach to the run and the job
+summary, not to a line of code.
+
+Outside the action, `--format=github` prints the same GitHub workflow-command lines
+to stdout (`::error` / `::warning`, plus the `::notice` summary). Use it when you
+run the CLI directly in a workflow step.
 
 For the shared report, the two **active** findings become annotations; the
 acknowledged `LegacyPing` break produces none:
@@ -249,23 +261,27 @@ acknowledged `LegacyPing` break produces none:
 $ serialkompat diff baseline.snapshot current.snapshot --format=sarif > report.sarif
 ```
 
-`--format=console|json|sarif|github` (default `console`). `--format` only changes
-what is rendered — it never changes the exit code (`0` ok, `1` breaking, `2` usage).
+The values are `console`, `json`, `sarif`, and `github`; the default is `console`.
+`--format` only changes what is printed. It never changes the exit code: `0` means
+OK, `1` means a breaking change, and `2` means a usage error.
 
 ## Gradle: report scope
 
-The `reports { }` block applies to the pairwise `serialkompatCheck` /
-`serialkompatCheckAgainst`. The transitive history check
-(`serialkompatCheckHistory`) writes its own `report-history.json` /
-`report-history.sarif`, so the pairwise `report.json` stays deterministic.
+The `reports { }` block fully applies to the pairwise checks, `serialkompatCheck`
+and `serialkompatCheckAgainst`.
+
+The history check (`serialkompatCheckHistory`) follows the same `required`
+settings, but ignores `outputLocation`. It always writes to
+`build/serialkompat/report-history.json` and `report-history.sarif`. That way it
+never overwrites the pairwise `report.json`.
 
 !!! warning
-    The GitHub Action builds its PR comment and annotations from `report.json`, so
-    keep the JSON report enabled when using the action. Disabling it
-    (`reports { json { required.set(false) } }`) leaves the action with no report to
-    read, and it posts "No report was produced" even though the gate ran.
+    The GitHub Action builds its PR comment and annotations from `report.json`.
+    Keep the JSON report enabled when you use the action. If you disable it
+    (`reports { json { required.set(false) } }`), the action has no report to read.
+    It then posts "No report was produced", even though the gate ran.
 
 ## Next
 
-- [Configuration](configuration.md) — the full `serialkompat { }` DSL, including `reports { }`.
-- [CI setup](ci.md) — the GitHub Action, the sticky comment, and the inline annotations.
+- [Configuration](configuration.md): the full `serialkompat { }` DSL, including `reports { }`.
+- [CI setup](ci.md): the GitHub Action, the sticky comment, and the inline annotations.

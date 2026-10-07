@@ -177,7 +177,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           sed -i "s/^version=.*/version=${NEXT}/" gradle.properties
-          git add gradle.properties
+          # The README isn't templated like the docs site, so point its install snippet at the
+          # release that just shipped (final releases only; a prerelease isn't what users should pin).
+          if [[ "$VERSION" != *-* ]]; then
+            sed -i -E "s/(id\(\"com\.chrisjenx\.serialkompat\"\) version \")[^\"]+\"/\1${VERSION}\"/" README.md
+          fi
+          git add gradle.properties README.md
           git commit -m "Bump version to ${NEXT}"
           if ! git push origin "$BRANCH" || ! gh pr create --base main --head "$BRANCH" \
               --title "Bump version to ${NEXT}" \
