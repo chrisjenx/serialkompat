@@ -99,7 +99,7 @@ class GitRefBaselineTest {
                     }
                 }
             }
-        val cache = SnapshotCache(tempDir.resolve("cache"))
+        val cache = SnapshotCache(tempDir.resolve("cache"), toolVersion = "1.0.0")
 
         GitRefBaseline(git).snapshotAt("main", tempDir, cache) { "@config\n  namingStrategy=none" }
 
