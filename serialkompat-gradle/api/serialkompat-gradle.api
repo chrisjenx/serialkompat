@@ -66,7 +66,7 @@ public final class com/chrisjenx/serialkompat/gradle/git/GitRefBaseline {
 }
 
 public final class com/chrisjenx/serialkompat/gradle/git/SnapshotCache {
-	public fun <init> (Ljava/io/File;)V
+	public fun <init> (Ljava/io/File;Ljava/lang/String;)V
 	public final fun get (Ljava/lang/String;)Ljava/lang/String;
 	public final fun put (Ljava/lang/String;Ljava/lang/String;)V
 }

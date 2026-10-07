@@ -137,8 +137,9 @@ task and check its exit code.
   at a different path) is restored `FROM-CACHE` instead of forking a JVM.
 - **The check tasks are deliberately never cached or up-to-date.** Their verdict
   depends on what the baseline ref points at *now*, which is not a task input;
-  the expensive part (the baseline snapshot) is memoized per commit SHA in
-  `build/serialkompat/baseline/` and benefits from the extract cache above.
+  the expensive part (the baseline snapshot) is memoized per commit SHA and
+  serialkompat version in `build/serialkompat/baseline/` and benefits from the
+  extract cache above.
 - All tasks are configuration-cache compatible.
 
 ## Next
