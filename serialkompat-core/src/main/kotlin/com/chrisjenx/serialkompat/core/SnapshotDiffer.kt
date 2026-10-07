@@ -15,7 +15,9 @@ package com.chrisjenx.serialkompat.core
  * name order, then each contract's member deltas in a fixed order, and finally the
  * per-snapshot static-defect scans over the current snapshot — [Change.CoverageGap]
  * for each unanalysable type, then [Change.DiscriminatorCollision] for each
- * unserializable subtype/discriminator clash.
+ * unserializable subtype/discriminator clash. A contract that was `OPAQUE` in the
+ * baseline but is analysed now is the one exception: it has no prior shape to diff,
+ * so it yields a [Change.CoverageGap] in its serial-name slot instead of a remove + add.
  */
 public object SnapshotDiffer {
     /**
@@ -155,6 +157,14 @@ public object SnapshotDiffer {
         after: Contract,
         oldCoercibleEnums: Set<String>,
     ): List<Change> {
+        // A baseline coverage gap that is now analysable (a newer extractor, or a code change) is a
+        // coverage gain, not a different type: the old wire shape was never seen, so there is nothing
+        // to remove or compare. It is still unverified this run, so it surfaces as a gap — never a
+        // silent pass ("unanalysable ≠ safe", design §10). The reverse (analysed → OPAQUE) stays
+        // remove + add below, plus the trailing scan's gap: a coverage loss must stay loud.
+        if (before.kind == ContractKind.OPAQUE && after.kind != ContractKind.OPAQUE) {
+            return listOf(Change.CoverageGap(after.serialName))
+        }
         // A change of kind (e.g. CLASS → ENUM) is a different type on the wire;
         // surface it as remove + add rather than a fabricated member diff.
         if (before.kind != after.kind) {
