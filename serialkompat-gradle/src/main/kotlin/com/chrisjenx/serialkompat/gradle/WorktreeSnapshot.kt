@@ -17,7 +17,7 @@ internal fun nestedExtractArguments(
     output: File,
 ): List<String> =
     listOf(
-        "$projectPath:${SerialkompatPlugin.EXTRACT_TASK_NAME}",
+        nestedExtractTask(projectPath),
         "-P${SerialkompatPlugin.EXTRACT_OUTPUT_PROPERTY}=${output.absolutePath}",
         "--quiet",
     )
@@ -59,3 +59,11 @@ internal fun readWorktreeSnapshot(
             )
     return snapshotFile.readText()
 }
+
+/**
+ * The `serialkompatExtract` task path the nested baseline build runs for [projectPath].
+ * The root project's path is `:`, and Gradle rejects `::serialkompatExtract` (an empty
+ * segment), so the root's task is addressed as `:serialkompatExtract`.
+ */
+internal fun nestedExtractTask(projectPath: String): String =
+    "${projectPath.removeSuffix(":")}:${SerialkompatPlugin.EXTRACT_TASK_NAME}"

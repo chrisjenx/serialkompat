@@ -467,11 +467,42 @@ class ClassifierTest {
     }
 
     @Test
-    fun `documented first-cut limitation - a concrete change beside a hole is suppressed`() {
-        // Map<String,#1> -> Map<Int,#1> is a real map-key wire break, but the value position is a
-        // hole, so the whole type change is suppressed this cut (#139 D4). Pins the known boundary;
-        // a future hole-normalized structural compare would tighten this to diff concrete positions.
+    fun `a concrete change beside a hole on both sides is classified`() {
+        // Map<String,#1> -> Map<Int,#1>: both sides are hole-form renderings (no fill-if-absent flip
+        // can make both sides hole-bearing), so the differing concrete key is a real map-key wire break.
         val f = classify(Change.ElementTypeChanged("Env", "meta", "Map<String,#1>", "Map<Int,#1>"))
-        assertTrue(f.isEmpty(), "concrete-beside-hole change is a documented first-cut suppression")
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))
+    }
+
+    @Test
+    fun `a container around a hole collapsing to the bare hole is a break`() {
+        // Box<T>(items: List<T>) -> Box<T>(items: T): the JSON goes from an array to a scalar/object.
+        val f = classify(Change.ElementTypeChanged("Box", "items", "List<#0>", "#0"))
+        assertTrue(f.all { it.rule == Rules.PROPERTY_TYPE_CHANGED }, "expected PROPERTY_TYPE_CHANGED: $f")
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))
+    }
+
+    @Test
+    fun `a bare hole gaining a container is a break`() {
+        val f = classify(Change.ElementTypeChanged("Box", "items", "#0", "List<#0>"))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))
+    }
+
+    @Test
+    fun `a container swap around a hole is a break`() {
+        val f = classify(Change.ElementTypeChanged("Box", "items", "List<#0>", "Map<kotlin.String,#0>"))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+        assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD))
+    }
+
+    @Test
+    fun `a pure hole-ordinal renumbering is not a wire change`() {
+        // The same shape with a different parameter ordinal (e.g. a nested generic filled through an
+        // outer generic's hole) carries no wire difference on its own.
+        val f = classify(Change.ElementTypeChanged("Box", "items", "List<#0>", "List<#1>"))
+        assertTrue(f.isEmpty(), "ordinal-only renumbering must produce no finding")
     }
 }
