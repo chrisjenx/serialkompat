@@ -58,7 +58,14 @@ public class SerialkompatPlugin : Plugin<Project> {
             target.layout.buildDirectory.file("serialkompat/report.sarif"),
         )
 
-        val currentSnapshot = target.layout.buildDirectory.file("serialkompat/current.snapshot")
+        // Every build-dir path stays a lazy Provider, resolved only at execution: a consumer may set
+        // `layout.buildDirectory` in its script body, which runs after this plugin is applied.
+        // A nested baseline extraction (extractInWorktree) names the output explicitly via
+        // EXTRACT_OUTPUT_PROPERTY, since it cannot know the worktree build's own build dir.
+        val currentSnapshot =
+            target.layout
+                .file(target.providers.gradleProperty(EXTRACT_OUTPUT_PROPERTY).map { File(it) })
+                .orElse(target.layout.buildDirectory.file("serialkompat/current.snapshot"))
 
         val extract =
             target.tasks.register(EXTRACT_TASK_NAME, JavaExec::class.java) { task ->
@@ -95,16 +102,8 @@ public class SerialkompatPlugin : Plugin<Project> {
         val rootDir = target.rootDir
         val projectDir = target.projectDir
         val projectPath = target.path
-        val baselineDir =
-            target.layout.buildDirectory
-                .dir("serialkompat/baseline")
-                .get()
-                .asFile
-        val worktreesDir =
-            target.layout.buildDirectory
-                .dir("serialkompat/worktrees")
-                .get()
-                .asFile
+        val baselineDir = target.layout.buildDirectory.dir("serialkompat/baseline")
+        val worktreesDir = target.layout.buildDirectory.dir("serialkompat/worktrees")
         // Report outputs. The pairwise check honors the `reports { }` DSL — its Property refs are
         // captured here (CC-safe) and resolved at EXECUTION time, because a consumer's
         // `serialkompat { reports { … } }` runs after this plugin is applied. The history check
@@ -114,25 +113,17 @@ public class SerialkompatPlugin : Plugin<Project> {
         val jsonOutput = extension.reports.json.outputLocation
         val sarifRequired = extension.reports.sarif.required
         val sarifOutput = extension.reports.sarif.outputLocation
-        val historyJsonFile =
-            target.layout.buildDirectory
-                .file("serialkompat/report-history.json")
-                .get()
-                .asFile
-        val historySarifFile =
-            target.layout.buildDirectory
-                .file("serialkompat/report-history.sarif")
-                .get()
-                .asFile
+        val historyJsonFile = target.layout.buildDirectory.file("serialkompat/report-history.json")
+        val historySarifFile = target.layout.buildDirectory.file("serialkompat/report-history.sarif")
         // Tool version from this plugin's jar manifest; null under TestKit/dev (SARIF omits it).
         val toolVersion = javaClass.getPackage()?.implementationVersion
-        val currentFile = currentSnapshot.get().asFile
         // A Provider (not project.findProperty at execution) keeps -Pserialkompat.ref config-cache-safe.
         val refProperty = target.providers.gradleProperty(REF_PROPERTY)
         val recordVersionProperty = target.providers.gradleProperty(RECORD_VERSION_PROPERTY)
-        // Captured at configuration time (a String, not the Project) so the record action never
-        // touches `Task.project` at execution — config-cache-safe like the rest of the plugin.
-        val projectVersion = target.version.toString()
+        // A Provider (not the Project) so the record action never touches `Task.project` at execution,
+        // and lazy so a `version = ...` assigned in the build script body (after this plugin is applied)
+        // is seen. Under the configuration cache it is evaluated when the entry is stored.
+        val projectVersion = target.provider { target.version.toString() }
         // One build-wide lock: under --parallel, modules take turns extracting their baseline
         // (git worktree + nested Gradle build) instead of racing on the same repo.
         val baselineService =
@@ -156,9 +147,9 @@ public class SerialkompatPlugin : Plugin<Project> {
                         rootDir = rootDir,
                         projectDir = projectDir,
                         projectPath = projectPath,
-                        current = currentFile,
-                        baselineDir = baselineDir,
-                        worktreesDir = worktreesDir,
+                        current = currentSnapshot.get().asFile,
+                        baselineDir = baselineDir.get().asFile,
+                        worktreesDir = worktreesDir.get().asFile,
                         reports =
                             ReportOutputs(
                                 jsonEnabled = jsonRequired.get(),
@@ -192,9 +183,9 @@ public class SerialkompatPlugin : Plugin<Project> {
                     rootDir = rootDir,
                     projectDir = projectDir,
                     projectPath = projectPath,
-                    current = currentFile,
-                    baselineDir = baselineDir,
-                    worktreesDir = worktreesDir,
+                    current = currentSnapshot.get().asFile,
+                    baselineDir = baselineDir.get().asFile,
+                    worktreesDir = worktreesDir.get().asFile,
                     reports =
                         ReportOutputs(
                             jsonEnabled = jsonRequired.get(),
@@ -227,9 +218,11 @@ public class SerialkompatPlugin : Plugin<Project> {
                 extension.history.dir
                     .get()
                     .asFile
-            val version = resolveRecordVersion(recordVersionProperty.orNull, projectVersion)
             task.doLast { t ->
-                runRecord(t.logger, currentFile, historyDir, version)
+                // Validated at execution, not configuration: an unversioned project must still configure
+                // (IDE sync, `tasks --all`) and only fail if someone actually runs the record.
+                val version = resolveRecordVersion(recordVersionProperty.orNull, projectVersion.get())
+                runRecord(t.logger, currentSnapshot.get().asFile, historyDir, version)
             }
         }
 
@@ -249,14 +242,14 @@ public class SerialkompatPlugin : Plugin<Project> {
                 task.doLast { t ->
                     runCheckHistory(
                         logger = t.logger,
-                        current = currentFile,
+                        current = currentSnapshot.get().asFile,
                         historyDir = historyDir,
                         reports =
                             ReportOutputs(
                                 jsonEnabled = jsonRequired.get(),
-                                jsonFile = historyJsonFile,
+                                jsonFile = historyJsonFile.get().asFile,
                                 sarifEnabled = sarifRequired.get(),
-                                sarifFile = historySarifFile,
+                                sarifFile = historySarifFile.get().asFile,
                                 toolVersion = toolVersion,
                             ),
                         direction = extension.direction.get(),
@@ -441,8 +434,9 @@ public class SerialkompatPlugin : Plugin<Project> {
     ): String {
         val gradlew = if (System.getProperty("os.name").startsWith("Windows")) "gradlew.bat" else "gradlew"
         val launcher = File(rootDir, gradlew).takeIf(File::exists)?.absolutePath ?: "gradle"
+        val output = worktreeSnapshotFile(worktreeDir)
         val process =
-            ProcessBuilder(launcher, "$projectPath:$EXTRACT_TASK_NAME", "--quiet")
+            ProcessBuilder(listOf(launcher) + nestedExtractArguments(projectPath, output))
                 .directory(worktreeDir)
                 .redirectErrorStream(true)
                 .start()
@@ -528,6 +522,9 @@ public class SerialkompatPlugin : Plugin<Project> {
         public const val CHECK_HISTORY_TASK_NAME: String = "serialkompatCheckHistory"
         private const val REF_PROPERTY: String = "serialkompat.ref"
         private const val RECORD_VERSION_PROPERTY: String = "serialkompat.recordVersion"
+
+        // Internal plumbing: where a nested baseline extraction writes its snapshot (extractInWorktree).
+        internal const val EXTRACT_OUTPUT_PROPERTY: String = "serialkompat.internal.extractOutput"
         private const val VERIFICATION_GROUP: String = "verification"
 
         /**

@@ -190,9 +190,7 @@ private fun elementOf(
                 }
             }
 
-            else -> {
-                Unit
-            }
+            else -> {}
         }
     }
     return Element(fieldRef.name, fieldRef.type, optional, nullable, jsonNames, encodeDefault)

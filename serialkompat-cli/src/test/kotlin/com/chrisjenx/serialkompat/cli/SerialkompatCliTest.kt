@@ -252,4 +252,57 @@ class SerialkompatCliTest {
         assertEquals(2, code)
         assertTrue(output.contains("format", ignoreCase = true), "expected a format error, got: $output")
     }
+
+    private fun emptySnapshotFile(name: String): String {
+        val file = File(dir, name)
+        file.writeText(SnapshotFormat.serialize(Snapshot(emptyList())))
+        return file.absolutePath
+    }
+
+    @Test
+    fun `an empty baseline against a non-empty current fails closed with exit 2`() {
+        // #78 parity with Gradle's failOnEmptyBaseline: "everything added" must not pass silently.
+        val baseline = emptySnapshotFile("empty.snapshot")
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current)
+        assertEquals(2, code, "output: $output")
+        assertTrue(output.contains("0 contracts"), "expected an empty-baseline error, got: $output")
+        assertTrue(output.contains("--allow-empty-baseline"), "expected the opt-out hint, got: $output")
+    }
+
+    @Test
+    fun `--no-fail does not bypass the empty-baseline guard`() {
+        val baseline = emptySnapshotFile("empty.snapshot")
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        assertEquals(2, run("diff", baseline, current, "--no-fail").first)
+    }
+
+    @Test
+    fun `the empty-baseline error is not mixed into machine-readable output`() {
+        val baseline = emptySnapshotFile("empty.snapshot")
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current, "--format=json")
+        assertEquals(2, code)
+        assertTrue(!output.contains("\"schemaVersion\""), "no report should render, got: $output")
+    }
+
+    @Test
+    fun `--allow-empty-baseline opts out for first-time adoption`() {
+        val baseline = emptySnapshotFile("empty.snapshot")
+        val current = snapshotFile("b.snapshot", Element("id", "kotlin.String"))
+        val (code, output) = run("diff", baseline, current, "--allow-empty-baseline")
+        assertEquals(0, code, "output: $output")
+    }
+
+    @Test
+    fun `two empty snapshots are not an empty-baseline error`() {
+        val baseline = emptySnapshotFile("a.snapshot")
+        val current = emptySnapshotFile("b.snapshot")
+        assertEquals(0, run("diff", baseline, current).first)
+    }
+
+    @Test
+    fun `--help documents --allow-empty-baseline`() {
+        assertTrue(run("--help").second.contains("--allow-empty-baseline"))
+    }
 }

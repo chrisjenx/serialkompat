@@ -105,6 +105,46 @@ class SerialkompatHistoryFunctionalTest {
     }
 
     @Test
+    fun `serialkompatRecord uses a project version set in the build script body`() {
+        settings()
+        // `version` is assigned after `plugins {}` applied the plugin — the usual place for it.
+        write(
+            "build.gradle.kts",
+            """
+            plugins { id("com.chrisjenx.serialkompat") }
+            version = "1.4.0"
+            serialkompat { types.set(listOf("com.example.Order")) }
+            """,
+        )
+        seedCurrent(order(Element("id", "kotlin.String")))
+
+        val result = runner("serialkompatRecord", "-x", "serialkompatExtract", "--configuration-cache").build()
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatRecord")?.outcome)
+        assertTrue(
+            File(projectDir, "serialkompat/history/1.4.0.snapshot").isFile,
+            "expected the entry under the script-body version; output:\n${result.output}",
+        )
+    }
+
+    @Test
+    fun `an unversioned project configures fine and only fails when serialkompatRecord actually runs`() {
+        settings()
+        buildFile()
+        seedCurrent(order(Element("id", "kotlin.String")))
+
+        // Realizing every task (IDE sync, `tasks --all`) must not trip the record-version check.
+        runner("tasks", "--all").build()
+
+        val result = runner("serialkompatRecord", "-x", "serialkompatExtract").buildAndFail()
+        assertEquals(TaskOutcome.FAILED, result.task(":serialkompatRecord")?.outcome)
+        assertTrue(
+            result.output.contains("cannot record history without a version"),
+            "expected the missing-version message; output:\n${result.output}",
+        )
+    }
+
+    @Test
     fun `serialkompatRecord refuses to record a zero-contract snapshot`() {
         settings()
         write(
@@ -212,6 +252,31 @@ class SerialkompatHistoryFunctionalTest {
             !File(projectDir, "build/serialkompat/report.json").exists(),
             "the history check must not write the pairwise report.json",
         )
+    }
+
+    @Test
+    fun `serialkompatCheckHistory follows a build directory relocated in the build script body`() {
+        settings()
+        // Set after the plugin applied: the current snapshot and report paths must resolve lazily.
+        write(
+            "build.gradle.kts",
+            """
+            plugins { id("com.chrisjenx.serialkompat") }
+            serialkompat { types.set(listOf("com.example.Order")) }
+            layout.buildDirectory.set(layout.projectDirectory.dir("out"))
+            """,
+        )
+        seedHistory("1.0.0", order(Element("id", "kotlin.String")))
+        write("out/serialkompat/current.snapshot", SnapshotFormat.serialize(order(Element("id", "kotlin.String"))))
+
+        val result = runner("serialkompatCheckHistory", "-x", "serialkompatExtract", "--configuration-cache").build()
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheckHistory")?.outcome)
+        assertTrue(
+            File(projectDir, "out/serialkompat/report-history.json").isFile,
+            "the history report must land under the relocated build dir",
+        )
+        assertTrue(!File(projectDir, "build").exists(), "nothing may be written to the default build dir")
     }
 
     @Test

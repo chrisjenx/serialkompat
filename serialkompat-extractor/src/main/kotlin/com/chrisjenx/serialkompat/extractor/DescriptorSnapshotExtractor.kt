@@ -32,8 +32,10 @@ import kotlin.reflect.KClass
  * `isElementOptional`, nullability, `@JsonNames`, enum values, sealed subtypes,
  * and `SerializersModule`-resolved open polymorphism.
  *
- * The graph is walked breadth-first with a visited-set keyed by serial name, so
- * cyclic and shared references are captured exactly once and terminate.
+ * The graph is walked breadth-first keyed by serial name, so cyclic and shared
+ * references are captured exactly once and terminate. A serial name that turns
+ * out to carry two different shapes (generic instantiations, or sealed subtypes of
+ * different bases sharing a `@SerialName`) is recorded as an OPAQUE coverage gap.
  *
  * `@EncodeDefault` is not a `@SerialInfo` annotation and so is absent from
  * `getElementAnnotations`; its mode is recovered from the model class's bytecode by
@@ -61,44 +63,106 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         genericRoots: Iterable<SerialDescriptor>,
     ): Snapshot {
         val openPoly = collectOpenSubtypes(module)
-        val visited = mutableSetOf<String>()
-        val contracts = mutableListOf<Contract>()
-        drain(ArrayDeque(roots.toList()), config, openPoly, visited, contracts)
-        drain(ArrayDeque(genericRoots.toList()), config, openPoly, visited, contracts)
-        return Snapshot(contracts, config)
+        val walk = Walk()
+        drain(ArrayDeque(roots.toList()), config, openPoly, walk, detectCollisions = true)
+        // Fill-if-absent (#139): a hole-based generic never competes with a concrete shape already
+        // recorded under its name, so it's skipped rather than treated as a collision.
+        drain(ArrayDeque(genericRoots.toList()), config, openPoly, walk, detectCollisions = false)
+        return Snapshot(walk.contracts.values.toList(), config)
     }
 
-    /** Walks [queue] breadth-first into [contracts], deduping by serial name via [visited]. */
+    /**
+     * Walk state. [shapes] holds every distinct contract seen per serial name. [contracts] holds the
+     * recorded contract per serial name, in first-visit order.
+     */
+    private class Walk {
+        val shapes = mutableMapOf<String, MutableSet<Contract>>()
+        val contracts = linkedMapOf<String, Contract>()
+    }
+
+    /**
+     * Walks [queue] breadth-first into [walk], keyed by serial name.
+     *
+     * A serial name is the contract's identity, but it doesn't identify the shape uniquely: generic
+     * type arguments are dropped (`Page<Item>` and `Page<User>` are both `Page`), and sealed subtypes
+     * may share a `@SerialName` across different bases. When [detectCollisions] is set, a revisit is
+     * re-analysed. An identical shape (the usual cycle/shared-type case) is skipped. A *different*
+     * shape replaces the recorded contract with an OPAQUE coverage gap, because keeping only the
+     * first would leave the other unchecked (design §10). The new shape's references are still
+     * walked, so types reachable only through it are not dropped.
+     */
     private fun drain(
         queue: ArrayDeque<SerialDescriptor>,
         config: SnapshotConfig,
         openPoly: OpenPolymorphism,
-        visited: MutableSet<String>,
-        contracts: MutableList<Contract>,
+        walk: Walk,
+        detectCollisions: Boolean,
     ) {
         while (queue.isNotEmpty()) {
             val descriptor = queue.removeFirst()
-            val serialName = contractName(descriptor)
-            if (!visited.add(serialName)) continue
+            // Even the serial name can fail to resolve (a lazily-built descriptor whose class is
+            // missing at runtime); key such a node deterministically so it still surfaces as a gap.
+            val serialName =
+                guarded { contractName(descriptor) } ?: "<unresolvable:${descriptor::class.java.name}>"
+            val seen = walk.shapes[serialName]
+            if (seen != null && !detectCollisions) continue
 
             // A gate must never crash and never silently drop a type it can't
             // analyze (design §10): an unknown kind or a walk failure becomes an
             // explicit OPAQUE coverage gap instead.
             val referenced = mutableListOf<SerialDescriptor>()
             val contract =
-                try {
-                    contractOf(descriptor, serialName, config, openPoly, referenced)
-                        ?: Contract(serialName, ContractKind.OPAQUE)
-                } catch (
-                    @Suppress("TooGenericExceptionCaught") error: Exception,
-                ) {
-                    referenced.clear()
-                    Contract(serialName, ContractKind.OPAQUE)
+                guarded { contractOf(descriptor, serialName, config, openPoly, referenced) }
+                    ?: Contract(serialName, ContractKind.OPAQUE).also { referenced.clear() }
+            when {
+                seen == null -> {
+                    walk.shapes[serialName] = mutableSetOf(contract)
+                    walk.contracts[serialName] = contract
+                    queue += referenced
                 }
-            contracts += contract
-            queue += referenced
+
+                !seen.add(contract) -> {
+                    Unit // an identical revisit: already recorded
+                }
+
+                else -> {
+                    if (walk.contracts[serialName]?.kind != ContractKind.OPAQUE) {
+                        System.err.println(
+                            "serialkompat: '$serialName' resolves to more than one shape (a generic used " +
+                                "with different type arguments, or subtypes of different bases sharing a " +
+                                "@SerialName); recording it as an opaque coverage gap.",
+                        )
+                    }
+                    walk.contracts[serialName] = Contract(serialName, ContractKind.OPAQUE)
+                    // Bounded, so a generic that recursively instantiates itself with ever-deeper
+                    // type arguments (e.g. `Node<T>(val next: Node<List<T>>?)`) still terminates.
+                    if (seen.size <= MAX_SHAPES_PER_NAME) queue += referenced
+                }
+            }
         }
     }
+
+    /** How many distinct shapes of one serial name have their references walked. */
+    private const val MAX_SHAPES_PER_NAME = 8
+
+    /**
+     * Runs [block], mapping any failure to `null` so the caller records an OPAQUE gap. Walking a
+     * descriptor resolves serializers lazily, so a broken model surfaces as an [Error] as often as
+     * an [Exception]: [NoClassDefFoundError] for a type missing at runtime,
+     * [ExceptionInInitializerError] for a serializer whose static init throws. Both are per-type
+     * failures and must not abort the whole extraction. A [VirtualMachineError] (out of memory,
+     * stack overflow) is not about one type, so it still propagates.
+     */
+    private inline fun <T> guarded(block: () -> T): T? =
+        try {
+            block()
+        } catch (error: VirtualMachineError) {
+            throw error
+        } catch (
+            @Suppress("TooGenericExceptionCaught") error: Throwable,
+        ) {
+            null
+        }
 
     /**
      * Builds the contract for [descriptor], appending any referenced descriptors
@@ -145,6 +209,11 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             PolymorphicKind.OPEN -> {
                 val baseClass = descriptor.capturedKClass
                 val subtypeDescriptors = baseClass?.let { openPoly.subtypes[it] }.orEmpty()
+                // An open base's subtypes are only knowable from the module. None visible (an
+                // unregistered base, the wrong module, or no captured class) means the hierarchy
+                // was not analysed. An empty POLYMORPHIC would read as fully analysed and let every
+                // subtype change pass unseen, so record a coverage gap instead (design §10).
+                if (subtypeDescriptors.isEmpty()) return Contract(serialName, ContractKind.OPAQUE)
                 referenced += subtypeDescriptors
                 Contract(
                     serialName,
@@ -171,7 +240,11 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         val annotations = owner.getElementAnnotations(index)
         return Element(
             name = owner.getElementName(index),
-            type = typeRef(descriptor),
+            // `nullable` is the field's own (Kotlin-level) nullability: it also drives "absent decodes
+            // as null" under explicitNulls=false, which a non-null value class wrapper does NOT get even
+            // when its underlying value is nullable (MissingFieldException). The underlying `null` that
+            // such a wrapper can still put on the wire is recorded in the type instead ("kotlin.String?").
+            type = if (descriptor.isNullable) typeRef(descriptor) else typeRefNullable(descriptor),
             optional = owner.isElementOptional(index),
             nullable = descriptor.isNullable,
             jsonNames = annotations.filterIsInstance<JsonNames>().flatMap { it.names.toList() },
@@ -182,7 +255,8 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     }
 
     /** A canonical, whitespace-free type reference. Nullability of the top-level
-     * element is recorded separately on [Element]; nested nullability is kept. */
+     * element is recorded separately on [Element]; nested nullability is kept, including a
+     * value class's nullable underlying value (see [wireNullable]). */
     private fun typeRef(descriptor: SerialDescriptor): String {
         // A @JvmInline value class is transparent on the wire: it serializes as its single
         // underlying value, never as a wrapper object. Its type ref is therefore the underlying
@@ -207,7 +281,16 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     }
 
     private fun typeRefNullable(descriptor: SerialDescriptor): String =
-        typeRef(descriptor) + if (descriptor.isNullable) "?" else ""
+        typeRef(descriptor) + if (wireNullable(descriptor)) "?" else ""
+
+    /**
+     * Whether `null` can appear on the wire at this position. A value class is transparent, so
+     * `Id(null)` for `value class Id(val raw: String?)` encodes as a bare `null` even when the `Id`
+     * itself is non-null. Its nullability is therefore the wrapper's *or* the underlying value's,
+     * recursively, matching how [typeRef] unwraps it.
+     */
+    private fun wireNullable(descriptor: SerialDescriptor): Boolean =
+        descriptor.isNullable || (descriptor.isInline && wireNullable(descriptor.getElementDescriptor(0)))
 
     /** Descriptors reachable from an element that are themselves named contracts. */
     private fun referencedContracts(descriptor: SerialDescriptor): List<SerialDescriptor> {

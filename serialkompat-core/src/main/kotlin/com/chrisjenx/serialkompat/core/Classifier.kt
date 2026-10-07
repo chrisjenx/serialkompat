@@ -178,8 +178,11 @@ public class Classifier(
                 // A hole (#n) is a generic type-parameter position, checked at concrete use sites,
                 // not on the envelope. Fill-if-absent extraction (#139) flips a field between a hole
                 // and a concrete type when a use-site is added/removed; that transition is coverage
-                // moving, not the wire shape changing, so it is never a finding (either side hole-bearing).
-                if (isHoleBearing(change.oldType) || isHoleBearing(change.newType)) {
+                // moving, not the wire shape changing, so it is never a finding (one side hole-bearing).
+                // When *both* sides bear holes, both are hole-form renderings of the declaration, so a
+                // difference beyond hole ordinals (List<#0> -> #0, Map<String,#1> -> Map<Int,#1>) is a
+                // real declared-shape change and is classified like any other type change.
+                if (isHoleOnlyTransition(change.oldType, change.newType)) {
                     null
                 } else {
                     Verdict(
@@ -543,6 +546,24 @@ public class Classifier(
      */
     private fun isHoleBearing(typeRef: String): Boolean =
         typeRef.split('<', '>', ',').any { HOLE_SENTINEL.matches(it.trim().removeSuffix("?")) }
+
+    /**
+     * Whether an `ElementTypeChanged` from [oldType] to [newType] is hole bookkeeping rather than a
+     * wire change: exactly one side bears a hole (a fill-if-absent hole<->concrete flip, #139), or both
+     * do but differ only in hole ordinals (`List<#0>` vs `List<#1>`).
+     */
+    private fun isHoleOnlyTransition(
+        oldType: String,
+        newType: String,
+    ): Boolean {
+        val oldHoles = isHoleBearing(oldType)
+        val newHoles = isHoleBearing(newType)
+        return when {
+            oldHoles != newHoles -> true
+            oldHoles -> HOLE_SENTINEL.replace(oldType, "#") == HOLE_SENTINEL.replace(newType, "#")
+            else -> false
+        }
+    }
 
     private class Verdict(
         val rule: String,

@@ -25,9 +25,10 @@ import kotlin.reflect.full.createType
 public object SchemaExtractionMain {
     /**
      * Extracts [typeNames] (fully-qualified `@Serializable` class names) into a
-     * snapshot written to [output]. If [jsonInstanceFqn] names a reachable `Json`
-     * instance its configuration is read; otherwise a conservative default is
-     * assumed with a warning (design §6 resolution order).
+     * snapshot written to [output]. If [jsonInstanceFqn] is set, that `Json`
+     * instance's configuration and module are read, and failing to load it throws
+     * (the check would otherwise run under the wrong config). If it is `null`, the
+     * default `Json` config is assumed (design §6 resolution order).
      *
      * When [typeNames] is empty, types are discovered instead: the classpath
      * manifest (see [TYPES_RESOURCE]) unioned with a class-dir scan of [scanDirs]
@@ -53,12 +54,21 @@ public object SchemaExtractionMain {
         scanDirs: List<File> = emptyList(),
         discovery: DiscoveryMode = DiscoveryMode.EXPLICIT,
     ) {
-        val json = jsonInstanceFqn?.let(::loadJson) ?: Json
-        if (jsonInstanceFqn != null && loadJson(jsonInstanceFqn) == null) {
-            System.err.println(
-                "serialkompat: could not load Json instance '$jsonInstanceFqn'; assuming default config.",
-            )
-        }
+        // A configured jsonInstance that can't be loaded is a hard error, not a fallback. Its
+        // settings (ignoreUnknownKeys, explicitNulls, classDiscriminator, ...) and its module
+        // (the only source of open-polymorphic subtypes) decide every verdict, so silently
+        // swapping in Json.Default would check the wrong wire contract. Unset still uses defaults.
+        val json =
+            if (jsonInstanceFqn == null) {
+                Json
+            } else {
+                loadJson(jsonInstanceFqn) ?: error(
+                    "serialkompat: could not load the configured jsonInstance '$jsonInstanceFqn'. " +
+                        "Expected `owner.member` naming a kotlinx.serialization.json.Json reachable on " +
+                        "the runtime classpath (an object property or a top-level val). Fix or unset " +
+                        "serialkompat.jsonInstance.",
+                )
+            }
         val config = if (json === Json) SnapshotConfig() else JsonConfigReader.read(json)
         val scan = SerializableClassScanner.scan(scanDirs)
         if (scan.skippedGenerics.isNotEmpty()) {

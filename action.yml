@@ -56,26 +56,42 @@ runs:
     - name: Post sticky PR comment
       if: github.event_name == 'pull_request' && always()
       uses: actions/github-script@v9
-      # report-path via env (read as process.env), not interpolated into the JS source — a value
-      # containing a quote would otherwise inject arbitrary JavaScript into this token-privileged step.
+      # report-path and the check's exit code via env (read as process.env), not interpolated into the
+      # JS source — a value containing a quote would otherwise inject arbitrary JavaScript into this
+      # token-privileged step.
       env:
         SK_REPORT_PATH: ${{ inputs.report-path }}
+        SK_EXIT_CODE: ${{ steps.check.outputs.exit_code }}
       with:
         script: |
           const fs = require('fs');
           const marker = '<!-- serialkompat -->';
           const path = process.env.SK_REPORT_PATH;
+          // The verdict follows the check step's real exit code, which is also what fails the job
+          // below — not report.summary.failed, which ignores the empty-baseline guard (#78) and
+          // failOnBreaking=false. A missing code (check step never ran) is treated as a failure.
+          const exitCode = process.env.SK_EXIT_CODE || '';
+          const passed = exitCode === '0';
+          const exitLabel = exitCode || 'unknown';
           let body;
           if (fs.existsSync(path)) {
             const report = JSON.parse(fs.readFileSync(path, 'utf8'));
             const s = report.summary || {};
-            const icon = s.failed ? '❌' : (s.warning > 0 ? '⚠️' : '✅');
+            const breaking = s.breaking ?? 0;
+            const icon = !passed ? '❌' : ((breaking > 0 || s.warning > 0) ? '⚠️' : '✅');
+            let note = '';
+            if (!passed && !s.failed) {
+              note = `> The check failed (exit ${exitLabel}) although the report below has no active breaking `
+                + 'change — see the job log (e.g. an empty baseline, or a build error).\n\n';
+            } else if (passed && s.failed) {
+              note = '> Breaking changes were found but are not failing the build (failOnBreaking=false).\n\n';
+            }
             const lines = (report.findings || [])
               .filter(f => !f.acknowledged)
               .map(f => `- **${f.severity}** \`${f.rule}\` — ${f.contract} (${f.direction})\n  ${f.message}`)
               .join('\n');
-            body = `${marker}\n### ${icon} serialkompat\n\n`
-              + `**${s.breaking ?? 0} breaking**, ${s.warning ?? 0} warning, ${s.acknowledged ?? 0} acknowledged.\n\n`
+            body = `${marker}\n### ${icon} serialkompat\n\n` + note
+              + `**${breaking} breaking**, ${s.warning ?? 0} warning, ${s.acknowledged ?? 0} acknowledged.\n\n`
               + (lines || '_No incompatible changes._');
             // Inline annotations for active findings — mirrors core GithubReporter's 10+10
             // cap + notice summary (docs/report-formats.md). No file/line (findings have
@@ -92,12 +108,18 @@ runs:
               core.notice(`+${dropped} more finding(s) — see the serialkompat report or PR comment`,
                 { title: 'serialkompat' });
             }
-          } else {
+          } else if (passed) {
             body = `${marker}\n### serialkompat\n\n_No report was produced (nothing configured to check)._`;
+          } else {
+            body = `${marker}\n### ❌ serialkompat\n\n`
+              + `_The check failed (exit ${exitLabel}) without producing a report — see the job log._`;
           }
           const { owner, repo } = context.repo;
           const issue_number = context.issue.number;
-          const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+          // Paginate: listComments returns 30 per page, so on a busy PR the sticky comment can sit
+          // past page 1 — missing it would post a duplicate on every push.
+          const comments = await github.paginate(github.rest.issues.listComments,
+            { owner, repo, issue_number, per_page: 100 });
           const existing = comments.find(c => c.body && c.body.includes(marker));
           if (existing) {
             await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
