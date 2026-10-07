@@ -6,7 +6,8 @@ package com.chrisjenx.serialkompat.core
  * they came from (git ref, file, live), and emits direction-neutral deltas for
  * the classifier to judge.
  *
- * Identity is by serial name for contracts and by key for elements, so field
+ * Identity is by serial name plus [Contract.base] for contracts (#200; design §8 covers
+ * how pre-base snapshots still pair) and by key for elements, so field
  * reordering yields no change (the [Snapshot] model already normalizes order).
  * A declared [renames] mapping lets a moved type be followed as a [Change.ContractMoved]
  * rather than a spurious remove + add (design §8).
@@ -49,35 +50,27 @@ public object SnapshotDiffer {
         buildList {
             addAll(diffConfig(old.config, new.config))
 
-            val oldByName = old.contracts.associateBy { it.serialName }
-            val newByName = new.contracts.associateBy { it.serialName }
-
             // Which enums, in the *baseline* (old = the forward reader), are read only by defaulted
             // direct properties — the precondition for coerceInputValues to rescue an added value (#129).
             val oldCoercibleEnums = coercibleEnumNames(enumReaders)
 
-            // Honour a rename only for a genuine move: the source must be gone from `new` and
-            // the target new to `old`. Otherwise both endpoints are still present, and treating
-            // it as a move would silently drop the diff of a contract that is still on the wire.
-            val activeRenames =
-                renames
-                    .filterKeys { it in oldByName && it !in newByName }
-                    .filterValues { it in newByName && it !in oldByName }
-            for ((oldName, newName) in activeRenames.entries.sortedBy { it.key }) {
-                val before = oldByName.getValue(oldName)
-                val after = newByName.getValue(newName)
-                add(Change.ContractMoved(oldName, newName, after.kind))
+            val oldById = old.contracts.associateBy { it.id }
+            val newById = new.contracts.associateBy { it.id }
+
+            val activeRenames = activeRenames(renames, old, new, oldById, newById)
+            for ((before, after) in activeRenames) {
+                add(Change.ContractMoved(before.qualifiedName, after.qualifiedName, after.kind))
                 addAll(diffContract(before, after, oldCoercibleEnums))
             }
 
-            val moved = activeRenames.keys + activeRenames.values
-            for (serialName in (oldByName.keys + newByName.keys).sorted()) {
-                if (serialName in moved) continue
-                val before = oldByName[serialName]
-                val after = newByName[serialName]
+            val moved = activeRenames.flatMap { (before, after) -> listOf(before.id, after.id) }.toSet()
+            val pairings = pair(old.contracts.filterNot { it.id in moved }, new.contracts.filterNot { it.id in moved })
+            for (pairing in pairings) {
+                val (before, after) = pairing
                 when {
-                    before == null && after != null -> add(Change.ContractAdded(serialName, after.kind))
-                    before != null && after == null -> add(Change.ContractRemoved(serialName, before.kind))
+                    pairing.unpaired -> add(Change.ContractUnpaired(after!!.qualifiedName))
+                    before == null && after != null -> add(Change.ContractAdded(after.qualifiedName, after.kind))
+                    before != null && after == null -> add(Change.ContractRemoved(before.qualifiedName, before.kind))
                     before != null && after != null -> addAll(diffContract(before, after, oldCoercibleEnums))
                 }
             }
@@ -87,12 +80,113 @@ public object SnapshotDiffer {
             // silently ("unanalysable ≠ safe", design §10). The classifier scores it a WARN.
             new.contracts
                 .filter { it.kind == ContractKind.OPAQUE }
-                .map { it.serialName }
+                .map { it.qualifiedName }
                 .sorted()
                 .forEach { add(Change.CoverageGap(it)) }
 
             addAll(discriminatorCollisions(new))
         }
+
+    /** A contract's identity: its serial name plus the base it was reached through (#200). */
+    private data class ContractId(
+        val serialName: String,
+        val base: String?,
+    )
+
+    private val Contract.id: ContractId get() = ContractId(serialName, base)
+
+    /** One baseline↔current pairing; [unpaired] marks a current contract that could not be matched. */
+    private data class Pairing(
+        val before: Contract?,
+        val after: Contract?,
+        val unpaired: Boolean = false,
+    )
+
+    private val CONTRACT_ORDER =
+        compareBy<Contract> { it.serialName }.thenBy(nullsFirst()) { it.base }
+
+    /**
+     * Resolves declared [renames] to (baseline, current) contract pairs (design §8, #200). A key or
+     * value may be a qualified `Base/sub` (that contract exactly) or a bare serial name (every
+     * contract with that name; the target keeps the source's base unless it is qualified). A rename
+     * is honoured only for a genuine move: the source must be gone from `new` and the target new to
+     * `old`, otherwise treating it as a move would silently drop the diff of a contract still on the
+     * wire. Each contract takes part in at most one move.
+     */
+    private fun activeRenames(
+        renames: Map<String, String>,
+        old: Snapshot,
+        new: Snapshot,
+        oldById: Map<ContractId, Contract>,
+        newById: Map<ContractId, Contract>,
+    ): List<Pair<Contract, Contract>> {
+        val moves = mutableListOf<Pair<Contract, Contract>>()
+        val used = mutableSetOf<ContractId>()
+        for ((from, to) in renames.entries.sortedBy { it.key }) {
+            for (before in old.contracts) {
+                if (!namesContract(from, before.serialName, before.base)) continue
+                if (before.id in newById || before.id in used) continue
+                val after =
+                    new.contracts.firstOrNull { it.qualifiedName == to && it.base != null }
+                        ?: newById[ContractId(to, before.base)]
+                        ?: continue
+                if (after.id in oldById || after.id in used) continue
+                moves += before to after
+                used += before.id
+                used += after.id
+            }
+        }
+        return moves.sortedWith(compareBy(CONTRACT_ORDER) { it.first })
+    }
+
+    /**
+     * Pairs baseline and current contracts (#200): by exact `(serialName, base)` identity first;
+     * then, among the leftovers, by bare serial name when exactly one contract on each side has it
+     * (the upgrade path from a snapshot recorded before bases were). Leftovers present on only one
+     * side are plain adds/removes. Leftovers ambiguous on both sides are [Pairing.unpaired]: guessing
+     * could diff the wrong bodies, and "removed"/"added" would be false, so they surface as gaps.
+     * Returned in serial-name, then base, order.
+     */
+    private fun pair(
+        old: List<Contract>,
+        new: List<Contract>,
+    ): List<Pairing> {
+        val oldById = old.associateBy { it.id }
+        val newIds = new.map { it.id }.toSet()
+        val pairings = new.filter { it.id in oldById }.map { Pairing(oldById.getValue(it.id), it) }.toMutableList()
+        val oldLeft = old.filterNot { it.id in newIds }.groupBy { it.serialName }
+        val newLeft = new.filterNot { it.id in oldById }.groupBy { it.serialName }
+        for (name in oldLeft.keys + newLeft.keys) {
+            val before = oldLeft[name].orEmpty()
+            val after = newLeft[name].orEmpty()
+            // Only an unqualified (pre-#200) record can stand for a qualified one; two different bases'
+            // subtypes are different contracts, so they never pair — plain remove + add.
+            val upgrade = (before + after).any { it.base == null }
+            when {
+                !upgrade -> {
+                    before.forEach { pairings += Pairing(it, null) }
+                    after.forEach { pairings += Pairing(null, it) }
+                }
+
+                before.size == 1 && after.size == 1 -> {
+                    pairings += Pairing(before.single(), after.single())
+                }
+
+                before.isEmpty() -> {
+                    after.forEach { pairings += Pairing(null, it) }
+                }
+
+                after.isEmpty() -> {
+                    before.forEach { pairings += Pairing(it, null) }
+                }
+
+                else -> {
+                    after.forEach { pairings += Pairing(null, it, unpaired = true) }
+                }
+            }
+        }
+        return pairings.sortedWith(compareBy(CONTRACT_ORDER) { it.after ?: it.before!! })
+    }
 
     /**
      * Sealed/polymorphic subtypes whose property key shadows the base's class
@@ -105,13 +199,16 @@ public object SnapshotDiffer {
      */
     private fun discriminatorCollisions(new: Snapshot): List<Change> {
         if (new.config.classDiscriminatorMode == "NONE") return emptyList()
-        val byName = new.contracts.associateBy { it.serialName }
+        val byId = new.contracts.associateBy { it.id }
         return new.contracts
             .filter { it.kind == ContractKind.SEALED || it.kind == ContractKind.POLYMORPHIC }
             .flatMap { base ->
                 val discriminator = base.discriminator ?: return@flatMap emptyList()
                 base.subtypes.mapNotNull { subtype ->
-                    val subContract = byName[subtype.serialName]
+                    // The subtype as recorded under this base (#200); a pre-#200 snapshot recorded it bare.
+                    val subContract =
+                        byId[ContractId(subtype.serialName, base.serialName)]
+                            ?: byId[ContractId(subtype.serialName, null)]
                     if (subContract != null && subContract.elements.any { it.name == discriminator }) {
                         Change.DiscriminatorCollision(base.serialName, discriminator, subtype.serialName)
                     } else {
@@ -169,14 +266,14 @@ public object SnapshotDiffer {
         // surface it as remove + add rather than a fabricated member diff.
         if (before.kind != after.kind) {
             return listOf(
-                Change.ContractRemoved(before.serialName, before.kind),
-                Change.ContractAdded(after.serialName, after.kind),
+                Change.ContractRemoved(before.qualifiedName, before.kind),
+                Change.ContractAdded(after.qualifiedName, after.kind),
             )
         }
         return when (after.kind) {
-            ContractKind.CLASS, ContractKind.OBJECT -> diffElements(after.serialName, before, after)
-            ContractKind.ENUM -> diffEnumValues(after.serialName, before, after, oldCoercibleEnums)
-            ContractKind.SEALED, ContractKind.POLYMORPHIC -> diffPolymorphic(after.serialName, before, after)
+            ContractKind.CLASS, ContractKind.OBJECT -> diffElements(after.qualifiedName, before, after)
+            ContractKind.ENUM -> diffEnumValues(after.qualifiedName, before, after, oldCoercibleEnums)
+            ContractKind.SEALED, ContractKind.POLYMORPHIC -> diffPolymorphic(after.qualifiedName, before, after)
             ContractKind.OPAQUE -> emptyList() // unanalyzable — no internals to diff
         }
     }

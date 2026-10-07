@@ -355,10 +355,13 @@ class DescriptorSnapshotExtractorTest {
     )
 
     @Test
-    fun `sealed subtypes sharing a serial name across bases degrade to an opaque gap`() {
+    fun `sealed subtypes sharing a serial name across bases are told apart by their base`() {
+        // #200: identity is (serialName, base), so each base's `created` is analysed on its own.
         val snapshot = extract(serializer<Events>().descriptor)
-        assertEquals(ContractKind.OPAQUE, snapshot.contract("created").kind)
-        // The bases themselves are still analysed.
+        val created = snapshot.contracts.filter { it.serialName == "created" }
+        assertEquals(listOf("OrderEvent/created", "UserEvent/created"), created.map { it.qualifiedName })
+        assertEquals(listOf("orderId", "userId"), created.map { it.elements.single().name })
+        assertEquals(setOf(ContractKind.CLASS), created.map { it.kind }.toSet())
         assertEquals(ContractKind.SEALED, snapshot.contract("OrderEvent").kind)
         assertEquals(ContractKind.SEALED, snapshot.contract("UserEvent").kind)
     }

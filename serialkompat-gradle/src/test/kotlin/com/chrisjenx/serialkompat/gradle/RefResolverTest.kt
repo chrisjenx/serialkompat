@@ -111,6 +111,11 @@ class RefResolverTest {
     }
 
     @Test
+    fun `an accepted break can name a base-qualified subtype`() {
+        assertEquals("OrderEvent/created", parseAcceptedBreak("OrderEvent/created PROPERTY_REMOVED").type)
+    }
+
+    @Test
     fun `an accepted break spec missing the rule is rejected`() {
         assertFailsWith<IllegalArgumentException> { parseAcceptedBreak("com.example.Order") }
     }

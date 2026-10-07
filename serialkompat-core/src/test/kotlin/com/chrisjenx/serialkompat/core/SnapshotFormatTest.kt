@@ -32,6 +32,13 @@ class SnapshotFormatTest {
                         kind = ContractKind.ENUM,
                         enumValues = listOf("PAID", "CREATED", "CANCELLED"),
                     ),
+                    // A sealed subtype records the base it was reached through (#200).
+                    Contract(
+                        serialName = "com.example.CardPayment",
+                        kind = ContractKind.CLASS,
+                        elements = listOf(Element("last4", "String")),
+                        base = "com.example.Payment",
+                    ),
                     Contract(
                         serialName = "com.example.Payment",
                         kind = ContractKind.SEALED,
@@ -48,6 +55,9 @@ class SnapshotFormatTest {
 
     private val canonicalText =
         """
+        @contract com.example.CardPayment kind=CLASS base=com.example.Payment
+          last4: String
+
         @contract com.example.OrderEvent kind=CLASS
           amountCents: Long
           id: String

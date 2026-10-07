@@ -32,10 +32,12 @@ import kotlin.reflect.KClass
  * `isElementOptional`, nullability, `@JsonNames`, enum values, sealed subtypes,
  * and `SerializersModule`-resolved open polymorphism.
  *
- * The graph is walked breadth-first keyed by serial name, so cyclic and shared
- * references are captured exactly once and terminate. A serial name that turns
- * out to carry two different shapes (generic instantiations, or sealed subtypes of
- * different bases sharing a `@SerialName`) is recorded as an OPAQUE coverage gap.
+ * The graph is walked breadth-first keyed by contract identity — serial name plus,
+ * for a sealed/polymorphic subtype, the base it was reached through (#200) — so
+ * cyclic and shared references are captured exactly once and terminate, and
+ * subtypes of different bases may share a `@SerialName`. An identity that turns
+ * out to carry two different shapes (e.g. generic instantiations) is recorded as
+ * an OPAQUE coverage gap.
  *
  * `@EncodeDefault` is not a `@SerialInfo` annotation and so is absent from
  * `getElementAnnotations`; its mode is recovered from the model class's bytecode by
@@ -64,85 +66,170 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     ): Snapshot {
         val openPoly = collectOpenSubtypes(module)
         val walk = Walk()
-        drain(ArrayDeque(roots.toList()), config, openPoly, walk, detectCollisions = true)
+        drain(ArrayDeque(roots.map { Node(it, base = null, root = true) }), config, openPoly, walk, true)
+        settleRoots(walk)
         // Fill-if-absent (#139): a hole-based generic never competes with a concrete shape already
         // recorded under its name, so it's skipped rather than treated as a collision.
-        drain(ArrayDeque(genericRoots.toList()), config, openPoly, walk, detectCollisions = false)
+        drain(ArrayDeque(genericRoots.map { Node(it, base = null, root = false) }), config, openPoly, walk, false)
         return Snapshot(walk.contracts.values.toList(), config)
     }
 
+    /** A contract's identity: its serial name plus the base it was reached through as a subtype. */
+    private data class Key(
+        val serialName: String,
+        val base: String?,
+    )
+
     /**
-     * Walk state. [shapes] holds every distinct contract seen per serial name. [contracts] holds the
-     * recorded contract per serial name, in first-visit order.
+     * A descriptor to walk. [base] is the serial name of the sealed/polymorphic contract that listed
+     * it as a subtype (else `null`); [root] marks a descriptor handed in as a root rather than reached.
+     */
+    private class Node(
+        val descriptor: SerialDescriptor,
+        val base: String?,
+        val root: Boolean,
+    )
+
+    /**
+     * Walk state. [shapes] holds every distinct contract seen per identity. [contracts] holds the
+     * recorded contract per identity, in first-visit order. [pendingRoots] holds root contracts
+     * whose recording waits for the walk to finish (see [settleRoots]).
      */
     private class Walk {
-        val shapes = mutableMapOf<String, MutableSet<Contract>>()
-        val contracts = linkedMapOf<String, Contract>()
+        val shapes = mutableMapOf<Key, MutableSet<Contract>>()
+        val contracts = linkedMapOf<Key, Contract>()
+        val pendingRoots = mutableListOf<Contract>()
     }
 
     /**
-     * Walks [queue] breadth-first into [walk], keyed by serial name.
+     * Walks [queue] breadth-first into [walk], keyed by contract identity.
      *
-     * A serial name is the contract's identity, but it doesn't identify the shape uniquely: generic
-     * type arguments are dropped (`Page<Item>` and `Page<User>` are both `Page`), and sealed subtypes
-     * may share a `@SerialName` across different bases. When [detectCollisions] is set, a revisit is
+     * A serial name doesn't identify a shape uniquely: generic type arguments are dropped
+     * (`Page<Item>` and `Page<User>` are both `Page`). Sealed subtypes sharing a `@SerialName` across
+     * bases are told apart by their base (#200). When [detectCollisions] is set, a revisit is
      * re-analysed. An identical shape (the usual cycle/shared-type case) is skipped. A *different*
      * shape replaces the recorded contract with an OPAQUE coverage gap, because keeping only the
      * first would leave the other unchecked (design §10). The new shape's references are still
      * walked, so types reachable only through it are not dropped.
+     *
+     * A root is analysed and its references walked straight away, but its own recording is
+     * deferred to [settleRoots]: discovery hands every `@Serializable` class in as a root, sealed
+     * subtypes included, and only once the walk is done is it known whether a root is one.
      */
     private fun drain(
-        queue: ArrayDeque<SerialDescriptor>,
+        queue: ArrayDeque<Node>,
         config: SnapshotConfig,
         openPoly: OpenPolymorphism,
         walk: Walk,
         detectCollisions: Boolean,
     ) {
         while (queue.isNotEmpty()) {
-            val descriptor = queue.removeFirst()
+            val node = queue.removeFirst()
+            val descriptor = node.descriptor
             // Even the serial name can fail to resolve (a lazily-built descriptor whose class is
             // missing at runtime); key such a node deterministically so it still surfaces as a gap.
             val serialName =
                 guarded { contractName(descriptor) } ?: "<unresolvable:${descriptor::class.java.name}>"
-            val seen = walk.shapes[serialName]
-            if (seen != null && !detectCollisions) continue
+            val key = Key(serialName, node.base)
+            if (key in walk.shapes && !detectCollisions) continue
 
             // A gate must never crash and never silently drop a type it can't
             // analyze (design §10): an unknown kind or a walk failure becomes an
             // explicit OPAQUE coverage gap instead.
             val referenced = mutableListOf<SerialDescriptor>()
+            val subtypes = mutableListOf<SerialDescriptor>()
             val contract =
-                guarded { contractOf(descriptor, serialName, config, openPoly, referenced) }
-                    ?: Contract(serialName, ContractKind.OPAQUE).also { referenced.clear() }
-            when {
-                seen == null -> {
-                    walk.shapes[serialName] = mutableSetOf(contract)
-                    walk.contracts[serialName] = contract
-                    queue += referenced
-                }
-
-                !seen.add(contract) -> {
-                    Unit // an identical revisit: already recorded
-                }
-
-                else -> {
-                    if (walk.contracts[serialName]?.kind != ContractKind.OPAQUE) {
-                        System.err.println(
-                            "serialkompat: '$serialName' resolves to more than one shape (a generic used " +
-                                "with different type arguments, or subtypes of different bases sharing a " +
-                                "@SerialName); recording it as an opaque coverage gap.",
-                        )
+                guarded { contractOf(descriptor, serialName, config, openPoly, referenced, subtypes) }
+                    ?.let { if (node.base == null) it else rebase(it, node.base) }
+                    ?: Contract(serialName, ContractKind.OPAQUE, base = node.base).also {
+                        referenced.clear()
+                        subtypes.clear()
                     }
-                    walk.contracts[serialName] = Contract(serialName, ContractKind.OPAQUE)
-                    // Bounded, so a generic that recursively instantiates itself with ever-deeper
-                    // type arguments (e.g. `Node<T>(val next: Node<List<T>>?)`) still terminates.
-                    if (seen.size <= MAX_SHAPES_PER_NAME) queue += referenced
-                }
+            val next =
+                referenced.map { Node(it, base = null, root = false) } +
+                    subtypes.map { Node(it, base = serialName, root = false) }
+            if (node.root && key !in walk.shapes) {
+                walk.pendingRoots += contract
+                queue += next
+            } else if (record(walk, key, contract)) {
+                queue += next
             }
         }
     }
 
-    /** How many distinct shapes of one serial name have their references walked. */
+    /**
+     * Records [contract] under [key], returning whether its references should be walked: on a first
+     * visit, or on a new colliding shape (bounded, so a generic that recursively instantiates itself
+     * with ever-deeper type arguments, e.g. `Node<T>(val next: Node<List<T>>?)`, still terminates).
+     */
+    private fun record(
+        walk: Walk,
+        key: Key,
+        contract: Contract,
+    ): Boolean {
+        val seen = walk.shapes[key]
+        return when {
+            seen == null -> {
+                walk.shapes[key] = mutableSetOf(contract)
+                walk.contracts[key] = contract
+                true
+            }
+
+            !seen.add(contract) -> {
+                false // an identical revisit: already recorded
+            }
+
+            else -> {
+                if (walk.contracts[key]?.kind != ContractKind.OPAQUE) {
+                    System.err.println(
+                        "serialkompat: '${contract.qualifiedName}' resolves to more than one shape (e.g. a " +
+                            "generic used with different type arguments, or distinct types sharing a " +
+                            "@SerialName); recording it as an opaque coverage gap.",
+                    )
+                }
+                walk.contracts[key] = Contract(key.serialName, ContractKind.OPAQUE, base = key.base)
+                seen.size <= MAX_SHAPES_PER_NAME
+            }
+        }
+    }
+
+    /**
+     * Records the deferred roots. A root that the walk also recorded, with the same shape, as a
+     * subtype of some base *is* that subtype: it is checked under its base and not recorded again
+     * unqualified (#200). Otherwise, sealed subtypes discovered as roots would all land on one bare
+     * identity and collide whenever two bases reuse a subtype name. Any other root is recorded
+     * unqualified as usual; its references were already walked.
+     */
+    private fun settleRoots(walk: Walk) {
+        val subtypeShapes =
+            walk.contracts.values
+                .filter { it.base != null }
+                .map { rebase(it, null) }
+                .toSet()
+        for (contract in walk.pendingRoots) {
+            if (contract in subtypeShapes) continue
+            record(walk, Key(contract.serialName, null), contract)
+        }
+        walk.pendingRoots.clear()
+    }
+
+    /** [contract] with its [Contract.base] replaced by [base]. */
+    private fun rebase(
+        contract: Contract,
+        base: String?,
+    ): Contract =
+        Contract(
+            serialName = contract.serialName,
+            kind = contract.kind,
+            elements = contract.elements,
+            enumValues = contract.enumValues,
+            discriminator = contract.discriminator,
+            subtypes = contract.subtypes,
+            hasPolymorphicDefault = contract.hasPolymorphicDefault,
+            base = base,
+        )
+
+    /** How many distinct shapes of one contract identity have their references walked. */
     private const val MAX_SHAPES_PER_NAME = 8
 
     /**
@@ -166,8 +253,9 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
 
     /**
      * Builds the contract for [descriptor], appending any referenced descriptors
-     * that must themselves be walked to [referenced]. Returns `null` for kinds
-     * that are element types rather than named contracts.
+     * that must themselves be walked to [referenced], and a sealed/polymorphic
+     * base's subtype descriptors to [subtypes] (walked qualified by this base).
+     * Returns `null` for kinds that are element types rather than named contracts.
      */
     private fun contractOf(
         descriptor: SerialDescriptor,
@@ -175,6 +263,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         config: SnapshotConfig,
         openPoly: OpenPolymorphism,
         referenced: MutableList<SerialDescriptor>,
+        subtypes: MutableList<SerialDescriptor>,
     ): Contract? =
         when (descriptor.kind) {
             StructureKind.CLASS, StructureKind.OBJECT -> {
@@ -194,7 +283,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
 
             PolymorphicKind.SEALED -> {
                 val subtypeDescriptors = descriptor.getElementDescriptor(1).elementDescriptors.toList()
-                referenced += subtypeDescriptors
+                subtypes += subtypeDescriptors
                 Contract(
                     serialName,
                     ContractKind.SEALED,
@@ -214,7 +303,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
                 // was not analysed. An empty POLYMORPHIC would read as fully analysed and let every
                 // subtype change pass unseen, so record a coverage gap instead (design §10).
                 if (subtypeDescriptors.isEmpty()) return Contract(serialName, ContractKind.OPAQUE)
-                referenced += subtypeDescriptors
+                subtypes += subtypeDescriptors
                 Contract(
                     serialName,
                     ContractKind.POLYMORPHIC,
