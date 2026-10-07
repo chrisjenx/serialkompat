@@ -10,6 +10,8 @@ import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -72,14 +74,27 @@ class SchemaExtractionMainTest {
     }
 
     @Test
-    fun `falls back to default config when the Json instance can't be loaded`() {
+    fun `fails loudly when a configured Json instance can't be loaded`() {
+        // The configured Json decides every verdict (its settings and the module that registers
+        // open-polymorphic subtypes). Silently falling back to Json.Default would check the wrong
+        // wire contract, so a configured-but-unloadable instance must fail the extraction.
         val out = File(tempDir, "current.snapshot")
-        SchemaExtractionMain.run(
-            typeNames = listOf(Order::class.java.name),
-            jsonInstanceFqn = "com.example.DoesNotExist.instance",
-            output = out,
-        )
-        // Design §6: fall back to conservative defaults rather than crashing.
+        val failure =
+            assertFailsWith<IllegalStateException> {
+                SchemaExtractionMain.run(
+                    typeNames = listOf(Order::class.java.name),
+                    jsonInstanceFqn = "com.example.DoesNotExist.instance",
+                    output = out,
+                )
+            }
+        assertTrue("com.example.DoesNotExist.instance" in failure.message.orEmpty(), failure.message)
+        assertFalse(out.exists(), "no snapshot may be written under an assumed config")
+    }
+
+    @Test
+    fun `an unset Json instance uses the default config`() {
+        val out = File(tempDir, "current.snapshot")
+        SchemaExtractionMain.run(typeNames = listOf(Order::class.java.name), jsonInstanceFqn = null, output = out)
         assertEquals(false, SnapshotFormat.parse(out.readText()).config.ignoreUnknownKeys)
     }
 

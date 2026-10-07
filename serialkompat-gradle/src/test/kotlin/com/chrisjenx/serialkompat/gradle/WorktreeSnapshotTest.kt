@@ -52,6 +52,13 @@ class WorktreeSnapshotTest {
     }
 
     @Test
+    fun `the root project's nested extract task has no empty path segment`() {
+        val args = nestedExtractArguments(":", worktreeSnapshotFile(File(rootDir, "worktree")))
+
+        assertEquals(":serialkompatExtract", args.first())
+    }
+
+    @Test
     fun `reads the explicitly-located snapshot, preferring it over the default build dir`() {
         val projectDir = File(rootDir, "proj").apply { mkdirs() }
         val worktreeDir = File(rootDir, "worktree")

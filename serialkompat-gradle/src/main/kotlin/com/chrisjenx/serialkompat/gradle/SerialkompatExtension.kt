@@ -31,7 +31,10 @@ public abstract class SerialkompatExtension
          */
         public abstract val discovery: Property<DiscoveryMode>
 
-        /** FQN of a `Json` instance whose configuration describes the wire (e.g. `com.acme.WireJson.instance`). */
+        /**
+         * FQN of a `Json` instance whose configuration describes the wire (e.g. `com.acme.WireJson.instance`).
+         * If it is set but can't be loaded from the runtime classpath, extraction fails.
+         */
         public abstract val jsonInstance: Property<String>
 
         /** The git ref the current schema is checked against (e.g. `origin/main`). */

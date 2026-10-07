@@ -26,7 +26,8 @@ public object CompatibilityEngine {
     ): Report {
         val baselineInScope = baseline.applyScope(scope).inScope
         val currentInScope = current.applyScope(scope).inScope
-        val changes = SnapshotDiffer.diff(baselineInScope, currentInScope, renames)
+        // Enum coercibility is judged over the full baseline: an out-of-scope reader is still on the wire.
+        val changes = SnapshotDiffer.diff(baselineInScope, currentInScope, renames, enumReaders = baseline)
         val findings = Classifier(profile).classify(changes, baselineInScope.config, currentInScope.config)
         return Report(findings, accepted)
     }
