@@ -13,8 +13,9 @@ public class Snapshot(
     contracts: List<Contract> = emptyList(),
     public val config: SnapshotConfig = SnapshotConfig(),
 ) {
-    /** Contracts, sorted by serial name. */
-    public val contracts: List<Contract> = contracts.sortedBy { it.serialName }
+    /** Contracts, sorted by serial name, then [Contract.base] (unqualified first). */
+    public val contracts: List<Contract> =
+        contracts.sortedWith(compareBy<Contract> { it.serialName }.thenBy(nullsFirst()) { it.base })
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

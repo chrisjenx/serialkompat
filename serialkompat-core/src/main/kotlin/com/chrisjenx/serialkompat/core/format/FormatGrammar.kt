@@ -8,6 +8,7 @@ internal object FormatGrammar {
     const val FIELD_SEP = ": "
     const val ARROW = " -> "
     const val KEY_KIND = "kind"
+    const val KEY_BASE = "base"
     const val KEY_DISCRIMINATOR = "discriminator"
     const val KEY_POLYMORPHIC_DEFAULT = "polymorphicDefault"
     const val KEY_ENCODE_DEFAULT = "encodeDefault"

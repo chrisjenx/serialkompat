@@ -516,6 +516,38 @@ endpoints exist are honored, so a stale entry can't drop a contract. The
 `@PreviousSerialName` annotation form and the structural rename-detection
 heuristic remain for v0.5.
 
+**Base-qualified subtype identity (#200).** A subtype's `serialName` only has to
+be unique within its base, so two sealed bases may each have a `created`
+subtype. Contract identity is therefore `(serialName, base?)`: `base` is the
+serial name of the SEALED/POLYMORPHIC contract the subtype was reached through,
+recorded for **every** subtype (not only on a collision — qualifying on
+collision would re-key an unchanged contract the moment an unrelated base
+reused its name, a false `CONTRACT_REMOVED`). A subtype of two bases is recorded
+once per base. On disk it is a header key, `@contract created kind=CLASS
+base=OrderEvent`; a pre-#200 snapshot (no `base=`) parses to `base = null`.
+Base contracts' `subtypes:` lines and `Element.type` references stay bare.
+
+- **Discovery roots.** Class-dir discovery hands every subtype in as a root too.
+  A root that the walk also recorded, with the same shape, under some base is
+  that subtype and is not recorded again unqualified; any other root is.
+- **Pairing.** The differ pairs by exact `(serialName, base)` first. Leftovers
+  pair by bare name when exactly one contract on each side has it (the upgrade
+  path from older snapshots and history). A name with leftovers on one side only
+  is a plain add/remove. A name ambiguous on both sides is `ContractUnpaired`,
+  scored as a `COVERAGE_GAP` WARN — never a remove/add. This fallback needs an
+  unqualified (pre-#200) record among the leftovers; subtypes of two different
+  bases never pair, so they read as a plain remove + add.
+- **Display and config.** Findings name a subtype `Base/sub`. `renames`,
+  accepted-break `type`, and `Scope` include/exclude accept `Base/sub` (exactly
+  that contract) or the bare `sub` (every contract with that serial name; a bare
+  rename keeps each subtype's base). Scope prefixes match the bare name, the
+  base, or the qualified name. Known limitation: an accepted break matches the
+  bare form as a `/`-suffix of the display name, so a `@SerialName` that itself
+  contains `/` can be matched by its trailing segment.
+- **Out of scope:** generic instantiations sharing a serial name (`Page<Item>`
+  vs `Page<User>`) are still recorded as an OPAQUE coverage gap (#201); the
+  type-argument-aware identity for them is #204.
+
 ---
 
 ## 9. Developer workflow & CI integration

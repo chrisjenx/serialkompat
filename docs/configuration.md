@@ -15,10 +15,10 @@ what it controls. See [Quick start](quickstart.md) for the minimal version and
 | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
 | `failOnBreaking` | `Property<Boolean>` | `true` | A `BREAK` finding fails the build |
 | `failOnEmptyBaseline` | `Property<Boolean>` | `true` | Empty baseline fails the build (prevents silently masking removed types); set `false` for first adoption |
-| `include` | `ListProperty<String>` | `[""]` | Serial-name prefixes in scope (`""` = all) |
-| `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded |
-| `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION]"` |
-| `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break) |
+| `include` | `ListProperty<String>` | `[""]` | Serial-name prefixes in scope (`""` = all); a sealed subtype also matches by its base or `Base/sub` |
+| `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded (same matching as `include`) |
+| `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION]"`; a subtype is `Base/sub` (that base only) or bare `sub` (any base) |
+| `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break); keys/values accept `Base/sub` or bare `sub` |
 | `history.dir` | `DirectoryProperty` | `serialkompat/history` | Source-controlled dir of recorded per-version snapshots for the transitive check ([Recipes](recipes.md#persisted-data-horizon-multi-version-history)) |
 | `history.sinceVersion` | `Property<String>` | unset | Retention: only check against versions `>=` this (semver) |
 | `history.depth` | `Property<Int>` | unset | Retention: only check against the newest N recorded versions |
@@ -149,6 +149,9 @@ serialkompat {
     it to accept the break in every direction being checked; include it
     (`BACKWARD`/`FORWARD`) to accept it in only one. Each entry silences one
     specific finding; unrelated findings on the same type still fail normally.
+    A sealed/polymorphic subtype is reported as `Base/sub` (its serial name is
+    only unique within its base): name it `Base/sub` to accept it under that
+    base only, or bare `sub` to accept it under every base.
 
 ## Choosing a direction
 

@@ -1960,8 +1960,8 @@ class RoundTripOracleTest {
             )
         assertFailsWith<Exception> { Json.decodeFromString(FeedV2.serializer(), oldData) }
 
-        // The walk deduped "created" by serial name, so Account's subtype was never analysed and the
-        // diff came back empty. It must at least surface as a coverage gap (unanalysable ≠ safe).
+        // With base-qualified identity (#200) each base's `created` is analysed on its own, so the gate
+        // predicts the specific break, on Account's subtype only — not just a coverage gap.
         val findings =
             Classifier().classify(
                 SnapshotDiffer.diff(
@@ -1969,12 +1969,31 @@ class RoundTripOracleTest {
                     DescriptorSnapshotExtractor.extract(listOf(serializer<FeedV2>().descriptor)),
                 ),
             )
-        assertTrue(
-            findings.any {
-                it.direction == CompatibilityDirection.BACKWARD &&
-                    (it.severity == Severity.BREAK || it.rule == Rules.COVERAGE_GAP)
-            },
-            "real decode threw but the gate was silent; got $findings",
+        val backward = findings.filter { it.direction == CompatibilityDirection.BACKWARD }
+        assertEquals(
+            listOf(Triple(Rules.PROPERTY_TYPE_CHANGED, Severity.BREAK, "Account/created")),
+            backward.map { Triple(it.rule, it.severity, it.contract) },
+            "real decode threw; got $findings",
         )
+        assertTrue(findings.none { it.contract.startsWith("Ledger") || it.rule == Rules.COVERAGE_GAP }, "$findings")
+    }
+
+    @Test
+    fun `adding a second base that reuses a subtype name leaves the first base's subtype unflagged`() {
+        // Ground truth: Ledger's `created` is untouched, so its payloads round-trip unchanged.
+        val ledgerData = Json.encodeToString(serializer<LedgerEvent>(), LedgerEvent.Created("l-1"))
+        assertEquals(LedgerEvent.Created("l-1"), Json.decodeFromString(serializer<LedgerEvent>(), ledgerData))
+
+        // Adding Account (whose subtype is also `created`) must not re-key, flag, or blind Ledger's.
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(listOf(serializer<LedgerEvent>().descriptor)),
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(serializer<LedgerEvent>().descriptor, serializer<AccountEventV1>().descriptor),
+                    ),
+                ),
+            )
+        assertEquals(emptyList(), findings)
     }
 }
