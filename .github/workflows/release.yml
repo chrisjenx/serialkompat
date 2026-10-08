@@ -60,6 +60,14 @@ jobs:
             echo "::error::Tag v$VERSION already exists"
             exit 1
           fi
+      - name: Validate release notes
+        # The GitHub release body comes from CHANGELOG.md. A final release needs its own
+        # `## [X.Y.Z]` section (roll `[Unreleased]` in a PR first); a prerelease may skip it.
+        run: |
+          if ! scripts/changelog-section.sh "$VERSION" > /dev/null && [[ "$VERSION" != *-* ]]; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section. Rename [Unreleased] to [$VERSION] - <date> in a PR first."
+            exit 1
+          fi
 
   test:
     needs: validate
@@ -130,7 +138,13 @@ jobs:
           else
             PRERELEASE=()
             if [[ "$VERSION" == *-* ]]; then PRERELEASE=(--prerelease); fi
-            gh release create "v$VERSION" --title "v$VERSION" --generate-notes --verify-tag "${PRERELEASE[@]}"
+            # Curated notes from CHANGELOG.md, with GitHub's generated PR list appended.
+            NOTES=()
+            if scripts/changelog-section.sh "$VERSION" > "$RUNNER_TEMP/notes.md"; then
+              NOTES=(--notes-file "$RUNNER_TEMP/notes.md")
+            fi
+            gh release create "v$VERSION" --title "v$VERSION" "${NOTES[@]}" --generate-notes \
+              --verify-tag "${PRERELEASE[@]}"
           fi
           # Maintain the floating major tag that Action consumers pin
           # (uses: chrisjenx/serialkompat@v1). Stable releases only — never

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-08
+
 ### Security
 - Secret scanning with [gitleaks](https://github.com/gitleaks/gitleaks). A `Secret Scan` CI workflow scans the full commit history on every push and PR, with `--redact` so a matched secret never reaches public logs. A `.pre-commit-config.yaml` runs the same check locally, and `.gitignore` now blocks common credential and signing-key files (`*.gpg`, `*.pem`, `*.p12`, `*.jks`, `.env`, …). A scan of the full existing history found no leaked secrets.
 
@@ -93,4 +95,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nullable fields under `explicitNulls=false` (#118). Adding a nullable field without a default is now backward SAFE, because the new reader decodes it as `null`. Removing one is forward WARN, because old readers silently see `null`. The default `explicitNulls=true` is unchanged (BREAK).
 - `SnapshotFormat` rebuilt on a document tree that drives both writing and parsing (#56). Output is byte-identical for every extractor-produced snapshot. Parsing is now stricter: a line that is invalid for its contract's kind is rejected instead of silently mis-read. A `classDiscriminatorMode` containing whitespace now round-trips; list values with whitespace were fixed separately (#146).
 
-[Unreleased]: https://github.com/chrisjenx/serialkompat/commits/main
+[Unreleased]: https://github.com/chrisjenx/serialkompat/compare/v0.1.0...main
+[0.1.0]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.1.0
