@@ -23,7 +23,7 @@ concurrency:
 jobs:
   # PRs: strict build is the gate. Pushes to main: also produces the deploy artifact.
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -55,7 +55,7 @@ jobs:
   publish:
     if: github.event_name != 'pull_request'
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pages: write
       id-token: write

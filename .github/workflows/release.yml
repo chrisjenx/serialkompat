@@ -21,7 +21,7 @@ jobs:
   # checked here, so a misconfigured release fails *before* anything ships rather than
   # after artifacts are on Central with no tag or GitHub release.
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       VERSION: ${{ inputs.version }}
       REF: ${{ github.ref }}
@@ -111,7 +111,7 @@ jobs:
 
   tag-and-release:
     needs: publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # GITHUB_TOKEN is enough to push tags (no tag rulesets) and create the release.
     permissions:
       contents: write
@@ -162,7 +162,7 @@ jobs:
   # the run.
   bump-version:
     needs: tag-and-release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       pull-requests: write
