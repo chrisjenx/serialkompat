@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-10-07
+## [0.1.0] - 2026-10-08
 
 ### Security
 - Secret scanning with [gitleaks](https://github.com/gitleaks/gitleaks). A `Secret Scan` CI workflow scans the full commit history on every push and PR, with `--redact` so a matched secret never reaches public logs. A `.pre-commit-config.yaml` runs the same check locally, and `.gitignore` now blocks common credential and signing-key files (`*.gpg`, `*.pem`, `*.p12`, `*.jks`, `.env`, …). A scan of the full existing history found no leaked secrets.
