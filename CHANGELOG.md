@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Gradle Plugin Portal publishing (#24). The `Release` workflow now also publishes `com.chrisjenx.serialkompat` to the Plugin Portal, and the plugin declares Configuration Cache and Isolated Projects support. The first Portal version needs Gradle's manual approval; until it is live, keep resolving the plugin from Maven Central.
+
 ## [0.1.0] - 2026-10-08
 
 ### Security

@@ -54,7 +54,7 @@ Keep the diff/classify engine (`-core`) decoupled from extraction and from where
 ## Publishing & deferred work (tracked as issues)
 
 - `detekt` static analysis (#26; pending Kotlin 2.4 compatibility check).
-- Gradle Plugin Portal publishing (#24). The plugin + marker go to Maven Central only, so consumers need `mavenCentral()` in `pluginManagement { repositories }`.
+- Gradle Plugin Portal listing (#24). `Release` publishes the plugin there too (`publish-plugin-portal` job), but the first version awaits Gradle's manual approval. Until it's live, user docs still tell consumers to add `mavenCentral()` to `pluginManagement { repositories }`; drop that once approved.
 
 Maven Central publishing is **live** for SNAPSHOTs (vanniktech `maven-publish` on the four library modules incl. `serialkompat-annotations`; `Snapshot` workflow on push to `main`). The CI secrets are set.
 
@@ -63,9 +63,9 @@ Maven Central publishing is **live** for SNAPSHOTs (vanniktech `maven-publish` o
 Releases are **the maintainer's call** — never dispatch `Release` unless explicitly asked. When asked:
 
 1. **Notes PR:** rename `## [Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD`, add an empty `## [Unreleased]` above it, merge.
-2. **Dispatch** `gh workflow run release.yml --ref main -f version=X.Y.Z`. Preflight refuses a final release without that CHANGELOG section; the GitHub release body is that section (`scripts/changelog-section.sh`) plus generated PR notes. It publishes to Central, tags `vX.Y.Z`, moves the floating `v<major>` tag (`v0` while 0.x), and opens a version-bump PR (`gradle.properties` → next `-SNAPSHOT`, README install snippet → `X.Y.Z`).
+2. **Dispatch** `gh workflow run release.yml --ref main -f version=X.Y.Z`. Preflight refuses a final release without that CHANGELOG section; the GitHub release body is that section (`scripts/changelog-section.sh`) plus generated PR notes. It publishes to Central and the Gradle Plugin Portal, tags `vX.Y.Z`, moves the floating `v<major>` tag (`v0` while 0.x), and opens a version-bump PR (`gradle.properties` → next `-SNAPSHOT`, README install snippet → `X.Y.Z`).
 3. **Merge the bump PR** (it's authored by `GITHUB_TOKEN`, so its CI is dispatched by the workflow). Its merge redeploys the docs site, whose `{{ skversion }}` comes from the newest `vX.Y.Z` tag.
-4. **Verify:** `gh release view vX.Y.Z`, and the artifacts on Maven Central (can take ~30 min to appear).
+4. **Verify:** `gh release view vX.Y.Z`, the artifacts on Maven Central (can take ~30 min to appear), and the version on plugins.gradle.org/plugin/com.chrisjenx.serialkompat.
 
 Semver while 0.x: a breaking change to the DSL, snapshot format or public API bumps the minor. Details: README → Publishing.
 
