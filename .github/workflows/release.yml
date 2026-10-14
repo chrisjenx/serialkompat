@@ -31,6 +31,8 @@ jobs:
       HAS_SIGNING_KEY: ${{ secrets.SIGNING_KEY != '' }}
       HAS_SIGNING_KEY_ID: ${{ secrets.SIGNING_KEY_ID != '' }}
       HAS_SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD != '' }}
+      HAS_GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY != '' }}
+      HAS_GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -42,7 +44,8 @@ jobs:
             exit 1
           fi
           missing=0
-          for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD SIGNING_KEY SIGNING_KEY_ID SIGNING_KEY_PASSWORD; do
+          for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD SIGNING_KEY SIGNING_KEY_ID SIGNING_KEY_PASSWORD \
+              GRADLE_PUBLISH_KEY GRADLE_PUBLISH_SECRET; do
             var="HAS_$name"
             if [ "${!var}" != "true" ]; then
               echo "::error::Repository secret $name is not set"
@@ -109,8 +112,36 @@ jobs:
         # publishAndReleaseToMavenCentral uploads + closes/releases the Central Portal deployment.
         run: ./gradlew publishAndReleaseToMavenCentral -Pversion="$VERSION" --no-configuration-cache
 
-  tag-and-release:
+  # The Gradle plugin also goes to the Plugin Portal, so `plugins { id(...) }` resolves without
+  # adding mavenCentral() to pluginManagement. Central is the source of truth, so this job doesn't
+  # block tagging: a Portal failure leaves a red job to re-run, never a Central release with no tag.
+  publish-plugin-portal:
     needs: publish
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Publish to the Gradle Plugin Portal
+        # The Portal rejects SNAPSHOT versions.
+        if: ${{ !endsWith(inputs.version, '-SNAPSHOT') }}
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: ./gradlew :serialkompat-gradle:publishPlugins -Pversion="$VERSION" --no-configuration-cache
+
+  tag-and-release:
+    # Runs after the Portal job either way; only the Central publish must have succeeded.
+    needs: [publish, publish-plugin-portal]
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
     runs-on: ubuntu-24.04
     # GITHUB_TOKEN is enough to push tags (no tag rulesets) and create the release.
     permissions:

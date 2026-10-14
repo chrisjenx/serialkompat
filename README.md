@@ -157,18 +157,21 @@ Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.8.0), Kotlin 2.4.20, and kot
 
 ## Publishing
 
-`serialkompat-core`, `-extractor`, `-gradle` (with its plugin marker), and `-annotations` publish to **Maven Central** through the [vanniktech `maven-publish`](https://github.com/vanniktech/gradle-maven-publish-plugin) plugin. Gradle Plugin Portal publishing is not configured. Credentials live only in repository secrets:
+`serialkompat-core`, `-extractor`, `-gradle` (with its plugin marker), and `-annotations` publish to **Maven Central** through the [vanniktech `maven-publish`](https://github.com/vanniktech/gradle-maven-publish-plugin) plugin. The Gradle plugin also publishes to the **Gradle Plugin Portal** through [`com.gradle.plugin-publish`](https://plugins.gradle.org/docs/publish-plugin) (final and prerelease versions; the Portal rejects SNAPSHOTs). Credentials live only in repository secrets:
 
-| Repo secret | Maps to (`ORG_GRADLE_PROJECT_…`) |
+| Repo secret | Maps to |
 |---|---|
-| `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` | `mavenCentralUsername` / `mavenCentralPassword` |
-| `SIGNING_KEY_ID` / `SIGNING_KEY` / `SIGNING_KEY_PASSWORD` | `signingInMemoryKeyId` / `signingInMemoryKey` / `signingInMemoryKeyPassword` |
+| `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` | `ORG_GRADLE_PROJECT_mavenCentralUsername` / `…mavenCentralPassword` |
+| `SIGNING_KEY_ID` / `SIGNING_KEY` / `SIGNING_KEY_PASSWORD` | `ORG_GRADLE_PROJECT_signingInMemoryKeyId` / `…signingInMemoryKey` / `…signingInMemoryKeyPassword` |
+| `GRADLE_PUBLISH_KEY` / `GRADLE_PUBLISH_SECRET` | the env vars of the same name (locally: `gradle.publish.key` / `gradle.publish.secret` in `~/.gradle/gradle.properties`) |
+
+To check the Portal metadata without publishing: `./gradlew :serialkompat-gradle:publishPlugins --validate-only -Pversion=X.Y.Z`.
 
 **Release.** First, in a PR, rename `## [Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]` above it. Then dispatch the `Release` workflow from `main` with the version: `X.Y.Z`, or `X.Y.Z-suffix` for a prerelease. It runs these jobs in order:
 
-1. **Validate.** Fails before anything ships if the run isn't on `main`, any of the five secrets is missing, the version is malformed, tag `vX.Y.Z` already exists, or (for a final release) `CHANGELOG.md` has no `## [X.Y.Z]` section.
+1. **Validate.** Fails before anything ships if the run isn't on `main`, any of the seven secrets is missing, the version is malformed, tag `vX.Y.Z` already exists, or (for a final release) `CHANGELOG.md` has no `## [X.Y.Z]` section.
 2. **Test.** `./gradlew build` on JDK 17 and 21, on macOS so the KMP klibs are complete.
-3. **Publish.** `publishAndReleaseToMavenCentral`.
+3. **Publish.** `publishAndReleaseToMavenCentral`, then `:serialkompat-gradle:publishPlugins` to the Plugin Portal in a separate job. A Portal failure doesn't stop tagging; re-run that job once the cause is fixed.
 4. **Tag and release.** Tags `vX.Y.Z` on the tested commit and creates the GitHub release (notes: that version's CHANGELOG section, then GitHub's generated PR list), marked as a prerelease if the version has a suffix. Stable releases also move the floating major tag that Action users pin (`v0` for 0.x, `v1` for 1.x).
 5. **Bump.** Opens a PR moving `gradle.properties` to the next `-SNAPSHOT` (the next patch after a final release, or the same version after a prerelease: `1.0.0-rc1` → `1.0.0-SNAPSHOT`), because `main` is branch-protected. This needs **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**. Without it the release still completes, and the job warns you to bump the version by hand.
 
