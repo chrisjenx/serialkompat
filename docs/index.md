@@ -78,9 +78,10 @@ reflects how real kotlinx-serialization behaves under your actual `Json { }` con
 | Grounded in real kotlinx-serialization behavior — every rule is backed by a round-trip oracle test | A replacement for API/schema versioning |
 | | A general-purpose JSON-schema linter |
 
-!!! note "Install from Maven Central"
-    The plugin is published to Maven Central, not the Gradle Plugin Portal. Add
-    `mavenCentral()` to `pluginManagement.repositories` in `settings.gradle.kts`, as shown in
+!!! note "Install"
+    The plugin is on the
+    [Gradle Plugin Portal](https://plugins.gradle.org/plugin/com.chrisjenx.serialkompat), so
+    a plain `plugins { id("com.chrisjenx.serialkompat") version "{{ skversion }}" }` works; see
     [Setup](setup.md#gradle-plugin). Development happens in the open; see the
     [issues](https://github.com/chrisjenx/serialkompat/issues) and
     [milestones](https://github.com/chrisjenx/serialkompat/milestones).
