@@ -51,19 +51,7 @@ serialkompat turns wire compatibility into a CI gate. It reads the JSON schema f
 
 ## Usage
 
-The plugin is published to Maven Central, not the Gradle Plugin Portal, so add `mavenCentral()` to your plugin repositories:
-
-```kotlin
-// settings.gradle.kts
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        mavenCentral()
-    }
-}
-```
-
-Then apply it to the module that holds your `@Serializable` wire or persisted models:
+The plugin is on the [Gradle Plugin Portal](https://plugins.gradle.org/plugin/com.chrisjenx.serialkompat), so no extra repository setup is needed. Apply it to the module that holds your `@Serializable` wire or persisted models:
 
 ```kotlin
 // build.gradle.kts

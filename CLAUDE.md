@@ -54,7 +54,6 @@ Keep the diff/classify engine (`-core`) decoupled from extraction and from where
 ## Publishing & deferred work (tracked as issues)
 
 - `detekt` static analysis (#26; pending Kotlin 2.4 compatibility check).
-- Gradle Plugin Portal listing (#24). `Release` publishes the plugin there too (`publish-plugin-portal` job), but the first version awaits Gradle's manual approval. Until it's live, user docs still tell consumers to add `mavenCentral()` to `pluginManagement { repositories }`; drop that once approved.
 
 Maven Central publishing is **live** for SNAPSHOTs (vanniktech `maven-publish` on the four library modules incl. `serialkompat-annotations`; `Snapshot` workflow on push to `main`). The CI secrets are set.
 
