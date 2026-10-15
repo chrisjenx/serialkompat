@@ -5,23 +5,9 @@ minutes.
 
 ## 1. Apply the plugin
 
-serialkompat is published to Maven Central, not the Gradle Plugin Portal. Add Maven
-Central to your plugin repositories so Gradle can resolve the plugin:
-
-```kotlin title="settings.gradle.kts"
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        mavenCentral() // (1)!
-    }
-}
-```
-
-1. Required: without it, `id("com.chrisjenx.serialkompat")` won't resolve. See
-   [Setup → Gradle plugin](setup.md#gradle-plugin).
-
-Then apply the plugin in the module that holds your `@Serializable` models, and list
-the types to check:
+serialkompat is on the Gradle Plugin Portal, so no repository setup is needed. Apply
+the plugin in the module that holds your `@Serializable` models, and list the types to
+check:
 
 ```kotlin title="build.gradle.kts"
 plugins {

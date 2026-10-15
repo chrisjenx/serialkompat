@@ -3,28 +3,15 @@
 You can run serialkompat three ways: as a Gradle plugin, as a standalone CLI, or as a
 GitHub Action. Most projects start with the Gradle plugin.
 
-!!! note "Install from Maven Central"
-    The plugin is published to Maven Central, not the Gradle Plugin Portal. A plain
-    `plugins { id("com.chrisjenx.serialkompat") version "..." }` block only resolves
-    once you add `mavenCentral()` to `pluginManagement.repositories`, as shown in the
-    Gradle plugin tab below.
-
 === "Gradle plugin"
 
     ### Gradle plugin {: #gradle-plugin }
 
-    Add Maven Central as a plugin repository:
-
-    ```kotlin title="settings.gradle.kts"
-    pluginManagement {
-        repositories {
-            gradlePluginPortal()
-            mavenCentral()
-        }
-    }
-    ```
-
-    Then apply the plugin by id and version, and configure it:
+    The plugin is on the
+    [Gradle Plugin Portal](https://plugins.gradle.org/plugin/com.chrisjenx.serialkompat),
+    so `gradlePluginPortal()` (Gradle's default plugin repository) is all you need. Apply
+    it by id and version, and configure it. (0.1.0 is on Maven Central only; to use it, add
+    `mavenCentral()` to `pluginManagement.repositories` in `settings.gradle.kts`.)
 
     ```kotlin title="build.gradle.kts"
     import com.chrisjenx.serialkompat.core.CompatibilityDirection
