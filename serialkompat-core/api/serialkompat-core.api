@@ -461,11 +461,15 @@ public final class com/chrisjenx/serialkompat/core/Report {
 
 public final class com/chrisjenx/serialkompat/core/Rules {
 	public static final field CONFIG_ARRAY_POLYMORPHISM Ljava/lang/String;
+	public static final field CONFIG_CBOR_BYTE_STRING Ljava/lang/String;
+	public static final field CONFIG_CBOR_DEFINITE_LENGTH Ljava/lang/String;
+	public static final field CONFIG_CBOR_TAGS Ljava/lang/String;
 	public static final field CONFIG_CHANGED Ljava/lang/String;
 	public static final field CONFIG_COERCE_INPUT Ljava/lang/String;
 	public static final field CONFIG_DISCRIMINATOR Ljava/lang/String;
 	public static final field CONFIG_ENCODE_DEFAULTS Ljava/lang/String;
 	public static final field CONFIG_EXPLICIT_NULLS Ljava/lang/String;
+	public static final field CONFIG_FORMAT Ljava/lang/String;
 	public static final field CONFIG_NAMING_STRATEGY Ljava/lang/String;
 	public static final field CONFIG_READER_STRICTNESS Ljava/lang/String;
 	public static final field CONFIG_SPECIAL_FLOATS Ljava/lang/String;
@@ -538,9 +542,10 @@ public final class com/chrisjenx/serialkompat/core/Snapshot {
 }
 
 public final class com/chrisjenx/serialkompat/core/SnapshotConfig {
+	public static final field Companion Lcom/chrisjenx/serialkompat/core/SnapshotConfig$Companion;
 	public fun <init> ()V
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZZZZZZZZ)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZZZZZZZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZZZZZZZZLcom/chrisjenx/serialkompat/core/WireFormat;ZZZZZZZZZ)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZZZZZZZZLcom/chrisjenx/serialkompat/core/WireFormat;ZZZZZZZZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component10 ()Z
 	public final fun component11 ()Z
@@ -548,7 +553,17 @@ public final class com/chrisjenx/serialkompat/core/SnapshotConfig {
 	public final fun component13 ()Z
 	public final fun component14 ()Z
 	public final fun component15 ()Z
+	public final fun component16 ()Lcom/chrisjenx/serialkompat/core/WireFormat;
+	public final fun component17 ()Z
+	public final fun component18 ()Z
+	public final fun component19 ()Z
 	public final fun component2 ()Ljava/lang/String;
+	public final fun component20 ()Z
+	public final fun component21 ()Z
+	public final fun component22 ()Z
+	public final fun component23 ()Z
+	public final fun component24 ()Z
+	public final fun component25 ()Z
 	public final fun component3 ()Ljava/lang/String;
 	public final fun component4 ()Z
 	public final fun component5 ()Z
@@ -556,26 +571,41 @@ public final class com/chrisjenx/serialkompat/core/SnapshotConfig {
 	public final fun component7 ()Z
 	public final fun component8 ()Z
 	public final fun component9 ()Z
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZZZZZZZZ)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
-	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/SnapshotConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZZZZZZZZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZZZZZZZZLcom/chrisjenx/serialkompat/core/WireFormat;ZZZZZZZZZ)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/SnapshotConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZZZZZZZZZZZZLcom/chrisjenx/serialkompat/core/WireFormat;ZZZZZZZZZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAllowComments ()Z
 	public final fun getAllowSpecialFloatingPointValues ()Z
 	public final fun getAllowStructuredMapKeys ()Z
 	public final fun getAllowTrailingComma ()Z
+	public final fun getAlwaysUseByteString ()Z
 	public final fun getClassDiscriminator ()Ljava/lang/String;
 	public final fun getClassDiscriminatorMode ()Ljava/lang/String;
 	public final fun getCoerceInputValues ()Z
 	public final fun getDecodeEnumsCaseInsensitive ()Z
 	public final fun getEncodeDefaults ()Z
+	public final fun getEncodeKeyTags ()Z
+	public final fun getEncodeObjectTags ()Z
+	public final fun getEncodeValueTags ()Z
 	public final fun getExplicitNulls ()Z
+	public final fun getFormat ()Lcom/chrisjenx/serialkompat/core/WireFormat;
 	public final fun getIgnoreUnknownKeys ()Z
 	public final fun getNamingStrategy ()Ljava/lang/String;
+	public final fun getPreferCborLabelsOverNames ()Z
 	public final fun getUseAlternativeNames ()Z
 	public final fun getUseArrayPolymorphism ()Z
+	public final fun getUseDefiniteLengthEncoding ()Z
+	public final fun getVerifyKeyTags ()Z
+	public final fun getVerifyObjectTags ()Z
+	public final fun getVerifyValueTags ()Z
 	public fun hashCode ()I
 	public final fun isLenient ()Z
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/chrisjenx/serialkompat/core/SnapshotConfig$Companion {
+	public final fun cbor (ZZZZZZZZZZZ)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
+	public static synthetic fun cbor$default (Lcom/chrisjenx/serialkompat/core/SnapshotConfig$Companion;ZZZZZZZZZZZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
 }
 
 public final class com/chrisjenx/serialkompat/core/SnapshotDiffer {
@@ -607,5 +637,20 @@ public final class com/chrisjenx/serialkompat/core/TransitiveCompatibility {
 	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/TransitiveCompatibility;
 	public final fun checkAgainstHistory (Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/Report;
 	public static synthetic fun checkAgainstHistory$default (Lcom/chrisjenx/serialkompat/core/TransitiveCompatibility;Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Report;
+}
+
+public final class com/chrisjenx/serialkompat/core/WireFormat : java/lang/Enum {
+	public static final field CBOR Lcom/chrisjenx/serialkompat/core/WireFormat;
+	public static final field Companion Lcom/chrisjenx/serialkompat/core/WireFormat$Companion;
+	public static final field JSON Lcom/chrisjenx/serialkompat/core/WireFormat;
+	public final fun getDisplayName ()Ljava/lang/String;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getId ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/WireFormat;
+	public static fun values ()[Lcom/chrisjenx/serialkompat/core/WireFormat;
+}
+
+public final class com/chrisjenx/serialkompat/core/WireFormat$Companion {
+	public final fun fromId (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/WireFormat;
 }
 

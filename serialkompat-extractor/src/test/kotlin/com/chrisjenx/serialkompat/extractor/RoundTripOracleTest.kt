@@ -1895,11 +1895,29 @@ class RoundTripOracleTest {
         // Drift-proof: assert EVERY SnapshotConfig field was exercised (Java reflection — no kotlin-reflect,
         // mirroring RulesCatalogTest). If a 9th field is added to SnapshotConfig but not toggled here, this
         // fails, flagging that CONFIG_CHANGED could become reachable un-guarded.
+        // The format and CBOR-only fields can't differ between two Json instances; the CBOR oracle
+        // guards those against real Cbor variants.
+        val cborOnly =
+            setOf(
+                "format",
+                "alwaysUseByteString",
+                "preferCborLabelsOverNames",
+                "useDefiniteLengthEncoding",
+                "encodeKeyTags",
+                "encodeValueTags",
+                "encodeObjectTags",
+                "verifyKeyTags",
+                "verifyValueTags",
+                "verifyObjectTags",
+            )
         val allFields =
             SnapshotConfig::class.java.declaredFields
-                .filter { !it.isSynthetic }
-                .map { it.name }
-                .toSet()
+                .filter {
+                    !it.isSynthetic &&
+                        !java.lang.reflect.Modifier
+                            .isStatic(it.modifiers)
+                }.map { it.name }
+                .toSet() - cborOnly
         assertEquals(allFields, observed, "a SnapshotConfig field is not exercised by this guard")
     }
 

@@ -48,6 +48,12 @@ public object SnapshotDiffer {
         enumReaders: Snapshot,
     ): List<Change> =
         buildList {
+            // Contracts of different formats are judged by different rules, so comparing them would
+            // be meaningless. Report the format change alone (design §6).
+            if (old.config.format != new.config.format) {
+                add(Change.ConfigChanged("format", old.config.format.id, new.config.format.id))
+                return@buildList
+            }
             addAll(diffConfig(old.config, new.config))
 
             // Which enums, in the *baseline* (old = the forward reader), are read only by defaulted
@@ -192,13 +198,14 @@ public object SnapshotDiffer {
      * Sealed/polymorphic subtypes whose property key shadows the base's class
      * discriminator: kotlinx-serialization refuses to encode such a model, so it is
      * flagged on every diff (like a coverage gap), not as a delta between snapshots
-     * (design §7, #132). Suppressed when the discriminator is not emitted at all
-     * (`classDiscriminatorMode = NONE`), where there is nothing to collide with.
+     * (design §7, #132). Suppressed when no discriminator key is emitted at all
+     * (`classDiscriminatorMode = NONE`, or array polymorphism, which CBOR always uses),
+     * where there is nothing to collide with.
      * Emitted in a deterministic (base, then subtype) order over the already-sorted
      * snapshot.
      */
     private fun discriminatorCollisions(new: Snapshot): List<Change> {
-        if (new.config.classDiscriminatorMode == "NONE") return emptyList()
+        if (new.config.classDiscriminatorMode == "NONE" || new.config.useArrayPolymorphism) return emptyList()
         val byId = new.contracts.associateBy { it.id }
         return new.contracts
             .filter { it.kind == ContractKind.SEALED || it.kind == ContractKind.POLYMORPHIC }
@@ -243,6 +250,16 @@ public object SnapshotDiffer {
                 Triple("decodeEnumsCaseInsensitive", old.decodeEnumsCaseInsensitive, new.decodeEnumsCaseInsensitive),
                 Triple("allowTrailingComma", old.allowTrailingComma, new.allowTrailingComma),
                 Triple("allowComments", old.allowComments, new.allowComments),
+                // CBOR-only; always false under JSON, so they never diff there.
+                Triple("alwaysUseByteString", old.alwaysUseByteString, new.alwaysUseByteString),
+                Triple("preferCborLabelsOverNames", old.preferCborLabelsOverNames, new.preferCborLabelsOverNames),
+                Triple("useDefiniteLengthEncoding", old.useDefiniteLengthEncoding, new.useDefiniteLengthEncoding),
+                Triple("encodeKeyTags", old.encodeKeyTags, new.encodeKeyTags),
+                Triple("encodeValueTags", old.encodeValueTags, new.encodeValueTags),
+                Triple("encodeObjectTags", old.encodeObjectTags, new.encodeObjectTags),
+                Triple("verifyKeyTags", old.verifyKeyTags, new.verifyKeyTags),
+                Triple("verifyValueTags", old.verifyValueTags, new.verifyValueTags),
+                Triple("verifyObjectTags", old.verifyObjectTags, new.verifyObjectTags),
             )
         return fields
             .filter { (_, before, after) -> before != after }

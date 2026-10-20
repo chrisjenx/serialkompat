@@ -30,6 +30,10 @@ public object Rules {
     public const val CONFIG_ARRAY_POLYMORPHISM: String = "CONFIG_ARRAY_POLYMORPHISM"
     public const val CONFIG_STRUCTURED_MAP_KEYS: String = "CONFIG_STRUCTURED_MAP_KEYS"
     public const val CONFIG_SPECIAL_FLOATS: String = "CONFIG_SPECIAL_FLOATS"
+    public const val CONFIG_FORMAT: String = "CONFIG_FORMAT"
+    public const val CONFIG_CBOR_BYTE_STRING: String = "CONFIG_CBOR_BYTE_STRING"
+    public const val CONFIG_CBOR_DEFINITE_LENGTH: String = "CONFIG_CBOR_DEFINITE_LENGTH"
+    public const val CONFIG_CBOR_TAGS: String = "CONFIG_CBOR_TAGS"
     public const val COVERAGE_GAP: String = "COVERAGE_GAP"
 
     /**
@@ -63,6 +67,10 @@ public object Rules {
             CONFIG_ARRAY_POLYMORPHISM,
             CONFIG_STRUCTURED_MAP_KEYS,
             CONFIG_SPECIAL_FLOATS,
+            CONFIG_FORMAT,
+            CONFIG_CBOR_BYTE_STRING,
+            CONFIG_CBOR_DEFINITE_LENGTH,
+            CONFIG_CBOR_TAGS,
             COVERAGE_GAP,
         )
 }

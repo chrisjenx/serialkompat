@@ -62,13 +62,15 @@ No existing tool detects breaking JSON wire-schema changes for kotlinx-serializa
 - Track type moves/renames so they are not mis-reported as delete+add.
 
 ### Non-goals (v0)
-- ProtoBuf / CBOR binary-format rules (field ordering, `@ProtoNumber`). Deferred
-  until/unless binary formats are adopted.
+- ProtoBuf rules (field ordering, `@ProtoNumber`). Deferred until/unless adopted.
+  (CBOR was a non-goal here too; it is now supported, see §6a.)
+- Checking more than one wire format per module. One module's snapshot describes
+  one format; a model stored as JSON *and* as CBOR is gated from two modules.
 - Detecting compatibility for non-kotlinx serializers.
 - Runtime enforcement / schema-registry service. This is a static CI gate.
 
 ### Threat model (drives the ruleset)
-- **Format:** JSON only.
+- **Format:** JSON, and CBOR (§6a). A snapshot records which one it describes.
 - **Direction:** `FULL` (both) — live services/clients *and* long-horizon persisted
   data.
 - **Consumers:** heterogeneous (may be non-Kotlin), so the tool reasons about the
@@ -474,6 +476,59 @@ the CLI exposes it; both build `CompatibilityProfile(direction = …)` only, so 
 reader's own `ignoreUnknownKeys` is always used. There is one `jsonInstance` per
 module; per-scope `Json` mapping is not implemented. A multi-boundary project
 splits boundaries into modules today.
+
+---
+
+## 6a. CBOR
+
+kotlinx-serialization-cbor is supported to the same level as JSON. The motivating
+case is persisted CBOR (client caches, job payloads) read by a strict `Cbor`: an old
+build crashes on a field a newer build wrote.
+
+**Ground truth first.** `CborSemanticsTest` (extractor tests) pins the CBOR 1.11.0
+behaviours every CBOR rule relies on, against the real library. The facts that shape
+the design:
+
+- A missing nullable field with no default fails, nothing is coerced, and
+  polymorphism is always array-style (`[serialName, value]`, no discriminator key).
+  CBOR therefore behaves like `Json { explicitNulls = true; useArrayPolymorphism =
+  true }`, so the existing rules apply unchanged.
+- `ignoreUnknownKeys` and `encodeDefaults` mean what they mean for JSON.
+- CBOR-only wire features: `@CborLabel` integer keys (readers accept a name or a
+  label either way), `@CborArray` positional classes (an extra trailing element fails
+  even with `ignoreUnknownKeys`, with an `IndexOutOfBoundsException`; a reorder
+  silently swaps values), `@ByteString` / `alwaysUseByteString`, and tags (inert
+  unless the writer encodes them and the reader verifies them).
+- Numbers are typed by CBOR major type: integer widths are interchangeable,
+  `Float` → `Double` reads but `Double` → `Float` does not, and `Int` → `Double` fails.
+  The existing widening table already says exactly this.
+
+**Model.** `SnapshotConfig.format` is a `WireFormat` (`JSON` default, `CBOR`), plus
+the nine CBOR-only flags. `SnapshotConfig.cbor(...)` builds a CBOR config and fills
+the JSON-only fields with CBOR's actual behaviour (above), so classification needs no
+CBOR branches for the shared rules.
+
+**Text format.** A CBOR `@config` writes `format=cbor` and only the CBOR settings. A
+JSON `@config` writes no `format` key, so every existing snapshot is byte-identical.
+`format` is the one `@config` key that fails closed: an unknown value is a parse
+error, never "read as JSON".
+
+**Format mismatch.** Two snapshots of different formats are never compared contract
+by contract. The differ emits one `ConfigChanged("format")`, classified
+`CONFIG_FORMAT` `WARN` both ways. The usual cause is the change that adopts a format
+in the gate: the baseline ref's own `serialkompatExtract` still checks the old one
+(§5), so a `BREAK` would block every adoption. A real storage migration between
+formats is not schema evolution, and the fix hint says so.
+
+**CBOR config rules.** `alwaysUseByteString` toggled → `CONFIG_CBOR_BYTE_STRING`
+`BREAK` both ways. `useDefiniteLengthEncoding` enabled → `CONFIG_CBOR_DEFINITE_LENGTH`
+forward `WARN` (an all-default object in a nullable slot reads back as `null`).
+`preferCborLabelsOverNames` → no finding (readers accept both). Any tag flag →
+`CONFIG_CBOR_TAGS` `WARN` both ways. Config findings name the format (`Cbor config`).
+
+**One format per module.** A module's snapshot describes one format (see Non-goals).
+A model stored as both JSON and CBOR is gated from two modules, each with its own
+instance.
 
 ---
 
