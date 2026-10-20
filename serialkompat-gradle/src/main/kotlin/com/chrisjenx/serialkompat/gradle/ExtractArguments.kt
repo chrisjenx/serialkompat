@@ -1,5 +1,6 @@
 package com.chrisjenx.serialkompat.gradle
 
+import com.chrisjenx.serialkompat.core.WireFormat
 import com.chrisjenx.serialkompat.extractor.DiscoveryMode
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -28,6 +29,13 @@ internal abstract class ExtractArguments : CommandLineArgumentProvider {
     @get:Input
     @get:Optional
     abstract val jsonInstance: Property<String>
+
+    @get:Input
+    abstract val format: Property<WireFormat>
+
+    @get:Input
+    @get:Optional
+    abstract val cborInstance: Property<String>
 
     /** The module's compiled class dirs, scanned for `@Serializable` roots under discovery. */
     @get:Classpath
@@ -64,6 +72,16 @@ internal abstract class ExtractArguments : CommandLineArgumentProvider {
             add(output.get().asFile.absolutePath)
             jsonInstance.orNull?.let {
                 add("--json")
+                add(it)
+            }
+            // JSON is the extractor's default, so a JSON module's command line is unchanged.
+            if (format.get() != WireFormat.JSON) {
+                add("--format")
+                add(format.get().id)
+            }
+            // Passed whatever the format: the extractor rejects a cborInstance under JSON loudly.
+            cborInstance.orNull?.let {
+                add("--cbor")
                 add(it)
             }
         }

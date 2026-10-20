@@ -11,6 +11,8 @@ and GitHub Action, see [Setup](setup.md).
 | `types` | `ListProperty<String>` | `[]` (required under `EXPLICIT` discovery) | FQNs of `@Serializable` root types to check |
 | `discovery` | `Property<DiscoveryMode>` | `EXPLICIT` | How checked types are found when `types` is empty: `EXPLICIT` (only `types`), `OPT_OUT` (everything discovered minus `@SerialkompatIgnore`), `OPT_IN` (only `@SerialkompatChecked`) |
 | `jsonInstance` | `Property<String>` | unset | FQN of a `Json` instance describing the wire (e.g. `com.example.WireJson.instance`); unset = default `Json`. If set but it can't be loaded, extraction fails |
+| `format` | `Property<WireFormat>` | `JSON` | The wire format of this module's models: `JSON` or `CBOR` (`com.chrisjenx.serialkompat.core.WireFormat`). One format per module |
+| `cborInstance` | `Property<String>` | unset | With `format = CBOR`: FQN of a `kotlinx.serialization.cbor.Cbor` instance describing the wire (e.g. `com.example.WireCbor.instance`); unset = `Cbor.Default`. Setting it under `JSON`, or `jsonInstance` under `CBOR`, fails extraction |
 | `baselineRef` | `Property<String>` | auto-detected | Git ref the current schema is checked against. Unset ⇒ auto-detect the default branch (`origin/HEAD` → `origin/main` → `origin/master` → local `main`/`master`) |
 | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
 | `failOnBreaking` | `Property<Boolean>` | `true` | A `BREAK` finding fails the build |

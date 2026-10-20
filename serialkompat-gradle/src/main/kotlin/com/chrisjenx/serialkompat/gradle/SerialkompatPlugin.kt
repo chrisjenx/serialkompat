@@ -5,6 +5,7 @@ import com.chrisjenx.serialkompat.core.CompatibilityDirection
 import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.SarifReporter
 import com.chrisjenx.serialkompat.core.SnapshotFormat
+import com.chrisjenx.serialkompat.core.WireFormat
 import com.chrisjenx.serialkompat.extractor.DiscoveryMode
 import com.chrisjenx.serialkompat.gradle.git.GitRefBaseline
 import com.chrisjenx.serialkompat.gradle.git.SnapshotCache
@@ -37,6 +38,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         val extension = target.extensions.create("serialkompat", SerialkompatExtension::class.java)
         extension.direction.convention(CompatibilityDirection.FULL)
         extension.discovery.convention(DiscoveryMode.EXPLICIT)
+        extension.format.convention(WireFormat.JSON)
         extension.failOnBreaking.convention(true)
         extension.failOnEmptyBaseline.convention(true)
         // No baselineRef convention: an unset ref auto-detects the default branch at execution
@@ -70,7 +72,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         val extract =
             target.tasks.register(EXTRACT_TASK_NAME, JavaExec::class.java) { task ->
                 task.group = VERIFICATION_GROUP
-                task.description = "Extracts the current @Serializable JSON wire schema to a snapshot file."
+                task.description = "Extracts the current @Serializable wire schema (JSON or CBOR) to a snapshot file."
                 task.mainClass.set("com.chrisjenx.serialkompat.extractor.SchemaExtractionMain")
                 val scanDirs = projectClassesDirs(target)
                 // Project first: its @Serializable classes were compiled against its own
@@ -86,6 +88,8 @@ public class SerialkompatPlugin : Plugin<Project> {
                         args.types.set(extension.types)
                         args.discovery.set(extension.discovery)
                         args.jsonInstance.set(extension.jsonInstance)
+                        args.format.set(extension.format)
+                        args.cborInstance.set(extension.cborInstance)
                         args.scanDirs.from(scanDirs)
                         args.output.set(currentSnapshot)
                     },

@@ -1,6 +1,7 @@
 package com.chrisjenx.serialkompat.gradle
 
 import com.chrisjenx.serialkompat.core.CompatibilityDirection
+import com.chrisjenx.serialkompat.core.WireFormat
 import com.chrisjenx.serialkompat.extractor.DiscoveryMode
 import org.gradle.api.Action
 import org.gradle.api.model.ObjectFactory
@@ -12,7 +13,7 @@ import javax.inject.Inject
 /**
  * Configures the `serialkompat { … }` block (design §6, §9). Policy that can't be
  * inferred from code (direction, baseline ref, scope) stays declared here; the
- * wire config itself is read from the real [jsonInstance].
+ * wire config itself is read from the real [jsonInstance] (or [cborInstance] for CBOR).
  */
 public abstract class SerialkompatExtension
     @Inject
@@ -36,6 +37,19 @@ public abstract class SerialkompatExtension
          * If it is set but can't be loaded from the runtime classpath, extraction fails.
          */
         public abstract val jsonInstance: Property<String>
+
+        /**
+         * The wire format this module's models are stored or sent in (design §6a). Defaults to `JSON`.
+         * One format per module: gate a model stored as both JSON and CBOR from two modules.
+         */
+        public abstract val format: Property<WireFormat>
+
+        /**
+         * FQN of a `kotlinx.serialization.cbor.Cbor` instance whose configuration and module describe
+         * the wire (e.g. `com.acme.WireCbor.instance`), used when [format] is `CBOR`. Unset means
+         * `Cbor.Default`. If it is set but can't be loaded from the runtime classpath, extraction fails.
+         */
+        public abstract val cborInstance: Property<String>
 
         /** The git ref the current schema is checked against (e.g. `origin/main`). */
         public abstract val baselineRef: Property<String>

@@ -155,7 +155,8 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
 ## Build cache & configuration cache
 
 - **`serialkompatExtract` is cacheable and relocatable.** Its cache key is the
-  module's classpath plus the `types`, `discovery`, and `jsonInstance` settings.
+  module's classpath plus the `types`, `discovery`, `jsonInstance`, `format`, and
+  `cborInstance` settings.
   It contains no absolute paths. With a shared (for example remote) build cache, the
   baseline extraction for a commit CI has already built is restored `FROM-CACHE`
   instead of starting a new JVM, even though it runs in a git worktree at a
