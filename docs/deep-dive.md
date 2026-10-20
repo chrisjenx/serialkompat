@@ -72,8 +72,11 @@ Some types can't be analysed. The extractor doesn't skip these or guess. It
 records each one as an `OPAQUE` contract: present in the snapshot, diffable, and
 round-trippable, but flagged. Examples:
 
-- a `@Contextual` field. Its real serializer is picked at runtime, so the
-  descriptor doesn't show its shape.
+- a `@Contextual` field whose type has no serializer in the module you pointed
+  serialkompat at, and no fallback (a builtin like `Instant`, or a
+  `@Serializable` class). serialkompat resolves contextual fields the way the
+  runtime does, so a registered or fallback serializer is analysed normally;
+  with neither, a real encode throws too.
 - an open polymorphic base with no visible subtypes, for example because it isn't
   registered in the `SerializersModule` you pointed serialkompat at. Its subtypes
   are only knowable from the module, so an empty list can't be trusted.

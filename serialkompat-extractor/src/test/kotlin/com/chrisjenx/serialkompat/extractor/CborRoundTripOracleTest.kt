@@ -1221,6 +1221,30 @@ class CborRoundTripOracleTest {
     }
 
     @Test
+    fun `CBOR - a contextual serializer swapped in the Cbor module is a type change both ways`() {
+        val stamped = RoundTripOracleTest.Stamped.serializer()
+        val oldCbor =
+            Cbor {
+                serializersModule =
+                    SerializersModule {
+                        contextual(RoundTripOracleTest.CtxStamp::class, RoundTripOracleTest.CtxStampAsString)
+                    }
+            }
+        val newCbor =
+            Cbor {
+                serializersModule =
+                    SerializersModule {
+                        contextual(RoundTripOracleTest.CtxStamp::class, RoundTripOracleTest.CtxStampAsLong)
+                    }
+            }
+        val value = RoundTripOracleTest.Stamped(RoundTripOracleTest.CtxStamp("abc"))
+        val o = assertOracleAgrees(stamped, value, stamped, value, oldCbor, newCbor)
+        assertTrue(o.backwardThrew && o.forwardThrew, o.toString())
+        assertTrue(o.findings.any { it.rule == Rules.PROPERTY_TYPE_CHANGED }, o.findings.toString())
+        assertTrue(o.findings.none { it.rule == Rules.COVERAGE_GAP }, o.findings.toString())
+    }
+
+    @Test
     fun `CBOR - a JSON baseline against a CBOR snapshot is one format WARN`() {
         val json =
             DescriptorSnapshotExtractor.extract(

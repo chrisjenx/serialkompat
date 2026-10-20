@@ -195,6 +195,21 @@ public class Classifier(
                 // real declared-shape change and is classified like any other type change.
                 if (isHoleOnlyTransition(change.oldType, change.newType)) {
                     null
+                } else if (isContextualResolution(change.oldType, change.newType)) {
+                    // The baseline recorded an unresolved @Contextual placeholder (an older extractor, or
+                    // a serializer registered since). Its old wire shape was never seen, so the change is
+                    // unverifiable: a coverage gap, never a silent pass and never a false break.
+                    Verdict(
+                        Rules.COVERAGE_GAP,
+                        change.contract,
+                        "field '${change.element}'",
+                        backward = Severity.WARN,
+                        forward = Severity.WARN,
+                        message =
+                            "field '${change.element}' in ${change.contract} was an unresolved @Contextual " +
+                                "type in the baseline and is now ${change.newType}; the change can't be verified",
+                        fixHint = "Expected once after upgrading serialkompat; the next baseline compares it fully.",
+                    )
                 } else {
                     Verdict(
                         Rules.PROPERTY_TYPE_CHANGED,

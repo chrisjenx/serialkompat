@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `@Contextual` fields are now analysed instead of reported as coverage gaps. The extractor resolves each one the way the runtime does: the `Json`/`Cbor` instance's `SerializersModule` first, then the compiler's fallback serializer (a builtin such as `kotlin.time.Instant`, or the class's own `@Serializable` serializer). Swapping a registered contextual serializer is now a `PROPERTY_TYPE_CHANGED` BREAK. Previously it was only a coverage-gap WARN even though real decodes throw. A type with no module entry and no fallback is still an OPAQUE gap. On the first run against a baseline recorded by 0.3.0 or earlier, each resolved contextual field reports one `COVERAGE_GAP` WARN instead of a false type change or `CONTRACT_REMOVED`.
+
 ## [0.3.0] - 2026-10-20
 
 serialkompat now gates **CBOR** as well as JSON. Persisted CBOR, such as client caches and job-queue payloads, gets the same rule matrix and the same CI gate, plus rules for the features only CBOR has. The headline case: a field added under a strict `Cbor` reader is a forward `BREAK`, because an old build crashes reading the entry a newer build wrote. Start with the [CBOR guide](https://chrisjenx.github.io/serialkompat/cbor/).
