@@ -60,7 +60,7 @@ import com.chrisjenx.serialkompat.core.CompatibilityDirection
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
-    id("com.chrisjenx.serialkompat") version "0.3.0"
+    id("com.chrisjenx.serialkompat") version "0.3.1"
 }
 
 serialkompat {
