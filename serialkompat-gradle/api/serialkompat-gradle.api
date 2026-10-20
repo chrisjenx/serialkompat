@@ -2,11 +2,13 @@ public abstract class com/chrisjenx/serialkompat/gradle/SerialkompatExtension {
 	public fun <init> (Lorg/gradle/api/model/ObjectFactory;)V
 	public abstract fun getAcceptedBreaks ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getBaselineRef ()Lorg/gradle/api/provider/Property;
+	public abstract fun getCborInstance ()Lorg/gradle/api/provider/Property;
 	public abstract fun getDirection ()Lorg/gradle/api/provider/Property;
 	public abstract fun getDiscovery ()Lorg/gradle/api/provider/Property;
 	public abstract fun getExclude ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getFailOnBreaking ()Lorg/gradle/api/provider/Property;
 	public abstract fun getFailOnEmptyBaseline ()Lorg/gradle/api/provider/Property;
+	public abstract fun getFormat ()Lorg/gradle/api/provider/Property;
 	public final fun getHistory ()Lcom/chrisjenx/serialkompat/gradle/SerialkompatHistory;
 	public abstract fun getInclude ()Lorg/gradle/api/provider/ListProperty;
 	public abstract fun getJsonInstance ()Lorg/gradle/api/provider/Property;

@@ -1,5 +1,6 @@
 package com.chrisjenx.serialkompat.gradle
 
+import com.chrisjenx.serialkompat.core.WireFormat
 import com.chrisjenx.serialkompat.extractor.DiscoveryMode
 import org.gradle.api.tasks.JavaExec
 import org.gradle.testfixtures.ProjectBuilder
@@ -60,6 +61,39 @@ class SerialkompatPluginTest {
         val extension = project.extensions.getByType(SerialkompatExtension::class.java)
         extension.discovery.set(DiscoveryMode.OPT_OUT)
         assertEquals(DiscoveryMode.OPT_OUT, extension.discovery.get())
+    }
+
+    @Test
+    fun `format defaults to JSON and renders no format flags`() {
+        val project = ProjectBuilder.builder().build()
+        project.pluginManager.apply("com.chrisjenx.serialkompat")
+        val extension = project.extensions.getByType(SerialkompatExtension::class.java)
+        extension.types.set(listOf("com.example.Foo"))
+
+        assertEquals(WireFormat.JSON, extension.format.get())
+        val args =
+            (project.tasks.getByName(SerialkompatPlugin.EXTRACT_TASK_NAME) as JavaExec)
+                .argumentProviders
+                .flatMap { it.asArguments() }
+        assertFalse(args.contains("--format"), "unexpected --format in $args")
+        assertFalse(args.contains("--cbor"), "unexpected --cbor in $args")
+    }
+
+    @Test
+    fun `a CBOR format renders the format and the cbor instance`() {
+        val project = ProjectBuilder.builder().build()
+        project.pluginManager.apply("com.chrisjenx.serialkompat")
+        val extension = project.extensions.getByType(SerialkompatExtension::class.java)
+        extension.types.set(listOf("com.example.Foo"))
+        extension.format.set(WireFormat.CBOR)
+        extension.cborInstance.set("com.example.Wire.cbor")
+
+        val args =
+            (project.tasks.getByName(SerialkompatPlugin.EXTRACT_TASK_NAME) as JavaExec)
+                .argumentProviders
+                .flatMap { it.asArguments() }
+        assertEquals("cbor", args[args.indexOf("--format") + 1])
+        assertEquals("com.example.Wire.cbor", args[args.indexOf("--cbor") + 1])
     }
 
     @Test
