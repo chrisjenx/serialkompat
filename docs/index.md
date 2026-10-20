@@ -1,6 +1,6 @@
 # serialkompat
 
-**A backward/forward compatibility gate for [kotlinx-serialization](https://github.com/Kotlin/kotlinx.serialization) `@Serializable` models — like [`buf breaking`](https://buf.build/docs/breaking/), but for JSON.**
+**A backward/forward compatibility gate for [kotlinx-serialization](https://github.com/Kotlin/kotlinx.serialization) `@Serializable` models — like [`buf breaking`](https://buf.build/docs/breaking/), but for JSON and [CBOR](cbor.md).**
 
 You delete a field. Payloads in queues, caches, and old app versions still carry it:
 
@@ -73,7 +73,7 @@ reflects how real kotlinx-serialization behaves under your actual `Json { }` con
 
 | serialkompat is | serialkompat is not |
 |---|---|
-| A CI gate for JSON wire/persisted-schema evolution of `@Serializable` models | A runtime validator |
+| A CI gate for JSON and CBOR wire/persisted-schema evolution of `@Serializable` models | A runtime validator |
 | Direction-aware (`BACKWARD` / `FORWARD` / `FULL`) and config-aware (`ignoreUnknownKeys`, `namingStrategy`, `encodeDefaults`, …) | A migration tool |
 | Grounded in real kotlinx-serialization behavior — every rule is backed by a round-trip oracle test | A replacement for API/schema versioning |
 | | A general-purpose JSON-schema linter |
