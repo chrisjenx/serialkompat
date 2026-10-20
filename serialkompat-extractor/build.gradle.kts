@@ -24,6 +24,8 @@ dependencies {
     implementation(kotlin("reflect"))
 
     testImplementation(kotlin("test"))
+    // Pins real CBOR behaviour (CborSemanticsTest) that the CBOR rules rely on.
+    testImplementation(libs.kotlinx.serialization.cbor)
     // Real marker annotations (not stand-ins): pins the FQNs the scanner matches on.
     testImplementation(project(":serialkompat-annotations"))
     testImplementation(libs.junit.jupiter.engine)
