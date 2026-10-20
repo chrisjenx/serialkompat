@@ -34,6 +34,11 @@ public object Rules {
     public const val CONFIG_CBOR_BYTE_STRING: String = "CONFIG_CBOR_BYTE_STRING"
     public const val CONFIG_CBOR_DEFINITE_LENGTH: String = "CONFIG_CBOR_DEFINITE_LENGTH"
     public const val CONFIG_CBOR_TAGS: String = "CONFIG_CBOR_TAGS"
+    public const val PROPERTY_CBOR_LABEL: String = "PROPERTY_CBOR_LABEL"
+    public const val PROPERTY_BYTE_STRING: String = "PROPERTY_BYTE_STRING"
+    public const val CBOR_TAGS_CHANGED: String = "CBOR_TAGS_CHANGED"
+    public const val CBOR_ARRAY_LAYOUT: String = "CBOR_ARRAY_LAYOUT"
+    public const val CBOR_ARRAY_OMITTED_DEFAULT: String = "CBOR_ARRAY_OMITTED_DEFAULT"
     public const val COVERAGE_GAP: String = "COVERAGE_GAP"
 
     /**
@@ -71,6 +76,11 @@ public object Rules {
             CONFIG_CBOR_BYTE_STRING,
             CONFIG_CBOR_DEFINITE_LENGTH,
             CONFIG_CBOR_TAGS,
+            PROPERTY_CBOR_LABEL,
+            PROPERTY_BYTE_STRING,
+            CBOR_TAGS_CHANGED,
+            CBOR_ARRAY_LAYOUT,
+            CBOR_ARRAY_OMITTED_DEFAULT,
             COVERAGE_GAP,
         )
 }

@@ -34,6 +34,11 @@ private fun contractBlock(contract: Contract): Block {
             if (contract.hasPolymorphicDefault) {
                 add(Token.KeyValue(FormatGrammar.KEY_POLYMORPHIC_DEFAULT, "true"))
             }
+            // CBOR facts, emitted only when set.
+            contract.cborArray?.let { add(Token.KeyList(FormatGrammar.KEY_CBOR_ARRAY, it)) }
+            if (contract.objectTags.isNotEmpty()) {
+                add(Token.KeyList(FormatGrammar.KEY_OBJECT_TAGS, contract.objectTags.map(ULong::toString)))
+            }
         }
     val body =
         when (contract.kind) {
@@ -76,6 +81,17 @@ private fun elementLine(element: Element): Line =
                 add(Token.KeyList(FormatGrammar.KEY_JSON_NAMES, element.jsonNames))
             }
             element.encodeDefault?.let { add(Token.KeyValue(FormatGrammar.KEY_ENCODE_DEFAULT, it.name)) }
+            // CBOR facts, emitted only when set.
+            element.cborLabel?.let { add(Token.KeyValue(FormatGrammar.KEY_CBOR_LABEL, it.toString())) }
+            if (element.byteString) add(Token.Word(FormatGrammar.FLAG_BYTE_STRING))
+            if (element.keyTags.isNotEmpty()) {
+                add(
+                    Token.KeyList(FormatGrammar.KEY_KEY_TAGS, element.keyTags.map(ULong::toString)),
+                )
+            }
+            if (element.valueTags.isNotEmpty()) {
+                add(Token.KeyList(FormatGrammar.KEY_VALUE_TAGS, element.valueTags.map(ULong::toString)))
+            }
         },
     )
 
@@ -166,6 +182,7 @@ private fun contractOf(block: Block): Contract {
     val kvs =
         header.filterIsInstance<Token.KeyValue>().associate { it.key to it.value }
     val kind = ContractKind.valueOf(kvs.getValue(FormatGrammar.KEY_KIND)) // reader-validated
+    val lists = header.filterIsInstance<Token.KeyList>().associate { it.key to it.values }
     val elements = mutableListOf<Element>()
     var enumValues = emptyList<String>()
     val subtypes = mutableListOf<Subtype>()
@@ -193,6 +210,8 @@ private fun contractOf(block: Block): Contract {
         subtypes = subtypes,
         hasPolymorphicDefault = kvs[FormatGrammar.KEY_POLYMORPHIC_DEFAULT]?.toBooleanStrict() ?: false,
         base = kvs[FormatGrammar.KEY_BASE],
+        cborArray = lists[FormatGrammar.KEY_CBOR_ARRAY],
+        objectTags = lists[FormatGrammar.KEY_OBJECT_TAGS].orEmpty().map(String::toULong),
     )
 }
 
@@ -204,30 +223,51 @@ private fun elementOf(
     var nullable = false
     var jsonNames = emptyList<String>()
     var encodeDefault: EncodeDefaultMode? = null
+    var cborLabel: Long? = null
+    var byteString = false
+    var keyTags = emptyList<ULong>()
+    var valueTags = emptyList<ULong>()
     for (token in trailing) {
         when (token) {
             is Token.Word -> {
                 when (token.text) {
                     FormatGrammar.FLAG_OPTIONAL -> optional = true
                     FormatGrammar.FLAG_NULLABLE -> nullable = true
+                    FormatGrammar.FLAG_BYTE_STRING -> byteString = true
                     else -> Unit // unknown flag: tolerated
                 }
             }
 
             is Token.KeyList -> {
-                if (token.key == FormatGrammar.KEY_JSON_NAMES) jsonNames = token.values
+                when (token.key) {
+                    FormatGrammar.KEY_JSON_NAMES -> jsonNames = token.values
+                    FormatGrammar.KEY_KEY_TAGS -> keyTags = token.values.map(String::toULong)
+                    FormatGrammar.KEY_VALUE_TAGS -> valueTags = token.values.map(String::toULong)
+                }
             }
 
             is Token.KeyValue -> {
-                if (token.key == FormatGrammar.KEY_ENCODE_DEFAULT) {
-                    encodeDefault = EncodeDefaultMode.valueOf(token.value)
+                when (token.key) {
+                    FormatGrammar.KEY_ENCODE_DEFAULT -> encodeDefault = EncodeDefaultMode.valueOf(token.value)
+                    FormatGrammar.KEY_CBOR_LABEL -> cborLabel = token.value.toLong()
                 }
             }
 
             else -> {}
         }
     }
-    return Element(fieldRef.name, fieldRef.type, optional, nullable, jsonNames, encodeDefault)
+    return Element(
+        fieldRef.name,
+        fieldRef.type,
+        optional,
+        nullable,
+        jsonNames,
+        encodeDefault,
+        cborLabel = cborLabel,
+        byteString = byteString,
+        keyTags = keyTags,
+        valueTags = valueTags,
+    )
 }
 
 private fun configOf(block: Block): SnapshotConfig {

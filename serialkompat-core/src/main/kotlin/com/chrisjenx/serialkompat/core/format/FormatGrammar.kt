@@ -17,6 +17,20 @@ internal object FormatGrammar {
 
     /** `@config` key naming the wire format; absent means JSON (every pre-CBOR snapshot). */
     const val KEY_FORMAT = "format"
+
+    // CBOR facts, emitted only when set so non-CBOR snapshots are unchanged.
+    const val KEY_CBOR_ARRAY = "cborArray"
+    const val KEY_OBJECT_TAGS = "objectTags"
+    const val KEY_CBOR_LABEL = "cborLabel"
+    const val KEY_KEY_TAGS = "keyTags"
+    const val KEY_VALUE_TAGS = "valueTags"
+    const val FLAG_BYTE_STRING = "byteString"
+
+    /** Header keys whose value is a `[a,b]` list rather than a single value. */
+    val HEADER_LIST_KEYS = setOf(KEY_CBOR_ARRAY, KEY_OBJECT_TAGS)
+
+    /** Element keys whose value is a `[a,b]` list rather than a single value. */
+    val ELEMENT_LIST_KEYS = setOf(KEY_JSON_NAMES, KEY_KEY_TAGS, KEY_VALUE_TAGS)
     const val FLAG_OPTIONAL = "optional"
     const val FLAG_NULLABLE = "nullable"
 }

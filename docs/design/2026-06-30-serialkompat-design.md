@@ -523,8 +523,33 @@ formats is not schema evolution, and the fix hint says so.
 **CBOR config rules.** `alwaysUseByteString` toggled → `CONFIG_CBOR_BYTE_STRING`
 `BREAK` both ways. `useDefiniteLengthEncoding` enabled → `CONFIG_CBOR_DEFINITE_LENGTH`
 forward `WARN` (an all-default object in a nullable slot reads back as `null`).
-`preferCborLabelsOverNames` → no finding (readers accept both). Any tag flag →
-`CONFIG_CBOR_TAGS` `WARN` both ways. Config findings name the format (`Cbor config`).
+`preferCborLabelsOverNames` → no finding (readers accept both). A tag flag →
+`CONFIG_CBOR_TAGS`, judged per direction: `BREAK` where the reader verifies a tag group
+its writer doesn't encode. Config findings name the format (`Cbor config`).
+
+**CBOR-only rules.** The extractor records CBOR annotations only for a CBOR snapshot:
+`Element.cborLabel` / `byteString` / `keyTags` / `valueTags`, and
+`Contract.cborArray` (element names in declaration order, since `elements` is sorted)
+/ `objectTags`. The text format writes them only when set. Each rule is judged from
+the writer's and the reader's config, per direction:
+
+- `PROPERTY_CBOR_LABEL`: a label is written only under `preferCborLabelsOverNames`.
+  A reader accepts its own label or the name, so a written label it doesn't know is an
+  unknown key: `BREAK`, or a silent-default `WARN` for a tolerant reader of an
+  optional field.
+- `PROPERTY_BYTE_STRING`: `BREAK` both ways when the effective encoding
+  (`@ByteString` or `alwaysUseByteString`) differs.
+- `CBOR_TAGS_CHANGED`: tags reach the wire only when encoded, and are checked only by
+  a verifying reader that declares tags there (one that declares none skips them, an
+  oracle finding). `BREAK` when the checked tags differ from the written ones.
+- `CBOR_ARRAY_LAYOUT`: when both sides are `@CborArray`, added and removed elements
+  are one layout change, judged by position. A reader takes a shorter array whose
+  missing tail is optional, never a longer one (even tolerant), and a reorder or a
+  renamed slot is a `BREAK`. Toggling `@CborArray` is a `BREAK` both ways.
+- `CBOR_ARRAY_OMITTED_DEFAULT`: a static defect of the current snapshot, like
+  `DISCRIMINATOR_COLLISION`. A non-final optional `@CborArray` element that is omitted
+  at its default shifts every later position. `BREAK` when its `@EncodeDefault` mode
+  is known, `WARN` when it wasn't recorded.
 
 **One format per module.** A module's snapshot describes one format (see Non-goals).
 A model stored as both JSON and CBOR is gated from two modules, each with its own
