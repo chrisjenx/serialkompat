@@ -68,7 +68,12 @@ named `Base/sub` (for example `OrderEvent/created`), because a subtype's
 | `CONFIG_FORMAT` | The wire format changed (JSON ↔ CBOR). No contract is compared³ | ⚠️ WARN | ⚠️ WARN | — |
 | `CONFIG_CBOR_BYTE_STRING` | CBOR `alwaysUseByteString` toggled (every plain `ByteArray` changes encoding) | ❌ BREAK | ❌ BREAK | — |
 | `CONFIG_CBOR_DEFINITE_LENGTH` | CBOR `useDefiniteLengthEncoding` toggled | ✅ SAFE | ⚠️ WARN if enabled (an all-default object in a nullable slot reads back as `null`), ✅ SAFE if disabled | — |
-| `CONFIG_CBOR_TAGS` | A CBOR `encode*Tags` / `verify*Tags` flag toggled | ⚠️ WARN | ⚠️ WARN | — |
+| `CONFIG_CBOR_TAGS` | A CBOR `encode*Tags` / `verify*Tags` flag toggled | ❌ BREAK if the new reader verifies tags the old writer didn't encode, else ✅ SAFE | ❌ BREAK if the old reader verifies tags the new writer doesn't encode, else ✅ SAFE | — |
+| [`PROPERTY_CBOR_LABEL`](#property_cbor_label) | CBOR `@CborLabel` added, removed or changed | ❌ BREAK if the old writer wrote a label the new reader doesn't know (⚠️ WARN if the reader has `ignoreUnknownKeys` and the field is optional), else ✅ SAFE | the same, from the new writer to the old reader | yes⁴ |
+| `PROPERTY_BYTE_STRING` | CBOR `@ByteString` added or removed on a field | ❌ BREAK unless `alwaysUseByteString` makes it a no-op | ❌ BREAK unless `alwaysUseByteString` makes it a no-op | yes |
+| `CBOR_TAGS_CHANGED` | CBOR `@KeyTags` / `@ValueTags` / `@ObjectTags` changed | ❌ BREAK if the new reader verifies and declares tags that differ from what the old writer encoded, else ✅ SAFE | the same, from the new writer to the old reader | yes |
+| [`CBOR_ARRAY_LAYOUT`](#cbor_array_layout) | CBOR `@CborArray` added, removed, or its elements added, removed or reordered | ✅ SAFE if the new layout only appends optional elements, else ❌ BREAK | ✅ SAFE if the new layout only drops trailing optional elements, else ❌ BREAK (even with `ignoreUnknownKeys`) | no |
+| `CBOR_ARRAY_OMITTED_DEFAULT` | A `@CborArray` element, not the last, that is omitted when it holds its default (shifting every later position) | ❌ BREAK (⚠️ WARN if its `@EncodeDefault` mode wasn't recorded) | ❌ BREAK (⚠️ WARN if its `@EncodeDefault` mode wasn't recorded) | no¹ |
 | `COVERAGE_GAP` | Opaque/unanalyzable type, or one that was opaque in the baseline and is analysed now | ⚠️ WARN | ⚠️ WARN | — |
 
 ¹ `DISCRIMINATOR_COLLISION` is not a difference between two versions. It flags a
@@ -97,6 +102,11 @@ nothing else and reports the format change once. This usually means the change
 adopts CBOR (or JSON) in serialkompat while the baseline ref still checks the other
 format. If the stored data itself changes format, old readers can't decode it;
 migrate it explicitly.
+
+⁴ A CBOR label reaches the wire only when the writer sets `preferCborLabelsOverNames`.
+Otherwise the writer writes the field name, which every reader accepts, so a label
+change is inert. `CBOR_ARRAY_OMITTED_DEFAULT` is, like `DISCRIMINATOR_COLLISION`
+(¹), a defect of one model reported on every run.
 
 ## Rule reference
 
@@ -201,6 +211,61 @@ checks every reader in the baseline snapshot, not just the types in your `includ
 owns, still keeps the verdict at `BREAK`.
 
 **Proof:** [`adding an enum value`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt) · [`an added enum value on a DEFAULTED field is a coercing-reader WARN, a strict-reader BREAK (#129)`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt) · [`CBOR - an added enum value breaks old readers that meet it`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt)
+
+### `PROPERTY_CBOR_LABEL` { #property_cbor_label }
+
+A CBOR field's `@CborLabel` integer key changes. Config-aware: it matters only when
+the writer sets `preferCborLabelsOverNames`. A reader accepts the field's name or its
+own label, so a label it doesn't know is an unknown key.
+
+```diff
+ @Serializable
+ data class CacheEntry(
+-    @CborLabel(1) val id: String,
++    @CborLabel(2) val id: String,
+ )
+```
+
+!!! failure "Both directions, with `preferCborLabelsOverNames`"
+    The writer keys `id` by its label. The other side expects the other label, so a
+    strict reader throws on the unknown key and then on the missing field. With
+    `ignoreUnknownKeys` and an optional field, the value is silently replaced by the
+    default instead (⚠️).
+
+Adding a label breaks only old readers (new readers still accept the name old data
+used). Removing one breaks only new readers.
+
+**Proof:** [`CBOR - a changed label breaks both ways once labels are written`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt) · [`CBOR - a changed label is inert while names are written`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt) · [`CBOR - adding a label breaks only old readers`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt) · [`CBOR - a changed label on an optional field silently defaults for a tolerant reader`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt)
+
+### `CBOR_ARRAY_LAYOUT` { #cbor_array_layout }
+
+A `@CborArray` class is encoded as a positional array, not a map. Names don't reach
+the wire; positions do.
+
+```diff
+ @Serializable
+ @CborArray
+ data class Point(
+     val x: Int,
+     val y: Int,
++    val z: Int = 0,
+ )
+```
+
+!!! success "Backward — new reader ← old data"
+    The old two-element array is shorter than the new layout. The missing `z` is
+    optional, so it takes its default.
+
+!!! failure "Forward — old reader ← new data"
+    The old reader meets a third element it has no slot for and throws, **even with
+    `ignoreUnknownKeys`**. That is unlike a keyed class, where an added optional field
+    is safe for a tolerant reader.
+
+Reordering elements is a ❌ BREAK both ways even when the types line up: the values
+silently swap. Adding or removing `@CborArray` swaps a map for an array, so each side
+rejects the other.
+
+**Proof:** [`CBOR - appending an optional array element crashes old readers, even tolerant ones`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt) · [`CBOR - dropping a trailing optional array element breaks only new readers`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt) · [`CBOR - reordering array elements silently swaps values and is flagged`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt) · [`CBOR - toggling CborArray breaks both ways`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt) · [`CBOR - an array element omitted at its default misreads its own data and is flagged`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt)
 
 ## Config awareness
 

@@ -174,4 +174,74 @@ public sealed interface Change {
         val discriminator: String,
         val subtype: String,
     ) : Change
+
+    /**
+     * CBOR: an element's `@CborLabel` integer key changed, appeared or was dropped. It only reaches
+     * the wire when the writer prefers labels; [wasOptional]/[nowOptional] decide whether a reader
+     * that skips the unknown label falls back to a default.
+     */
+    public data class ElementCborLabelChanged(
+        val contract: String,
+        val element: String,
+        val oldLabel: Long?,
+        val newLabel: Long?,
+        val wasOptional: Boolean,
+        val nowOptional: Boolean,
+    ) : Change
+
+    /** CBOR: an element gained or lost `@ByteString`. */
+    public data class ElementByteStringChanged(
+        val contract: String,
+        val element: String,
+        val wasByteString: Boolean,
+        val nowByteString: Boolean,
+    ) : Change
+
+    /**
+     * CBOR: the tags on an element ([element] set, [group] `KeyTags`/`ValueTags`) or on a class
+     * ([element] `null`, [group] `ObjectTags`) changed.
+     */
+    public data class CborTagsChanged(
+        val contract: String,
+        val element: String?,
+        val group: CborTagGroup,
+        val oldTags: List<ULong>,
+        val newTags: List<ULong>,
+    ) : Change
+
+    /**
+     * CBOR: the positional layout of a class changed. [oldLayout]/[newLayout] are the element names
+     * in declaration order when the class is `@CborArray`, or `null` when it is a keyed map. The
+     * optional sets decide whether a shorter array can be read.
+     */
+    public data class CborArrayLayoutChanged(
+        val contract: String,
+        val oldLayout: List<String>?,
+        val newLayout: List<String>?,
+        val oldOptional: Set<String>,
+        val newOptional: Set<String>,
+    ) : Change
+
+    /**
+     * CBOR: a `@CborArray` class whose optional [element] is written only when it differs from its
+     * default, with a later element after it. Omitting it shifts every later position, so the class
+     * can't round-trip its own default values. Like [DiscriminatorCollision], a defect of a single
+     * snapshot, surfaced on every diff. [definite] is false when the field's `@EncodeDefault` mode
+     * was not recorded.
+     */
+    public data class CborArrayOmittedDefault(
+        val contract: String,
+        val element: String,
+        val definite: Boolean,
+    ) : Change
+}
+
+/** Which CBOR tags a [Change.CborTagsChanged] is about. */
+public enum class CborTagGroup(
+    /** The tag annotation's name. */
+    public val annotation: String,
+) {
+    KEY("KeyTags"),
+    VALUE("ValueTags"),
+    OBJECT("ObjectTags"),
 }

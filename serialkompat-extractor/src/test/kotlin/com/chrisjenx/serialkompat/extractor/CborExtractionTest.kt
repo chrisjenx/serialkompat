@@ -6,7 +6,13 @@ import com.chrisjenx.serialkompat.core.WireFormat
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.cbor.ByteString
 import kotlinx.serialization.cbor.Cbor
+import kotlinx.serialization.cbor.CborArray
+import kotlinx.serialization.cbor.CborLabel
+import kotlinx.serialization.cbor.KeyTags
+import kotlinx.serialization.cbor.ObjectTags
+import kotlinx.serialization.cbor.ValueTags
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
@@ -119,6 +125,46 @@ class CborExtractionTest {
             ),
             config,
         )
+    }
+
+    @Serializable
+    @SerialName("Annotated")
+    @CborArray
+    @ObjectTags(9u)
+    data class Annotated(
+        @CborLabel(-3) val id: String,
+        @ByteString @KeyTags(1u) @ValueTags(2u, 3u) val data: ByteArray,
+        val n: Int = 0,
+    )
+
+    @Test
+    fun `CBOR annotations are recorded, in declaration order for CborArray`() {
+        val contract =
+            DescriptorSnapshotExtractor
+                .extract(listOf(Annotated.serializer().descriptor), config = SnapshotConfig.cbor())
+                .contracts
+                .single()
+        assertEquals(listOf("id", "data", "n"), contract.cborArray)
+        assertEquals(listOf(9uL), contract.objectTags)
+        val byName = contract.elements.associateBy { it.name }
+        assertEquals(-3L, byName.getValue("id").cborLabel)
+        val data = byName.getValue("data")
+        assertTrue(data.byteString)
+        assertEquals(listOf(1uL), data.keyTags)
+        assertEquals(listOf(2uL, 3uL), data.valueTags)
+        assertNull(byName.getValue("n").cborLabel)
+    }
+
+    @Test
+    fun `CBOR annotations are ignored when extracting JSON`() {
+        val contract =
+            DescriptorSnapshotExtractor
+                .extract(listOf(Annotated.serializer().descriptor), SerializersModule {})
+                .contracts
+                .single()
+        assertNull(contract.cborArray)
+        assertTrue(contract.objectTags.isEmpty())
+        assertTrue(contract.elements.all { it.cborLabel == null && !it.byteString && it.valueTags.isEmpty() })
     }
 
     @Test

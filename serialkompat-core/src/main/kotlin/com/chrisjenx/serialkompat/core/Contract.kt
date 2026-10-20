@@ -34,6 +34,14 @@ public class Contract(
      * contract's identity (#200). A subtype of two bases is recorded once per base.
      */
     public val base: String? = null,
+    /**
+     * CBOR: the element names in declaration order when the class is `@CborArray` (encoded
+     * positionally, as an array), or `null` for a keyed class. [elements] is sorted by name, so this
+     * keeps the order the wire depends on.
+     */
+    public val cborArray: List<String>? = null,
+    /** CBOR: the class's `@ObjectTags`, in order. */
+    public val objectTags: List<ULong> = emptyList(),
 ) {
     /**
      * The contract's display identity: `Base/sub` for a subtype, else the bare [serialName].
@@ -60,7 +68,9 @@ public class Contract(
             discriminator == other.discriminator &&
             subtypes == other.subtypes &&
             hasPolymorphicDefault == other.hasPolymorphicDefault &&
-            base == other.base
+            base == other.base &&
+            cborArray == other.cborArray &&
+            objectTags == other.objectTags
     }
 
     override fun hashCode(): Int {
@@ -72,13 +82,16 @@ public class Contract(
         result = 31 * result + subtypes.hashCode()
         result = 31 * result + hasPolymorphicDefault.hashCode()
         result = 31 * result + (base?.hashCode() ?: 0)
+        result = 31 * result + (cborArray?.hashCode() ?: 0)
+        result = 31 * result + objectTags.hashCode()
         return result
     }
 
     override fun toString(): String =
         "Contract(serialName=$serialName, kind=$kind, elements=$elements, " +
             "enumValues=$enumValues, discriminator=$discriminator, subtypes=$subtypes, " +
-            "hasPolymorphicDefault=$hasPolymorphicDefault, base=$base)"
+            "hasPolymorphicDefault=$hasPolymorphicDefault, base=$base, cborArray=$cborArray, " +
+            "objectTags=$objectTags)"
 }
 
 /** The display form of a `(serialName, base)` identity: `base/serialName`, or the bare name. */

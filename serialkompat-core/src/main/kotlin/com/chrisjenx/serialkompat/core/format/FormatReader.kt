@@ -52,7 +52,7 @@ internal object FormatReader {
         val serialName = unescapeToken(headerTokens.first())
         // Position decides: token 0 is ALWAYS the name; the rest are key=value
         // (split on the FIRST '='), or bare words kept for the mapper to ignore.
-        val rest = headerTokens.drop(1).map(::keyValueOrWord)
+        val rest = headerTokens.drop(1).map { listOrKeyValueOrWord(it, FormatGrammar.HEADER_LIST_KEYS) }
         // lastOrNull: today's parser overwrites on duplicate header keys (last
         // wins), and docToSnapshot's associate() is last-wins — keep them agreeing.
         val kindValue =
@@ -132,21 +132,7 @@ internal object FormatReader {
         val tokens = body.substringAfter(FormatGrammar.FIELD_SEP).trim().split(" ")
         // Position decides: the first token is ALWAYS the type, even if it
         // looks like a flag or key=value.
-        val trailing =
-            tokens.drop(1).map { token ->
-                when {
-                    token.startsWith("${FormatGrammar.KEY_JSON_NAMES}=") -> {
-                        Token.KeyList(
-                            FormatGrammar.KEY_JSON_NAMES,
-                            parseListLiteral(token.removePrefix("${FormatGrammar.KEY_JSON_NAMES}=")),
-                        )
-                    }
-
-                    else -> {
-                        keyValueOrWord(token)
-                    }
-                }
-            }
+        val trailing = tokens.drop(1).map { listOrKeyValueOrWord(it, FormatGrammar.ELEMENT_LIST_KEYS) }
         return Line(
             1,
             listOf(Token.FieldRef(unescapeToken(name), unescapeToken(tokens.first()))) + trailing,
@@ -160,6 +146,19 @@ internal object FormatReader {
                 .filter { it.isNotEmpty() && '=' in it } // a line with no '=' is a tolerated no-op
                 .map { line -> Line(1, listOf(keyValueOrWord(line))) }
         return Block(listOf(Line(0, listOf(Token.Word(FormatGrammar.CONFIG_MARKER)))) + entries)
+    }
+
+    /** A `key=[a,b]` token whose key is one of [listKeys] becomes a [Token.KeyList]; anything else as [keyValueOrWord]. */
+    private fun listOrKeyValueOrWord(
+        token: String,
+        listKeys: Set<String>,
+    ): Token {
+        val key = token.substringBefore('=', missingDelimiterValue = "")
+        return if (key in listKeys) {
+            Token.KeyList(key, parseListLiteral(token.removePrefix("$key=")))
+        } else {
+            keyValueOrWord(token)
+        }
     }
 
     /**

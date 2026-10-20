@@ -23,7 +23,70 @@ public final class com/chrisjenx/serialkompat/core/AcceptedBreakKt {
 	public static final fun isAcceptedBy (Lcom/chrisjenx/serialkompat/core/Finding;Ljava/util/List;)Z
 }
 
+public final class com/chrisjenx/serialkompat/core/CborTagGroup : java/lang/Enum {
+	public static final field KEY Lcom/chrisjenx/serialkompat/core/CborTagGroup;
+	public static final field OBJECT Lcom/chrisjenx/serialkompat/core/CborTagGroup;
+	public static final field VALUE Lcom/chrisjenx/serialkompat/core/CborTagGroup;
+	public final fun getAnnotation ()Ljava/lang/String;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/chrisjenx/serialkompat/core/CborTagGroup;
+	public static fun values ()[Lcom/chrisjenx/serialkompat/core/CborTagGroup;
+}
+
 public abstract interface class com/chrisjenx/serialkompat/core/Change {
+}
+
+public final class com/chrisjenx/serialkompat/core/Change$CborArrayLayoutChanged : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/util/Set;Ljava/util/Set;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/List;
+	public final fun component4 ()Ljava/util/Set;
+	public final fun component5 ()Ljava/util/Set;
+	public final fun copy (Ljava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/util/Set;Ljava/util/Set;)Lcom/chrisjenx/serialkompat/core/Change$CborArrayLayoutChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$CborArrayLayoutChanged;Ljava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/util/Set;Ljava/util/Set;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$CborArrayLayoutChanged;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContract ()Ljava/lang/String;
+	public final fun getNewLayout ()Ljava/util/List;
+	public final fun getNewOptional ()Ljava/util/Set;
+	public final fun getOldLayout ()Ljava/util/List;
+	public final fun getOldOptional ()Ljava/util/Set;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/chrisjenx/serialkompat/core/Change$CborArrayOmittedDefault : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Z)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Z
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Z)Lcom/chrisjenx/serialkompat/core/Change$CborArrayOmittedDefault;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$CborArrayOmittedDefault;Ljava/lang/String;Ljava/lang/String;ZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$CborArrayOmittedDefault;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContract ()Ljava/lang/String;
+	public final fun getDefinite ()Z
+	public final fun getElement ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/chrisjenx/serialkompat/core/Change$CborTagsChanged : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CborTagGroup;Ljava/util/List;Ljava/util/List;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lcom/chrisjenx/serialkompat/core/CborTagGroup;
+	public final fun component4 ()Ljava/util/List;
+	public final fun component5 ()Ljava/util/List;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CborTagGroup;Ljava/util/List;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/Change$CborTagsChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$CborTagsChanged;Ljava/lang/String;Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/CborTagGroup;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$CborTagsChanged;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContract ()Ljava/lang/String;
+	public final fun getElement ()Ljava/lang/String;
+	public final fun getGroup ()Lcom/chrisjenx/serialkompat/core/CborTagGroup;
+	public final fun getNewTags ()Ljava/util/List;
+	public final fun getOldTags ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/chrisjenx/serialkompat/core/Change$ConfigChanged : com/chrisjenx/serialkompat/core/Change {
@@ -143,6 +206,44 @@ public final class com/chrisjenx/serialkompat/core/Change$ElementAdded : com/chr
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getContract ()Ljava/lang/String;
 	public final fun getElement ()Lcom/chrisjenx/serialkompat/core/Element;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/chrisjenx/serialkompat/core/Change$ElementByteStringChanged : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZZ)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Z
+	public final fun component4 ()Z
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZZ)Lcom/chrisjenx/serialkompat/core/Change$ElementByteStringChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementByteStringChanged;Ljava/lang/String;Ljava/lang/String;ZZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementByteStringChanged;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContract ()Ljava/lang/String;
+	public final fun getElement ()Ljava/lang/String;
+	public final fun getNowByteString ()Z
+	public final fun getWasByteString ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/chrisjenx/serialkompat/core/Change$ElementCborLabelChanged : com/chrisjenx/serialkompat/core/Change {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Ljava/lang/Long;ZZ)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/Long;
+	public final fun component4 ()Ljava/lang/Long;
+	public final fun component5 ()Z
+	public final fun component6 ()Z
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Ljava/lang/Long;ZZ)Lcom/chrisjenx/serialkompat/core/Change$ElementCborLabelChanged;
+	public static synthetic fun copy$default (Lcom/chrisjenx/serialkompat/core/Change$ElementCborLabelChanged;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Long;Ljava/lang/Long;ZZILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Change$ElementCborLabelChanged;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContract ()Ljava/lang/String;
+	public final fun getElement ()Ljava/lang/String;
+	public final fun getNewLabel ()Ljava/lang/Long;
+	public final fun getNowOptional ()Z
+	public final fun getOldLabel ()Ljava/lang/Long;
+	public final fun getWasOptional ()Z
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -335,15 +436,17 @@ public final class com/chrisjenx/serialkompat/core/ConsoleReporter {
 }
 
 public final class com/chrisjenx/serialkompat/core/Contract {
-	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;)V
-	public synthetic fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Ljava/util/List;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBase ()Ljava/lang/String;
+	public final fun getCborArray ()Ljava/util/List;
 	public final fun getDiscriminator ()Ljava/lang/String;
 	public final fun getElements ()Ljava/util/List;
 	public final fun getEnumValues ()Ljava/util/List;
 	public final fun getHasPolymorphicDefault ()Z
 	public final fun getKind ()Lcom/chrisjenx/serialkompat/core/ContractKind;
+	public final fun getObjectTags ()Ljava/util/List;
 	public final fun getQualifiedName ()Ljava/lang/String;
 	public final fun getSerialName ()Ljava/lang/String;
 	public final fun getSubtypes ()Ljava/util/List;
@@ -377,15 +480,19 @@ public final class com/chrisjenx/serialkompat/core/Coverage {
 }
 
 public final class com/chrisjenx/serialkompat/core/Element {
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLjava/util/List;Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLjava/util/List;Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLjava/util/List;Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;Ljava/lang/Long;ZLjava/util/List;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ZZLjava/util/List;Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;Ljava/lang/Long;ZLjava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getByteString ()Z
+	public final fun getCborLabel ()Ljava/lang/Long;
 	public final fun getEncodeDefault ()Lcom/chrisjenx/serialkompat/core/EncodeDefaultMode;
 	public final fun getJsonNames ()Ljava/util/List;
+	public final fun getKeyTags ()Ljava/util/List;
 	public final fun getName ()Ljava/lang/String;
 	public final fun getNullable ()Z
 	public final fun getOptional ()Z
 	public final fun getType ()Ljava/lang/String;
+	public final fun getValueTags ()Ljava/util/List;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -460,6 +567,9 @@ public final class com/chrisjenx/serialkompat/core/Report {
 }
 
 public final class com/chrisjenx/serialkompat/core/Rules {
+	public static final field CBOR_ARRAY_LAYOUT Ljava/lang/String;
+	public static final field CBOR_ARRAY_OMITTED_DEFAULT Ljava/lang/String;
+	public static final field CBOR_TAGS_CHANGED Ljava/lang/String;
 	public static final field CONFIG_ARRAY_POLYMORPHISM Ljava/lang/String;
 	public static final field CONFIG_CBOR_BYTE_STRING Ljava/lang/String;
 	public static final field CONFIG_CBOR_DEFINITE_LENGTH Ljava/lang/String;
@@ -483,6 +593,8 @@ public final class com/chrisjenx/serialkompat/core/Rules {
 	public static final field ENUM_VALUE_REMOVED Ljava/lang/String;
 	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/Rules;
 	public static final field PROPERTY_ADDED Ljava/lang/String;
+	public static final field PROPERTY_BYTE_STRING Ljava/lang/String;
+	public static final field PROPERTY_CBOR_LABEL Ljava/lang/String;
 	public static final field PROPERTY_JSON_NAMES Ljava/lang/String;
 	public static final field PROPERTY_NULLABILITY Ljava/lang/String;
 	public static final field PROPERTY_OPTIONALITY Ljava/lang/String;

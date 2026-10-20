@@ -339,6 +339,57 @@ public class Classifier(
                 )
             }
 
+            is Change.ElementCborLabelChanged -> {
+                labelVerdict(change, oldConfig, newConfig)
+            }
+
+            // The effective encoding is the annotation or the config default; when it differs, a
+            // ByteArray is a byte string on one side and an array of ints on the other.
+            is Change.ElementByteStringChanged -> {
+                if ((change.wasByteString || oldConfig.alwaysUseByteString) ==
+                    (change.nowByteString || newConfig.alwaysUseByteString)
+                ) {
+                    null
+                } else {
+                    Verdict(
+                        Rules.PROPERTY_BYTE_STRING,
+                        change.contract,
+                        "field '${change.element}'",
+                        backward = Severity.BREAK,
+                        forward = Severity.BREAK,
+                        message =
+                            "field '${change.element}' ${if (change.nowByteString) "gained" else "lost"} " +
+                                "@ByteString in ${change.contract}",
+                        fixHint = "Keep the ByteArray encoding stable; introduce a new field instead.",
+                    )
+                }
+            }
+
+            is Change.CborTagsChanged -> {
+                tagsVerdict(change, oldConfig, newConfig)
+            }
+
+            is Change.CborArrayLayoutChanged -> {
+                layoutVerdict(change)
+            }
+
+            // Like a discriminator collision: a defect of the current model, flagged on every diff.
+            is Change.CborArrayOmittedDefault -> {
+                val severity = if (change.definite) Severity.BREAK else Severity.WARN
+                Verdict(
+                    Rules.CBOR_ARRAY_OMITTED_DEFAULT,
+                    change.contract,
+                    "field '${change.element}'",
+                    backward = severity,
+                    forward = severity,
+                    message =
+                        "@CborArray ${change.contract} omits field '${change.element}' when it holds its " +
+                            "default, shifting every later position — such values misread or fail",
+                    fixHint =
+                        "Annotate it @EncodeDefault(ALWAYS), set encodeDefaults=true, or move it to the end.",
+                )
+            }
+
             // An unanalysable type can't be verified either way — surfaced as a WARN
             // coverage gap so it is never silently assumed compatible (design §10).
             is Change.CoverageGap -> {
@@ -595,6 +646,123 @@ public class Classifier(
                 "Expected when this change adopts the format in serialkompat. If the stored data itself " +
                     "changes format, migrate it explicitly; old readers cannot decode it.",
         )
+
+    /**
+     * A writer puts the label on the wire only when it prefers labels; otherwise it writes the name,
+     * which every reader accepts. A reader accepts its own label or the name, so a written label it
+     * doesn't know is an unknown key: skipped by a tolerant reader (an optional field then silently
+     * takes its default), fatal otherwise.
+     */
+    private fun labelVerdict(
+        change: Change.ElementCborLabelChanged,
+        oldConfig: SnapshotConfig,
+        newConfig: SnapshotConfig,
+    ): Verdict? {
+        fun severity(
+            writer: SnapshotConfig,
+            writerLabel: Long?,
+            reader: SnapshotConfig,
+            readerLabel: Long?,
+            readerOptional: Boolean,
+        ): Severity {
+            val written = if (writer.preferCborLabelsOverNames) writerLabel else null
+            return when {
+                written == null || written == readerLabel -> Severity.SAFE
+                readerTolerant(reader) && readerOptional -> Severity.WARN
+                else -> Severity.BREAK
+            }
+        }
+        val backward = severity(oldConfig, change.oldLabel, newConfig, change.newLabel, change.nowOptional)
+        val forward = severity(newConfig, change.newLabel, oldConfig, change.oldLabel, change.wasOptional)
+        if (backward == Severity.SAFE && forward == Severity.SAFE) return null
+        return Verdict(
+            Rules.PROPERTY_CBOR_LABEL,
+            change.contract,
+            "field '${change.element}'",
+            backward = backward,
+            forward = forward,
+            message =
+                "field '${change.element}' @CborLabel changed ${change.oldLabel ?: "none"} -> " +
+                    "${change.newLabel ?: "none"} in ${change.contract}",
+            fixHint = "A label is a wire key once labels are preferred; keep it stable or bump major.",
+        )
+    }
+
+    /**
+     * Tags reach the wire only when the writer encodes them, and matter only when the reader verifies
+     * them and declares tags of its own there.
+     */
+    private fun tagsVerdict(
+        change: Change.CborTagsChanged,
+        oldConfig: SnapshotConfig,
+        newConfig: SnapshotConfig,
+    ): Verdict? {
+        val group = change.group.annotation
+
+        fun severity(
+            writer: SnapshotConfig,
+            writerTags: List<ULong>,
+            reader: SnapshotConfig,
+            readerTags: List<ULong>,
+        ): Severity {
+            val written = if (writer.tagFlag("encode$group")) writerTags else emptyList()
+            // A verifying reader checks only the tags it declares: one that declares none skips any.
+            val checked = reader.tagFlag("verify$group") && readerTags.isNotEmpty()
+            return if (checked && written != readerTags) Severity.BREAK else Severity.SAFE
+        }
+        val backward = severity(oldConfig, change.oldTags, newConfig, change.newTags)
+        val forward = severity(newConfig, change.newTags, oldConfig, change.oldTags)
+        if (backward == Severity.SAFE && forward == Severity.SAFE) return null
+        val subject = change.element?.let { "field '$it'" } ?: "type ${change.contract}"
+        return Verdict(
+            Rules.CBOR_TAGS_CHANGED,
+            change.contract,
+            "$subject @$group",
+            backward = backward,
+            forward = forward,
+            message = "$subject @$group changed ${change.oldTags} -> ${change.newTags} in ${change.contract}",
+            fixHint = "A reader that verifies tags rejects any other tags; keep them stable or bump major.",
+        )
+    }
+
+    /**
+     * `@CborArray` is positional. A reader takes a shorter array when its missing tail is optional, but
+     * fails on an extra trailing element even with ignoreUnknownKeys, and a reorder swaps values. A
+     * renamed slot is reported too: its value now means something else. Toggling `@CborArray` swaps a
+     * map for an array.
+     */
+    private fun layoutVerdict(change: Change.CborArrayLayoutChanged): Verdict {
+        val old = change.oldLayout
+        val new = change.newLayout
+
+        fun reads(
+            reader: List<String>,
+            readerOptional: Set<String>,
+            written: List<String>,
+        ): Severity =
+            if (reader.take(written.size) == written && reader.drop(written.size).all { it in readerOptional }) {
+                Severity.SAFE
+            } else {
+                Severity.BREAK
+            }
+        val (backward, forward) =
+            if (old == null || new == null) {
+                Severity.BREAK to Severity.BREAK
+            } else {
+                reads(new, change.newOptional, old) to reads(old, change.oldOptional, new)
+            }
+        return Verdict(
+            Rules.CBOR_ARRAY_LAYOUT,
+            change.contract,
+            "@CborArray layout",
+            backward = backward,
+            forward = forward,
+            message = "@CborArray layout of ${change.contract} changed ${old ?: "(keyed)"} -> ${new ?: "(keyed)"}",
+            fixHint =
+                "Only append optional elements to a @CborArray, and only when old readers never see new " +
+                    "data; otherwise bump major.",
+        )
+    }
 
     /** A CBOR tag flag by name (`encodeValueTags`, `verifyKeyTags`, ...). */
     private fun SnapshotConfig.tagFlag(name: String): Boolean =

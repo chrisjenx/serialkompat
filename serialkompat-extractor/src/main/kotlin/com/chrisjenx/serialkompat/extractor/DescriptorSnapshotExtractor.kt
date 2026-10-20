@@ -275,7 +275,22 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
                         referenced += referencedContracts(descriptor.getElementDescriptor(i))
                         elementOf(descriptor, i, encodeDefaults[i], config.format)
                     }
-                Contract(serialName, kind, elements = elements)
+                if (config.format == WireFormat.CBOR) {
+                    Contract(
+                        serialName,
+                        kind,
+                        elements = elements,
+                        cborArray =
+                            descriptor.elementNames.toList().takeIf {
+                                CborSupport.isCborArray(
+                                    descriptor.annotations,
+                                )
+                            },
+                        objectTags = CborSupport.objectTags(descriptor.annotations),
+                    )
+                } else {
+                    Contract(serialName, kind, elements = elements)
+                }
             }
 
             SerialKind.ENUM -> {
@@ -329,6 +344,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     ): Element {
         val descriptor = owner.getElementDescriptor(index)
         val annotations = owner.getElementAnnotations(index)
+        val cbor = if (format == WireFormat.CBOR) CborSupport.elementFacts(annotations) else null
         return Element(
             name = owner.getElementName(index),
             // `nullable` is the field's own (Kotlin-level) nullability: it also drives "absent decodes
@@ -348,6 +364,10 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             // @EncodeDefault isn't a @SerialInfo annotation, so it comes from bytecode
             // reflection instead (EncodeDefaultReader, #158); null = unknown.
             encodeDefault = encodeDefault,
+            cborLabel = cbor?.label,
+            byteString = cbor?.byteString ?: false,
+            keyTags = cbor?.keyTags.orEmpty(),
+            valueTags = cbor?.valueTags.orEmpty(),
         )
     }
 

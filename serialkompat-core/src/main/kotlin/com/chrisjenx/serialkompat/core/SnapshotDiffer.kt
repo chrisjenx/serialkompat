@@ -91,6 +91,7 @@ public object SnapshotDiffer {
                 .forEach { add(Change.CoverageGap(it)) }
 
             addAll(discriminatorCollisions(new))
+            addAll(cborArrayOmittedDefaults(new))
         }
 
     /** A contract's identity: its serial name plus the base it was reached through (#200). */
@@ -225,6 +226,42 @@ public object SnapshotDiffer {
             }
     }
 
+    /**
+     * `@CborArray` elements that are optional, not the last, and written only when they differ from
+     * their default. Omitting one shifts every later position, so the class misreads its own
+     * defaulted values (design §6a). Flagged on every diff, like [discriminatorCollisions].
+     */
+    private fun cborArrayOmittedDefaults(new: Snapshot): List<Change> =
+        new.contracts.flatMap { contract ->
+            val layout = contract.cborArray ?: return@flatMap emptyList()
+            val byName = contract.elements.associateBy { it.name }
+            layout.dropLast(1).mapNotNull { name ->
+                val element = byName[name]?.takeIf { it.optional } ?: return@mapNotNull null
+                when (element.encodeDefault) {
+                    EncodeDefaultMode.ALWAYS -> {
+                        null
+                    }
+
+                    EncodeDefaultMode.NEVER -> {
+                        Change.CborArrayOmittedDefault(contract.qualifiedName, name, definite = true)
+                    }
+
+                    EncodeDefaultMode.ABSENT -> {
+                        if (new.config.encodeDefaults) {
+                            null
+                        } else {
+                            Change.CborArrayOmittedDefault(contract.qualifiedName, name, definite = true)
+                        }
+                    }
+
+                    // Unrecorded: a hidden ALWAYS or NEVER could decide either way.
+                    null -> {
+                        Change.CborArrayOmittedDefault(contract.qualifiedName, name, definite = false)
+                    }
+                }
+            }
+        }
+
     private fun diffConfig(
         old: SnapshotConfig,
         new: SnapshotConfig,
@@ -303,16 +340,32 @@ public object SnapshotDiffer {
         buildList {
             val oldByName = before.elements.associateBy { it.name }
             val newByName = after.elements.associateBy { it.name }
+            // Both positional: an added or removed element is a layout change, judged by position.
+            val positional = before.cborArray != null && after.cborArray != null
+            if (before.cborArray != after.cborArray) {
+                add(
+                    Change.CborArrayLayoutChanged(
+                        contract,
+                        before.cborArray,
+                        after.cborArray,
+                        before.elements.filter { it.optional }.mapTo(sortedSetOf()) { it.name },
+                        after.elements.filter { it.optional }.mapTo(sortedSetOf()) { it.name },
+                    ),
+                )
+            }
+            if (before.objectTags != after.objectTags) {
+                add(Change.CborTagsChanged(contract, null, CborTagGroup.OBJECT, before.objectTags, after.objectTags))
+            }
             for (name in (oldByName.keys + newByName.keys).sorted()) {
                 val old = oldByName[name]
                 val new = newByName[name]
                 when {
                     old == null && new != null -> {
-                        add(Change.ElementAdded(contract, new))
+                        if (!positional) add(Change.ElementAdded(contract, new))
                     }
 
                     old != null && new == null -> {
-                        add(Change.ElementRemoved(contract, old))
+                        if (!positional) add(Change.ElementRemoved(contract, old))
                     }
 
                     old != null && new != null -> {
@@ -336,8 +389,38 @@ public object SnapshotDiffer {
                         if (old.jsonNames != new.jsonNames) {
                             add(Change.ElementJsonNamesChanged(contract, name, old.jsonNames, new.jsonNames))
                         }
+                        addAll(diffCborElement(contract, old, new))
                     }
                 }
+            }
+        }
+
+    private fun diffCborElement(
+        contract: String,
+        old: Element,
+        new: Element,
+    ): List<Change> =
+        buildList {
+            if (old.cborLabel != new.cborLabel) {
+                add(
+                    Change.ElementCborLabelChanged(
+                        contract,
+                        old.name,
+                        old.cborLabel,
+                        new.cborLabel,
+                        old.optional,
+                        new.optional,
+                    ),
+                )
+            }
+            if (old.byteString != new.byteString) {
+                add(Change.ElementByteStringChanged(contract, old.name, old.byteString, new.byteString))
+            }
+            if (old.keyTags != new.keyTags) {
+                add(Change.CborTagsChanged(contract, old.name, CborTagGroup.KEY, old.keyTags, new.keyTags))
+            }
+            if (old.valueTags != new.valueTags) {
+                add(Change.CborTagsChanged(contract, old.name, CborTagGroup.VALUE, old.valueTags, new.valueTags))
             }
         }
 

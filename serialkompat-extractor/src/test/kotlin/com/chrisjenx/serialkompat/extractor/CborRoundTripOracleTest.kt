@@ -14,8 +14,12 @@ import kotlinx.serialization.PolymorphicSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.cbor.ByteString
 import kotlinx.serialization.cbor.Cbor
+import kotlinx.serialization.cbor.CborArray
 import kotlinx.serialization.cbor.CborLabel
+import kotlinx.serialization.cbor.KeyTags
+import kotlinx.serialization.cbor.ObjectTags
 import kotlinx.serialization.cbor.ValueTags
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.EmptySerializersModule
@@ -720,6 +724,439 @@ class CborRoundTripOracleTest {
                 Cbor { verifyValueTags = true },
             )
         assertTrue(f.breaks(CompatibilityDirection.FORWARD))
+    }
+
+    // ---- @CborLabel ----------------------------------------------------------------------
+
+    private val labels = Cbor { preferCborLabelsOverNames = true }
+    private val lenientLabels =
+        Cbor {
+            preferCborLabelsOverNames = true
+            ignoreUnknownKeys = true
+        }
+
+    @Serializable
+    @SerialName("Labelled")
+    private data class Labelled2(
+        @CborLabel(2) val id: String,
+    )
+
+    @Serializable
+    @SerialName("Labelled")
+    private data class Unlabelled(
+        val id: String,
+    )
+
+    @Serializable
+    @SerialName("LabelledOpt")
+    private data class LabelledOpt1(
+        val n: Int,
+        @CborLabel(1) val id: String = "",
+    )
+
+    @Serializable
+    @SerialName("LabelledOpt")
+    private data class LabelledOpt2(
+        val n: Int,
+        @CborLabel(2) val id: String = "",
+    )
+
+    @Test
+    fun `CBOR - a changed label breaks both ways once labels are written`() {
+        val o =
+            assertOracleAgrees(
+                Labelled.serializer(),
+                Labelled("a"),
+                Labelled2.serializer(),
+                Labelled2("a"),
+                labels,
+                labels,
+            )
+        assertTrue(o.backwardThrew && o.forwardThrew)
+        assertTrue(o.findings.all { it.rule == Rules.PROPERTY_CBOR_LABEL })
+    }
+
+    @Test
+    fun `CBOR - a changed label is inert while names are written`() {
+        val o = assertOracleAgrees(Labelled.serializer(), Labelled("a"), Labelled2.serializer(), Labelled2("a"))
+        assertTrue(!o.backwardThrew && !o.forwardThrew)
+        assertTrue(o.findings.isEmpty(), o.findings.toString())
+    }
+
+    @Test
+    fun `CBOR - adding a label breaks only old readers`() {
+        val o =
+            assertOracleAgrees(
+                Unlabelled.serializer(),
+                Unlabelled("a"),
+                Labelled.serializer(),
+                Labelled("a"),
+                labels,
+                labels,
+            )
+        assertTrue(!o.backwardThrew && o.forwardThrew)
+        assertEquals(Severity.SAFE, o.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.BREAK, o.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `CBOR - removing a label breaks only new readers`() {
+        val o =
+            assertOracleAgrees(
+                Labelled.serializer(),
+                Labelled("a"),
+                Unlabelled.serializer(),
+                Unlabelled("a"),
+                labels,
+                labels,
+            )
+        assertTrue(o.backwardThrew && !o.forwardThrew)
+        assertEquals(Severity.BREAK, o.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.SAFE, o.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `CBOR - a changed label on an optional field silently defaults for a tolerant reader`() {
+        val o =
+            assertOracleAgrees(
+                LabelledOpt1.serializer(),
+                LabelledOpt1(1, "a"),
+                LabelledOpt2.serializer(),
+                LabelledOpt2(1, "a"),
+                lenientLabels,
+                lenientLabels,
+            )
+        assertTrue(!o.backwardThrew && !o.forwardThrew)
+        val read =
+            decodes(
+                lenientLabels,
+                LabelledOpt1.serializer(),
+                LabelledOpt1(1, "a"),
+                lenientLabels,
+                LabelledOpt2.serializer(),
+            )
+        assertEquals(LabelledOpt2(1, ""), read.getOrThrow(), "the value is silently lost")
+        assertEquals(Severity.WARN, o.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.WARN, o.severity(CompatibilityDirection.FORWARD))
+    }
+
+    // ---- @ByteString ---------------------------------------------------------------------
+
+    @Serializable
+    @SerialName("Blob")
+    private class ByteStringBlob(
+        @ByteString val data: ByteArray,
+    ) {
+        override fun equals(other: Any?): Boolean = other is ByteStringBlob && data.contentEquals(other.data)
+
+        override fun hashCode(): Int = data.contentHashCode()
+    }
+
+    @Test
+    fun `CBOR - toggling ByteString on a field breaks both ways`() {
+        val o =
+            assertOracleAgrees(
+                Blob.serializer(),
+                Blob(byteArrayOf(1, 2)),
+                ByteStringBlob.serializer(),
+                ByteStringBlob(byteArrayOf(1, 2)),
+            )
+        assertTrue(o.backwardThrew && o.forwardThrew)
+        assertTrue(o.findings.all { it.rule == Rules.PROPERTY_BYTE_STRING })
+    }
+
+    @Test
+    fun `CBOR - toggling ByteString under alwaysUseByteString changes nothing`() {
+        val always = Cbor { alwaysUseByteString = true }
+        val o =
+            assertOracleAgrees(
+                Blob.serializer(),
+                Blob(byteArrayOf(1, 2)),
+                ByteStringBlob.serializer(),
+                ByteStringBlob(byteArrayOf(1, 2)),
+                always,
+                always,
+            )
+        assertTrue(!o.backwardThrew && !o.forwardThrew)
+        assertTrue(o.findings.isEmpty(), o.findings.toString())
+    }
+
+    // ---- Tags ----------------------------------------------------------------------------
+
+    private val valueTagsOn =
+        Cbor {
+            encodeValueTags = true
+            verifyValueTags = true
+        }
+
+    @Serializable
+    @SerialName("Tagged")
+    private data class TaggedOther(
+        @ValueTags(8u) val v: Int,
+    )
+
+    @Serializable
+    @SerialName("Tagged")
+    private data class Untagged(
+        val v: Int,
+    )
+
+    @Serializable
+    @SerialName("KeyTagged")
+    private data class KeyTagged1(
+        @KeyTags(1u) val v: Int,
+    )
+
+    @Serializable
+    @SerialName("KeyTagged")
+    private data class KeyTagged2(
+        @KeyTags(2u) val v: Int,
+    )
+
+    @Serializable
+    @SerialName("ObjectTagged")
+    @ObjectTags(1u)
+    private data class ObjectTagged1(
+        val v: Int,
+    )
+
+    @Serializable
+    @SerialName("ObjectTagged")
+    @ObjectTags(2u)
+    private data class ObjectTagged2(
+        val v: Int,
+    )
+
+    @Test
+    fun `CBOR - changed value tags break where they are encoded and verified`() {
+        val o =
+            assertOracleAgrees(
+                Tagged.serializer(),
+                Tagged(5),
+                TaggedOther.serializer(),
+                TaggedOther(5),
+                valueTagsOn,
+                valueTagsOn,
+            )
+        assertTrue(o.backwardThrew && o.forwardThrew)
+        assertTrue(o.findings.all { it.rule == Rules.CBOR_TAGS_CHANGED })
+    }
+
+    @Test
+    fun `CBOR - changed value tags are inert by default`() {
+        val o = assertOracleAgrees(Tagged.serializer(), Tagged(5), TaggedOther.serializer(), TaggedOther(5))
+        assertTrue(!o.backwardThrew && !o.forwardThrew)
+        assertTrue(o.findings.isEmpty(), o.findings.toString())
+    }
+
+    @Test
+    fun `CBOR - dropping value tags breaks only the reader that still declares them`() {
+        val o =
+            assertOracleAgrees(
+                Tagged.serializer(),
+                Tagged(5),
+                Untagged.serializer(),
+                Untagged(5),
+                valueTagsOn,
+                valueTagsOn,
+            )
+        // A verifying reader that declares no tags skips the tags it meets, and reads the value.
+        assertTrue(!o.backwardThrew && o.forwardThrew, o.toString())
+        assertEquals(
+            Untagged(5),
+            decodes(valueTagsOn, Tagged.serializer(), Tagged(5), valueTagsOn, Untagged.serializer()).getOrThrow(),
+        )
+        assertEquals(Severity.SAFE, o.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.BREAK, o.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Serializable
+    @SerialName("ObjectTagged")
+    private data class ObjectUntagged(
+        val v: Int,
+    )
+
+    @Test
+    fun `CBOR - dropping object tags breaks only the reader that still declares them`() {
+        val objectTagsOn =
+            Cbor {
+                encodeObjectTags = true
+                verifyObjectTags = true
+            }
+        val o =
+            assertOracleAgrees(
+                ObjectTagged1.serializer(),
+                ObjectTagged1(5),
+                ObjectUntagged.serializer(),
+                ObjectUntagged(5),
+                objectTagsOn,
+                objectTagsOn,
+            )
+        assertTrue(!o.backwardThrew && o.forwardThrew, o.toString())
+        assertEquals(Severity.SAFE, o.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.BREAK, o.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `CBOR - changed key tags break where they are encoded and verified`() {
+        val keyTagsOn =
+            Cbor {
+                encodeKeyTags = true
+                verifyKeyTags = true
+            }
+        val o =
+            assertOracleAgrees(
+                KeyTagged1.serializer(),
+                KeyTagged1(5),
+                KeyTagged2.serializer(),
+                KeyTagged2(5),
+                keyTagsOn,
+                keyTagsOn,
+            )
+        assertTrue(o.backwardThrew && o.forwardThrew)
+        assertTrue(o.findings.all { it.rule == Rules.CBOR_TAGS_CHANGED })
+    }
+
+    @Test
+    fun `CBOR - changed object tags break where they are encoded and verified`() {
+        val objectTagsOn =
+            Cbor {
+                encodeObjectTags = true
+                verifyObjectTags = true
+            }
+        val o =
+            assertOracleAgrees(
+                ObjectTagged1.serializer(),
+                ObjectTagged1(5),
+                ObjectTagged2.serializer(),
+                ObjectTagged2(5),
+                objectTagsOn,
+                objectTagsOn,
+            )
+        assertTrue(o.backwardThrew && o.forwardThrew)
+        assertTrue(o.findings.all { it.rule == Rules.CBOR_TAGS_CHANGED })
+    }
+
+    // ---- @CborArray ----------------------------------------------------------------------
+
+    @Serializable
+    @SerialName("Arr")
+    @CborArray
+    private data class Arr(
+        val x: Int,
+        val y: Int,
+    )
+
+    @Serializable
+    @SerialName("Arr")
+    @CborArray
+    private data class ArrAppendOptional(
+        val x: Int,
+        val y: Int,
+        val z: Int = 0,
+    )
+
+    @Serializable
+    @SerialName("Arr")
+    @CborArray
+    private data class ArrAppendRequired(
+        val x: Int,
+        val y: Int,
+        val z: Int,
+    )
+
+    @Serializable
+    @SerialName("Arr")
+    @CborArray
+    private data class ArrSwapped(
+        val y: Int,
+        val x: Int,
+    )
+
+    @Serializable
+    @SerialName("Arr")
+    private data class ArrKeyed(
+        val x: Int,
+        val y: Int,
+    )
+
+    @Serializable
+    @SerialName("Gap")
+    @CborArray
+    private data class Gap(
+        val x: Int,
+        val m: Int = 0,
+        val y: Int,
+    )
+
+    @Test
+    fun `CBOR - appending an optional array element crashes old readers, even tolerant ones`() {
+        val o =
+            assertOracleAgrees(
+                Arr.serializer(),
+                Arr(1, 2),
+                ArrAppendOptional.serializer(),
+                ArrAppendOptional(1, 2, 3),
+                lenient,
+                lenient,
+            )
+        assertTrue(!o.backwardThrew && o.forwardThrew)
+        assertEquals(Severity.SAFE, o.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.BREAK, o.severity(CompatibilityDirection.FORWARD))
+        assertTrue(o.findings.all { it.rule == Rules.CBOR_ARRAY_LAYOUT })
+    }
+
+    @Test
+    fun `CBOR - appending a required array element breaks both ways`() {
+        val o =
+            assertOracleAgrees(Arr.serializer(), Arr(1, 2), ArrAppendRequired.serializer(), ArrAppendRequired(1, 2, 3))
+        assertTrue(o.backwardThrew && o.forwardThrew)
+    }
+
+    @Test
+    fun `CBOR - dropping a trailing optional array element breaks only new readers`() {
+        val o =
+            assertOracleAgrees(ArrAppendOptional.serializer(), ArrAppendOptional(1, 2, 3), Arr.serializer(), Arr(1, 2))
+        assertTrue(o.backwardThrew && !o.forwardThrew)
+        assertEquals(Severity.SAFE, o.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `CBOR - reordering array elements silently swaps values and is flagged`() {
+        val o = assertOracleAgrees(Arr.serializer(), Arr(1, 2), ArrSwapped.serializer(), ArrSwapped(2, 1))
+        assertTrue(!o.backwardThrew && !o.forwardThrew)
+        assertEquals(
+            ArrSwapped(y = 1, x = 2),
+            decodes(strict, Arr.serializer(), Arr(1, 2), strict, ArrSwapped.serializer()).getOrThrow(),
+        )
+        assertEquals(Severity.BREAK, o.severity(CompatibilityDirection.BACKWARD))
+        assertEquals(Severity.BREAK, o.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `CBOR - toggling CborArray breaks both ways`() {
+        val o = assertOracleAgrees(ArrKeyed.serializer(), ArrKeyed(1, 2), Arr.serializer(), Arr(1, 2))
+        assertTrue(o.backwardThrew && o.forwardThrew)
+        assertTrue(o.findings.any { it.rule == Rules.CBOR_ARRAY_LAYOUT })
+    }
+
+    @Test
+    fun `CBOR - an array element omitted at its default misreads its own data and is flagged`() {
+        val self = decodes(strict, Gap.serializer(), Gap(1, 0, 2), strict, Gap.serializer())
+        assertTrue(self.isFailure || self.getOrNull() != Gap(1, 0, 2), "a defaulted middle element must not round-trip")
+        val f = classify(Gap.serializer(), Gap.serializer(), strict, strict)
+        assertTrue(f.breaks(CompatibilityDirection.BACKWARD))
+        assertTrue(f.all { it.rule == Rules.CBOR_ARRAY_OMITTED_DEFAULT }, f.toString())
+    }
+
+    @Test
+    fun `CBOR - encoding defaults closes the array gap`() {
+        val encodes = Cbor { encodeDefaults = true }
+        assertEquals(
+            Gap(1, 0, 2),
+            decodes(encodes, Gap.serializer(), Gap(1, 0, 2), encodes, Gap.serializer()).getOrThrow(),
+        )
+        assertTrue(classify(Gap.serializer(), Gap.serializer(), encodes, encodes).isEmpty())
     }
 
     @Serializable
