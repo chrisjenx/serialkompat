@@ -19,6 +19,8 @@ import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.descriptors.capturedKClass
 import kotlinx.serialization.descriptors.elementDescriptors
 import kotlinx.serialization.descriptors.elementNames
+import kotlinx.serialization.descriptors.getContextualDescriptor
+import kotlinx.serialization.descriptors.nullable
 import kotlinx.serialization.json.JsonClassDiscriminator
 import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.modules.SerializersModule
@@ -67,11 +69,18 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     ): Snapshot {
         val openPoly = collectOpenSubtypes(module)
         val walk = Walk()
-        drain(ArrayDeque(roots.map { Node(it, base = null, root = true) }), config, openPoly, walk, true)
+        drain(ArrayDeque(roots.map { Node(it, base = null, root = true) }), config, openPoly, module, walk, true)
         settleRoots(walk)
         // Fill-if-absent (#139): a hole-based generic never competes with a concrete shape already
         // recorded under its name, so it's skipped rather than treated as a collision.
-        drain(ArrayDeque(genericRoots.map { Node(it, base = null, root = false) }), config, openPoly, walk, false)
+        drain(
+            ArrayDeque(genericRoots.map { Node(it, base = null, root = false) }),
+            config,
+            openPoly,
+            module,
+            walk,
+            false,
+        )
         return Snapshot(walk.contracts.values.toList(), config)
     }
 
@@ -121,6 +130,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         queue: ArrayDeque<Node>,
         config: SnapshotConfig,
         openPoly: OpenPolymorphism,
+        module: SerializersModule,
         walk: Walk,
         detectCollisions: Boolean,
     ) {
@@ -140,7 +150,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             val referenced = mutableListOf<SerialDescriptor>()
             val subtypes = mutableListOf<SerialDescriptor>()
             val contract =
-                guarded { contractOf(descriptor, serialName, config, openPoly, referenced, subtypes) }
+                guarded { contractOf(descriptor, serialName, config, openPoly, module, referenced, subtypes) }
                     ?.let { if (node.base == null) it else rebase(it, node.base) }
                     ?: Contract(serialName, ContractKind.OPAQUE, base = node.base).also {
                         referenced.clear()
@@ -263,6 +273,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         serialName: String,
         config: SnapshotConfig,
         openPoly: OpenPolymorphism,
+        module: SerializersModule,
         referenced: MutableList<SerialDescriptor>,
         subtypes: MutableList<SerialDescriptor>,
     ): Contract? =
@@ -272,8 +283,8 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
                 val encodeDefaults = EncodeDefaultReader.modes(descriptor)
                 val elements =
                     (0 until descriptor.elementsCount).map { i ->
-                        referenced += referencedContracts(descriptor.getElementDescriptor(i))
-                        elementOf(descriptor, i, encodeDefaults[i], config.format)
+                        referenced += referencedContracts(descriptor.getElementDescriptor(i), module)
+                        elementOf(descriptor, i, encodeDefaults[i], config.format, module)
                     }
                 if (config.format == WireFormat.CBOR) {
                     Contract(
@@ -341,8 +352,9 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         index: Int,
         encodeDefault: EncodeDefaultMode?,
         format: WireFormat,
+        module: SerializersModule,
     ): Element {
-        val descriptor = owner.getElementDescriptor(index)
+        val descriptor = resolveContextual(owner.getElementDescriptor(index), module)
         val annotations = owner.getElementAnnotations(index)
         val cbor = if (format == WireFormat.CBOR) CborSupport.elementFacts(annotations) else null
         return Element(
@@ -351,7 +363,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             // as null" under explicitNulls=false, which a non-null value class wrapper does NOT get even
             // when its underlying value is nullable (MissingFieldException). The underlying `null` that
             // such a wrapper can still put on the wire is recorded in the type instead ("kotlin.String?").
-            type = if (descriptor.isNullable) typeRef(descriptor) else typeRefNullable(descriptor),
+            type = if (descriptor.isNullable) typeRef(descriptor, module) else typeRefNullable(descriptor, module),
             optional = owner.isElementOptional(index),
             nullable = descriptor.isNullable,
             // @JsonNames is a Json-only decode alias; Cbor ignores it.
@@ -374,31 +386,38 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
     /** A canonical, whitespace-free type reference. Nullability of the top-level
      * element is recorded separately on [Element]; nested nullability is kept, including a
      * value class's nullable underlying value (see [wireNullable]). */
-    private fun typeRef(descriptor: SerialDescriptor): String {
+    private fun typeRef(
+        descriptor: SerialDescriptor,
+        module: SerializersModule,
+    ): String {
+        val resolved = resolveContextual(descriptor, module)
         // A @JvmInline value class is transparent on the wire: it serializes as its single
         // underlying value, never as a wrapper object. Its type ref is therefore the underlying
         // type, so that swapping a raw primitive for a wire-identical value class (or back) is
         // not misread as a breaking type change (design §14).
-        if (descriptor.isInline) return typeRef(descriptor.getElementDescriptor(0))
-        return when (descriptor.kind) {
+        if (resolved.isInline) return typeRef(resolved.getElementDescriptor(0), module)
+        return when (resolved.kind) {
             StructureKind.LIST -> {
-                "List<${typeRefNullable(descriptor.getElementDescriptor(0))}>"
+                "List<${typeRefNullable(resolved.getElementDescriptor(0), module)}>"
             }
 
             StructureKind.MAP -> {
                 "Map<${typeRefNullable(
-                    descriptor.getElementDescriptor(0),
-                )},${typeRefNullable(descriptor.getElementDescriptor(1))}>"
+                    resolved.getElementDescriptor(0),
+                    module,
+                )},${typeRefNullable(resolved.getElementDescriptor(1), module)}>"
             }
 
             else -> {
-                contractName(descriptor)
+                contractName(resolved)
             }
         }
     }
 
-    private fun typeRefNullable(descriptor: SerialDescriptor): String =
-        typeRef(descriptor) + if (wireNullable(descriptor)) "?" else ""
+    private fun typeRefNullable(
+        descriptor: SerialDescriptor,
+        module: SerializersModule,
+    ): String = typeRef(descriptor, module) + if (wireNullable(descriptor, module)) "?" else ""
 
     /**
      * Whether `null` can appear on the wire at this position. A value class is transparent, so
@@ -406,36 +425,66 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
      * itself is non-null. Its nullability is therefore the wrapper's *or* the underlying value's,
      * recursively, matching how [typeRef] unwraps it.
      */
-    private fun wireNullable(descriptor: SerialDescriptor): Boolean =
-        descriptor.isNullable || (descriptor.isInline && wireNullable(descriptor.getElementDescriptor(0)))
+    private fun wireNullable(
+        descriptor: SerialDescriptor,
+        module: SerializersModule,
+    ): Boolean {
+        val resolved = resolveContextual(descriptor, module)
+        return resolved.isNullable ||
+            (resolved.isInline && wireNullable(resolved.getElementDescriptor(0), module))
+    }
+
+    /**
+     * The descriptor of the serializer a `@Contextual` position really uses, chosen as the runtime's
+     * `ContextualSerializer` does: the format's [module] first, then the fallback the compiler plugin
+     * captured (a builtin such as `Instant`, or the class's own serializer), which `serializerOrNull`
+     * finds the same way. Nullability carries over from the wrapper. With neither, the descriptor is
+     * returned unchanged and becomes an OPAQUE gap: a real encode throws there too (#131).
+     */
+    private fun resolveContextual(
+        descriptor: SerialDescriptor,
+        module: SerializersModule,
+    ): SerialDescriptor {
+        if (descriptor.kind != SerialKind.CONTEXTUAL) return descriptor
+        val resolved =
+            guarded {
+                module.getContextualDescriptor(descriptor)
+                    ?: descriptor.capturedKClass?.let { serializerOrNull(it.java)?.descriptor }
+            } ?: return descriptor
+        return if (descriptor.isNullable && !resolved.isNullable) resolved.nullable else resolved
+    }
 
     /** Descriptors reachable from an element that are themselves named contracts. */
-    private fun referencedContracts(descriptor: SerialDescriptor): List<SerialDescriptor> {
+    private fun referencedContracts(
+        descriptor: SerialDescriptor,
+        module: SerializersModule,
+    ): List<SerialDescriptor> {
+        val resolved = resolveContextual(descriptor, module)
         // Unwrap value classes to their underlying type's references — a value class wrapping a
         // @Serializable object still needs that object walked; one wrapping a primitive walks nothing.
-        if (descriptor.isInline) return referencedContracts(descriptor.getElementDescriptor(0))
-        return when (descriptor.kind) {
+        if (resolved.isInline) return referencedContracts(resolved.getElementDescriptor(0), module)
+        return when (resolved.kind) {
             StructureKind.LIST -> {
-                referencedContracts(descriptor.getElementDescriptor(0))
+                referencedContracts(resolved.getElementDescriptor(0), module)
             }
 
             StructureKind.MAP -> {
-                referencedContracts(descriptor.getElementDescriptor(0)) +
-                    referencedContracts(descriptor.getElementDescriptor(1))
+                referencedContracts(resolved.getElementDescriptor(0), module) +
+                    referencedContracts(resolved.getElementDescriptor(1), module)
             }
 
             StructureKind.CLASS, StructureKind.OBJECT, SerialKind.ENUM,
             PolymorphicKind.SEALED, PolymorphicKind.OPEN,
             -> {
-                listOf(descriptor)
+                listOf(resolved)
             }
 
-            // An unresolved @Contextual serializer's runtime shape is invisible to the descriptor
-            // walk — exactly the "unanalysable ≠ safe" case (design §10). Walk it so contractOf
-            // degrades it to an OPAQUE node and SnapshotDiffer raises a CoverageGap (#131), rather
-            // than trusting the ContextualSerializer<T> type ref as if it were a stable wire shape.
+            // A @Contextual type with no module entry and no fallback serializer: its runtime shape
+            // is invisible, and a real encode throws. Walk it so contractOf degrades it to an OPAQUE
+            // node and SnapshotDiffer raises a CoverageGap (#131), rather than trusting the
+            // ContextualSerializer<T> type ref as if it were a stable wire shape (design §10).
             SerialKind.CONTEXTUAL -> {
-                listOf(descriptor)
+                listOf(resolved)
             }
 
             else -> {

@@ -10,6 +10,7 @@ import com.chrisjenx.serialkompat.core.Severity
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.SnapshotDiffer
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -2013,5 +2014,81 @@ class RoundTripOracleTest {
                 ),
             )
         assertEquals(emptyList(), findings)
+    }
+
+    // ---- @Contextual resolved through the module ------------------------------------------
+
+    class CtxStamp(
+        val v: String,
+    )
+
+    object CtxStampAsString : KSerializer<CtxStamp> {
+        override val descriptor = PrimitiveSerialDescriptor("com.example.Stamp", PrimitiveKind.STRING)
+
+        override fun serialize(
+            encoder: Encoder,
+            value: CtxStamp,
+        ) = encoder.encodeString(value.v)
+
+        override fun deserialize(decoder: Decoder) = CtxStamp(decoder.decodeString())
+    }
+
+    object CtxStampAsLong : KSerializer<CtxStamp> {
+        override val descriptor = PrimitiveSerialDescriptor("com.example.StampMillis", PrimitiveKind.LONG)
+
+        override fun serialize(
+            encoder: Encoder,
+            value: CtxStamp,
+        ) = encoder.encodeLong(value.v.length.toLong())
+
+        override fun deserialize(decoder: Decoder) = CtxStamp(decoder.decodeLong().toString())
+    }
+
+    @Serializable
+    @SerialName("Stamped")
+    class Stamped(
+        @Contextual val at: CtxStamp,
+    )
+
+    @Test
+    fun `a contextual serializer swapped in the module is a type change both ways`() {
+        val oldJson = Json { serializersModule = SerializersModule { contextual(CtxStamp::class, CtxStampAsString) } }
+        val newJson = Json { serializersModule = SerializersModule { contextual(CtxStamp::class, CtxStampAsLong) } }
+        val value = Stamped(CtxStamp("abc"))
+        // Ground truth: each side rejects the other's encoding of the same model.
+        assertEquals(Outcome.THREW, roundTrip(oldJson, serializer<Stamped>(), value, newJson, serializer<Stamped>()))
+        assertEquals(Outcome.THREW, roundTrip(newJson, serializer<Stamped>(), value, oldJson, serializer<Stamped>()))
+
+        val oldConfig = JsonConfigReader.read(oldJson)
+        val newConfig = JsonConfigReader.read(newJson)
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(serializer<Stamped>().descriptor),
+                        oldJson.serializersModule,
+                        oldConfig,
+                    ),
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(serializer<Stamped>().descriptor),
+                        newJson.serializersModule,
+                        newConfig,
+                    ),
+                ),
+                oldConfig,
+                newConfig,
+            )
+        for (direction in listOf(CompatibilityDirection.BACKWARD, CompatibilityDirection.FORWARD)) {
+            assertTrue(
+                findings.any {
+                    it.direction == direction && it.rule == Rules.PROPERTY_TYPE_CHANGED && it.severity == Severity.BREAK
+                },
+                "$direction: real decode threw; got $findings",
+            )
+        }
+        assertTrue(
+            findings.none { it.rule == Rules.COVERAGE_GAP },
+            "a resolved contextual type is not a gap: $findings",
+        )
     }
 }

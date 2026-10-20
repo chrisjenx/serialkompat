@@ -74,10 +74,25 @@ public object SnapshotDiffer {
             for (pairing in pairings) {
                 val (before, after) = pairing
                 when {
-                    pairing.unpaired -> add(Change.ContractUnpaired(after!!.qualifiedName))
-                    before == null && after != null -> add(Change.ContractAdded(after.qualifiedName, after.kind))
-                    before != null && after == null -> add(Change.ContractRemoved(before.qualifiedName, before.kind))
-                    before != null && after != null -> addAll(diffContract(before, after, oldCoercibleEnums))
+                    pairing.unpaired -> {
+                        add(Change.ContractUnpaired(after!!.qualifiedName))
+                    }
+
+                    before == null && after != null -> {
+                        add(Change.ContractAdded(after.qualifiedName, after.kind))
+                    }
+
+                    // An unresolved @Contextual placeholder was never a wire type; its fields' own changes
+                    // carry the finding.
+                    before != null && after == null -> {
+                        if (!(before.kind == ContractKind.OPAQUE && isContextualPlaceholder(before.serialName))) {
+                            add(Change.ContractRemoved(before.qualifiedName, before.kind))
+                        }
+                    }
+
+                    before != null && after != null -> {
+                        addAll(diffContract(before, after, oldCoercibleEnums))
+                    }
                 }
             }
 

@@ -891,7 +891,7 @@ yet true for coverage gaps.
   **WARN** in both directions: reported on every run, never failing the gate.
   It can be acknowledged through `acceptedBreaks` like any other finding.
 - What becomes `OPAQUE`: an unknown `SerialKind`, an unresolved `@Contextual`
-  serializer (#131), a type that fails to load or resolve (each root resolves
+  serializer (#131; see below), a type that fails to load or resolve (each root resolves
   independently, #81), an unreadable class file during the scan (#55), and a
   generic sealed/polymorphic hierarchy (#139).
 - Custom serializers carry no "shape derived from custom serializer" marker. The
@@ -1054,7 +1054,18 @@ beyond the original roadmap: discovery modes + `serialkompat-annotations`
   wildcard structural compare (a hole matches any type, the surrounding envelope
   must match) would tighten this.
 - Contextual serializers require the `SerializersModule` (supplied by the `Json`
-  instance the user points at).
+  or `Cbor` instance the user points at). **Updated:** the extractor resolves a
+  `@Contextual` position the way the runtime's `ContextualSerializer` does: the
+  module's entry first, then the fallback serializer the compiler captured (a
+  builtin such as `Instant`, or the class's own serializer, found with
+  `serializerOrNull`). It then analyses the real descriptor, so swapping the
+  registered serializer is a `PROPERTY_TYPE_CHANGED` like any other type change
+  (proved under Json and Cbor). Only a type with neither stays `OPAQUE`, and a real
+  encode throws there too. Baselines recorded before this used kotlinx's placeholder
+  name `kotlinx.serialization.ContextualSerializer<T>` as the field type. A
+  placeholder becoming resolved is one `COVERAGE_GAP` WARN, not a type change, and
+  the placeholder's OPAQUE contract disappearing is not a `CONTRACT_REMOVED`. The
+  reverse (a resolved type losing its serializer) stays a `BREAK`.
 - Rebuilding *recent* refs is reliable; *ancient* ones are not (→ old baselines
   come from published history, not recompilation).
 - ~~`kotlinx-schema` IR fidelity~~ — **resolved (#6):** vendor the walk; a compiled
