@@ -151,7 +151,7 @@ class CborExtractionTest {
         assertEquals(
             listOf("text"),
             snapshot.contracts
-                .single { it.serialName.endsWith("Payload") }
+                .single { it.kind == com.chrisjenx.serialkompat.core.ContractKind.POLYMORPHIC }
                 .subtypes
                 .map { it.serialName },
         )
@@ -183,7 +183,12 @@ class CborExtractionTest {
     fun `a CBOR snapshot records no JsonNames aliases`() {
         val snapshot =
             DescriptorSnapshotExtractor.extract(listOf(serializer<Order>().descriptor), config = SnapshotConfig.cbor())
-        assertTrue(snapshot.contracts.single().elements.all { it.jsonNames.isEmpty() })
+        assertTrue(
+            snapshot.contracts
+                .single()
+                .elements
+                .all { it.jsonNames.isEmpty() },
+        )
     }
 
     @Test

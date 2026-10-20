@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- CBOR support, in progress. Snapshots now record their wire format (`SnapshotConfig.format`, `WireFormat.JSON` or `CBOR`) and the CBOR configuration. A CBOR snapshot's `@config` writes `format=cbor` and only the settings `Cbor` has; JSON snapshots are unchanged. New rules: `CONFIG_FORMAT` (snapshots of different formats aren't compared), `CONFIG_CBOR_BYTE_STRING`, `CONFIG_CBOR_DEFINITE_LENGTH`, `CONFIG_CBOR_TAGS`.
+- CBOR support, in progress. Snapshots now record their wire format (`SnapshotConfig.format`, `WireFormat.JSON` or `CBOR`) and the CBOR configuration. A CBOR snapshot's `@config` writes `format=cbor` and only the settings `Cbor` has; JSON snapshots are unchanged. New rules: `CONFIG_FORMAT` (snapshots of different formats aren't compared), `CONFIG_CBOR_BYTE_STRING`, `CONFIG_CBOR_DEFINITE_LENGTH`, `CONFIG_CBOR_TAGS`. The extractor reads a project's `Cbor` instance (`SchemaExtractionMain.run(format = CBOR, cborInstanceFqn = ...)`, CLI `--format cbor --cbor <fqn>`, `CborConfigReader`), and a CBOR round-trip oracle proves the rule matrix against real kotlinx-serialization-cbor. A tag flag change is judged per direction: a reader that starts verifying tags its writer didn't encode is a `BREAK`.
 
 ### Fixed
 - `DISCRIMINATOR_COLLISION` no longer fires under `Json { useArrayPolymorphism = true }`, where no discriminator key is written.

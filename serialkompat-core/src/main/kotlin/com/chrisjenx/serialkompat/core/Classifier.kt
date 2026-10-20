@@ -318,7 +318,7 @@ public class Classifier(
             }
 
             is Change.ConfigChanged -> {
-                configVerdict(change, newConfig.format)
+                configVerdict(change, oldConfig, newConfig)
             }
 
             // A subtype property that shadows the class discriminator makes the model
@@ -380,9 +380,11 @@ public class Classifier(
      */
     private fun configVerdict(
         change: Change.ConfigChanged,
-        format: WireFormat,
+        oldConfig: SnapshotConfig,
+        newConfig: SnapshotConfig,
     ): Verdict? {
         if (change.field == "format") return formatVerdict(change)
+        val format = newConfig.format
         val disabled = change.oldValue == "true" && change.newValue == "false"
         val enabled = change.oldValue == "false" && change.newValue == "true"
         val spec =
@@ -413,15 +415,22 @@ public class Classifier(
                     ConfigSpec(Rules.CONFIG_CHANGED, Severity.SAFE, Severity.SAFE, "")
                 }
 
-                // CBOR: tags break only when one side writes them and the other verifies them.
+                // CBOR: a verifying reader rejects data its writer didn't tag; a reader that doesn't
+                // verify skips tags. So judge each direction from its reader and writer.
                 "encodeKeyTags", "encodeValueTags", "encodeObjectTags",
                 "verifyKeyTags", "verifyValueTags", "verifyObjectTags",
                 -> {
+                    val group = change.field.removePrefix("encode").removePrefix("verify")
+
+                    fun verifies(config: SnapshotConfig) = config.tagFlag("verify$group")
+
+                    fun encodes(config: SnapshotConfig) = config.tagFlag("encode$group")
                     ConfigSpec(
                         Rules.CONFIG_CBOR_TAGS,
-                        Severity.WARN,
-                        Severity.WARN,
-                        "Tags are checked only when the writer encodes them and the reader verifies them.",
+                        if (verifies(newConfig) && !encodes(oldConfig)) Severity.BREAK else Severity.SAFE,
+                        if (verifies(oldConfig) && !encodes(newConfig)) Severity.BREAK else Severity.SAFE,
+                        "A reader that verifies $group rejects data written without them; encode them on " +
+                            "every writer before any reader verifies them.",
                     )
                 }
 
@@ -586,6 +595,18 @@ public class Classifier(
                 "Expected when this change adopts the format in serialkompat. If the stored data itself " +
                     "changes format, migrate it explicitly; old readers cannot decode it.",
         )
+
+    /** A CBOR tag flag by name (`encodeValueTags`, `verifyKeyTags`, ...). */
+    private fun SnapshotConfig.tagFlag(name: String): Boolean =
+        when (name) {
+            "encodeKeyTags" -> encodeKeyTags
+            "encodeValueTags" -> encodeValueTags
+            "encodeObjectTags" -> encodeObjectTags
+            "verifyKeyTags" -> verifyKeyTags
+            "verifyValueTags" -> verifyValueTags
+            "verifyObjectTags" -> verifyObjectTags
+            else -> error("not a CBOR tag flag: $name")
+        }
 
     private data class ConfigSpec(
         val rule: String,

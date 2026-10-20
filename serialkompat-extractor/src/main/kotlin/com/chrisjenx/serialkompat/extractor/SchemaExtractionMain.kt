@@ -305,7 +305,6 @@ public object SchemaExtractionMain {
         }
         return options
     }
-
 }
 
 /**
