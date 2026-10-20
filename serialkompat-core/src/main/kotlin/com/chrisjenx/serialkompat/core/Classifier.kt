@@ -86,9 +86,14 @@ public class Classifier(
                     // forward: old reader meets an unknown key - fine only if it tolerates them.
                     forward = if (readerTolerant(oldConfig)) Severity.SAFE else Severity.BREAK,
                     message = "field '${change.element.name}' was added to ${change.contract}",
+                    // CBOR has no explicitNulls=false, so only a default makes a new field absent-safe.
                     fixHint =
-                        "Give new fields a default (or make them nullable with explicitNulls=false); " +
-                            "readers should set ignoreUnknownKeys; else bump major.",
+                        if (newConfig.format == WireFormat.CBOR) {
+                            "Give new fields a default; old readers need ignoreUnknownKeys = true; else bump major."
+                        } else {
+                            "Give new fields a default (or make them nullable with explicitNulls=false); " +
+                                "readers should set ignoreUnknownKeys; else bump major."
+                        },
                 )
             }
 
@@ -113,9 +118,15 @@ public class Classifier(
                             else -> Severity.BREAK
                         },
                     message = "field '${change.element.name}' was removed from ${change.contract}",
+                    // CBOR ignores @JsonNames, so there is no rename bridge.
                     fixHint =
-                        "Removing a field drops its data for tolerant readers; keep it (or bridge a " +
-                            "rename with @JsonNames) until nothing uses it; else bump major.",
+                        if (newConfig.format == WireFormat.CBOR) {
+                            "Removing a field drops its data for tolerant readers; keep it until nothing uses " +
+                                "it; else bump major."
+                        } else {
+                            "Removing a field drops its data for tolerant readers; keep it (or bridge a " +
+                                "rename with @JsonNames) until nothing uses it; else bump major."
+                        },
                 )
             }
 
@@ -215,7 +226,13 @@ public class Classifier(
                             Severity.BREAK
                         },
                     message = "enum value '${change.value}' was added to ${change.contract}",
-                    fixHint = "Enable coerceInputValues *and* give the reading field a default, or bump major.",
+                    // CBOR never coerces an unknown enum value.
+                    fixHint =
+                        if (newConfig.format == WireFormat.CBOR) {
+                            "Old readers can't decode the new value; ship the reader first, or bump major."
+                        } else {
+                            "Enable coerceInputValues *and* give the reading field a default, or bump major."
+                        },
                 )
             }
 

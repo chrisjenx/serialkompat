@@ -35,6 +35,45 @@ class CborRulesTest {
     private val backward = CompatibilityDirection.BACKWARD
     private val forward = CompatibilityDirection.FORWARD
 
+    // ---- Fix hints -----------------------------------------------------------------------
+
+    @Test
+    fun `CBOR fix hints never suggest JSON-only remedies`() {
+        val status = Contract("Status", ContractKind.ENUM, enumValues = listOf("A"))
+        val statusAdded = Contract("Status", ContractKind.ENUM, enumValues = listOf("A", "B"))
+        val hints =
+            listOf(
+                findings(
+                    cls(Element("id", "kotlin.String")),
+                    cls(Element("id", "kotlin.String"), Element("n", "kotlin.Int")),
+                ),
+                findings(
+                    cls(Element("id", "kotlin.String"), Element("n", "kotlin.Int")),
+                    cls(Element("id", "kotlin.String")),
+                ),
+                findings(status, statusAdded),
+            ).flatten().mapNotNull { it.fixHint }
+        assertTrue(hints.isNotEmpty())
+        for (hint in hints) {
+            for (jsonOnly in listOf("explicitNulls", "@JsonNames", "coerceInputValues")) {
+                assertTrue(jsonOnly !in hint, "CBOR hint mentions $jsonOnly: $hint")
+            }
+        }
+    }
+
+    @Test
+    fun `JSON fix hints are unchanged`() {
+        val json = SnapshotConfig()
+        val f =
+            findings(
+                cls(Element("id", "kotlin.String")),
+                cls(Element("id", "kotlin.String"), Element("n", "kotlin.Int")),
+                json,
+                json,
+            )
+        assertTrue(f.any { "explicitNulls=false" in it.fixHint.orEmpty() })
+    }
+
     // ---- Text format ---------------------------------------------------------------------
 
     @Test
