@@ -65,6 +65,10 @@ named `Base/sub` (for example `OrderEvent/created`), because a subtype's
 | `CONFIG_EXPLICIT_NULLS` | `explicitNulls` toggled | ⚠️ WARN | ⚠️ WARN | — |
 | `CONFIG_COERCE_INPUT` | `coerceInputValues` toggled | ⚠️ WARN if disabled, ✅ SAFE if enabled | ✅ SAFE | — |
 | `CONFIG_CHANGED` | Any other wire-relevant `Json` setting changed (catch-all) | ⚠️ WARN | ⚠️ WARN | — |
+| `CONFIG_FORMAT` | The wire format changed (JSON ↔ CBOR). No contract is compared³ | ⚠️ WARN | ⚠️ WARN | — |
+| `CONFIG_CBOR_BYTE_STRING` | CBOR `alwaysUseByteString` toggled (every plain `ByteArray` changes encoding) | ❌ BREAK | ❌ BREAK | — |
+| `CONFIG_CBOR_DEFINITE_LENGTH` | CBOR `useDefiniteLengthEncoding` toggled | ✅ SAFE | ⚠️ WARN if enabled (an all-default object in a nullable slot reads back as `null`), ✅ SAFE if disabled | — |
+| `CONFIG_CBOR_TAGS` | A CBOR `encode*Tags` / `verify*Tags` flag toggled | ⚠️ WARN | ⚠️ WARN | — |
 | `COVERAGE_GAP` | Opaque/unanalyzable type, or one that was opaque in the baseline and is analysed now | ⚠️ WARN | ⚠️ WARN | — |
 
 ¹ `DISCRIMINATOR_COLLISION` is not a difference between two versions. It flags a
@@ -87,6 +91,12 @@ The sentinel only absorbs the new subtype's fields when the old reader has
 `ignoreUnknownKeys`. A strict reader still throws on those fields, so the verdict
 stays `BREAK`, the same as with no default deserializer. This mirrors how
 `coerceInputValues` downgrades an added enum value.
+
+³ Snapshots of different formats are judged by different rules, so the gate compares
+nothing else and reports the format change once. This usually means the change
+adopts CBOR (or JSON) in serialkompat while the baseline ref still checks the other
+format. If the stored data itself changes format, old readers can't decode it;
+migrate it explicitly.
 
 ## Rule reference
 

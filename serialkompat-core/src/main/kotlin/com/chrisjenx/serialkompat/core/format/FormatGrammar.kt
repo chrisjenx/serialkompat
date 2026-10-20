@@ -14,6 +14,9 @@ internal object FormatGrammar {
     const val KEY_ENCODE_DEFAULT = "encodeDefault"
     const val KEY_VALUES = "values"
     const val KEY_JSON_NAMES = "jsonNames"
+
+    /** `@config` key naming the wire format; absent means JSON (every pre-CBOR snapshot). */
+    const val KEY_FORMAT = "format"
     const val FLAG_OPTIONAL = "optional"
     const val FLAG_NULLABLE = "nullable"
 }

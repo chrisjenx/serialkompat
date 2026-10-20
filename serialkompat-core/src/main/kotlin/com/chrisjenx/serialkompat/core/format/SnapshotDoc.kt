@@ -7,6 +7,7 @@ import com.chrisjenx.serialkompat.core.EncodeDefaultMode
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.Subtype
+import com.chrisjenx.serialkompat.core.WireFormat
 
 /*
  * The snapshot↔doc mappers: ALL domain knowledge lives here — which body
@@ -79,6 +80,36 @@ private fun elementLine(element: Element): Line =
     )
 
 private fun configBlock(config: SnapshotConfig): Block =
+    when (config.format) {
+        WireFormat.JSON -> jsonConfigBlock(config)
+        WireFormat.CBOR -> cborConfigBlock(config)
+    }
+
+/**
+ * A CBOR snapshot writes only the settings `Cbor` has, plus `format=cbor`. The JSON-only fields are
+ * fixed for CBOR ([SnapshotConfig.cbor]), so writing them would only mislead a reader of the diff.
+ */
+private fun cborConfigBlock(config: SnapshotConfig): Block =
+    Block(
+        listOf(
+            Line(0, listOf(Token.Word(FormatGrammar.CONFIG_MARKER))),
+            configLine("alwaysUseByteString", config.alwaysUseByteString.toString()),
+            configLine("encodeDefaults", config.encodeDefaults.toString()),
+            configLine("encodeKeyTags", config.encodeKeyTags.toString()),
+            configLine("encodeObjectTags", config.encodeObjectTags.toString()),
+            configLine("encodeValueTags", config.encodeValueTags.toString()),
+            configLine(FormatGrammar.KEY_FORMAT, config.format.id),
+            configLine("ignoreUnknownKeys", config.ignoreUnknownKeys.toString()),
+            configLine("preferCborLabelsOverNames", config.preferCborLabelsOverNames.toString()),
+            configLine("useDefiniteLengthEncoding", config.useDefiniteLengthEncoding.toString()),
+            configLine("verifyKeyTags", config.verifyKeyTags.toString()),
+            configLine("verifyObjectTags", config.verifyObjectTags.toString()),
+            configLine("verifyValueTags", config.verifyValueTags.toString()),
+        ),
+    )
+
+/** A JSON snapshot writes no `format` key, so every snapshot from before CBOR support is unchanged. */
+private fun jsonConfigBlock(config: SnapshotConfig): Block =
     Block(
         listOf(
             Line(0, listOf(Token.Word(FormatGrammar.CONFIG_MARKER))),
@@ -206,7 +237,13 @@ private fun configOf(block: Block): SnapshotConfig {
             .flatMap { it.tokens }
             .filterIsInstance<Token.KeyValue>()
             .associate { it.key to it.value }
-    val defaults = SnapshotConfig()
+    // Every other unknown key is tolerated, but an unknown format must fail closed: reading it as
+    // JSON would judge it by the wrong rules.
+    val format =
+        values[FormatGrammar.KEY_FORMAT]?.let { id ->
+            requireNotNull(WireFormat.fromId(id)) { "unknown snapshot format '$id'" }
+        } ?: WireFormat.JSON
+    val defaults = if (format == WireFormat.CBOR) SnapshotConfig.cbor() else SnapshotConfig()
 
     // A key absent from an older snapshot (written before that flag was captured) reads as the
     // kotlinx default, so it diffs as no change against a current snapshot of the same Json.
@@ -214,6 +251,21 @@ private fun configOf(block: Block): SnapshotConfig {
         key: String,
         default: Boolean,
     ): Boolean = values[key]?.toBooleanStrict() ?: default
+    if (format == WireFormat.CBOR) {
+        return SnapshotConfig.cbor(
+            ignoreUnknownKeys = flag("ignoreUnknownKeys", defaults.ignoreUnknownKeys),
+            encodeDefaults = flag("encodeDefaults", defaults.encodeDefaults),
+            alwaysUseByteString = flag("alwaysUseByteString", defaults.alwaysUseByteString),
+            preferCborLabelsOverNames = flag("preferCborLabelsOverNames", defaults.preferCborLabelsOverNames),
+            useDefiniteLengthEncoding = flag("useDefiniteLengthEncoding", defaults.useDefiniteLengthEncoding),
+            encodeKeyTags = flag("encodeKeyTags", defaults.encodeKeyTags),
+            encodeValueTags = flag("encodeValueTags", defaults.encodeValueTags),
+            encodeObjectTags = flag("encodeObjectTags", defaults.encodeObjectTags),
+            verifyKeyTags = flag("verifyKeyTags", defaults.verifyKeyTags),
+            verifyValueTags = flag("verifyValueTags", defaults.verifyValueTags),
+            verifyObjectTags = flag("verifyObjectTags", defaults.verifyObjectTags),
+        )
+    }
     return SnapshotConfig(
         namingStrategy = values["namingStrategy"] ?: defaults.namingStrategy,
         classDiscriminator = values["classDiscriminator"] ?: defaults.classDiscriminator,

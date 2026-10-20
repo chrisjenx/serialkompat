@@ -318,7 +318,7 @@ public class Classifier(
             }
 
             is Change.ConfigChanged -> {
-                configVerdict(change)
+                configVerdict(change, newConfig.format)
             }
 
             // A subtype property that shadows the class discriminator makes the model
@@ -378,10 +378,53 @@ public class Classifier(
      * writer-side flag only the other (forward = old reader ← new data), so
      * severities are assigned per direction rather than symmetrically.
      */
-    private fun configVerdict(change: Change.ConfigChanged): Verdict? {
+    private fun configVerdict(
+        change: Change.ConfigChanged,
+        format: WireFormat,
+    ): Verdict? {
+        if (change.field == "format") return formatVerdict(change)
         val disabled = change.oldValue == "true" && change.newValue == "false"
+        val enabled = change.oldValue == "false" && change.newValue == "true"
         val spec =
             when (change.field) {
+                // CBOR: a ByteArray is a byte string on one side and an array of ints on the other.
+                "alwaysUseByteString" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_CBOR_BYTE_STRING,
+                        Severity.BREAK,
+                        Severity.BREAK,
+                        "Every plain ByteArray changes encoding; neither side reads the other's.",
+                    )
+                }
+
+                // CBOR: readers accept either length form, but a definite-length writer encodes an
+                // all-default object as 0xA0, which a reader takes as null in a nullable slot.
+                "useDefiniteLengthEncoding" -> {
+                    ConfigSpec(
+                        Rules.CONFIG_CBOR_DEFINITE_LENGTH,
+                        Severity.SAFE,
+                        if (enabled) Severity.WARN else Severity.SAFE,
+                        "An all-default object in a nullable slot now reads back as null.",
+                    )
+                }
+
+                // CBOR: readers accept a name or a label either way, so this changes no decode.
+                "preferCborLabelsOverNames" -> {
+                    ConfigSpec(Rules.CONFIG_CHANGED, Severity.SAFE, Severity.SAFE, "")
+                }
+
+                // CBOR: tags break only when one side writes them and the other verifies them.
+                "encodeKeyTags", "encodeValueTags", "encodeObjectTags",
+                "verifyKeyTags", "verifyValueTags", "verifyObjectTags",
+                -> {
+                    ConfigSpec(
+                        Rules.CONFIG_CBOR_TAGS,
+                        Severity.WARN,
+                        Severity.WARN,
+                        "Tags are checked only when the writer encodes them and the reader verifies them.",
+                    )
+                }
+
                 // Rename every key / break polymorphic decoding — both directions.
                 "namingStrategy" -> {
                     ConfigSpec(
@@ -517,14 +560,32 @@ public class Classifier(
         if (spec.backward == Severity.SAFE && spec.forward == Severity.SAFE) return null
         return Verdict(
             spec.rule,
-            "Json config",
+            "${format.displayName} config",
             "config '${change.field}' ${change.oldValue} -> ${change.newValue}",
             backward = spec.backward,
             forward = spec.forward,
-            message = "Json ${change.field} changed ${change.oldValue} -> ${change.newValue}",
+            message = "${format.displayName} ${change.field} changed ${change.oldValue} -> ${change.newValue}",
             fixHint = spec.hint,
         )
     }
+
+    /**
+     * The snapshots describe different formats, so no contract was compared (design §6). WARN, not
+     * BREAK: the usual cause is adopting a format in the gate, where the baseline ref still checks
+     * the old one. A real storage migration between formats is not schema evolution.
+     */
+    private fun formatVerdict(change: Change.ConfigChanged): Verdict =
+        Verdict(
+            Rules.CONFIG_FORMAT,
+            "wire format",
+            "format ${change.oldValue} -> ${change.newValue}",
+            backward = Severity.WARN,
+            forward = Severity.WARN,
+            message = "wire format changed ${change.oldValue} -> ${change.newValue}; contracts were not compared",
+            fixHint =
+                "Expected when this change adopts the format in serialkompat. If the stored data itself " +
+                    "changes format, migrate it explicitly; old readers cannot decode it.",
+        )
 
     private data class ConfigSpec(
         val rule: String,
