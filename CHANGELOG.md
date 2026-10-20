@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-20
+
 ### Fixed
-- `@Contextual` fields are now analysed instead of reported as coverage gaps. The extractor resolves each one the way the runtime does: the `Json`/`Cbor` instance's `SerializersModule` first, then the compiler's fallback serializer (a builtin such as `kotlin.time.Instant`, or the class's own `@Serializable` serializer). Swapping a registered contextual serializer is now a `PROPERTY_TYPE_CHANGED` BREAK. Previously it was only a coverage-gap WARN even though real decodes throw. A type with no module entry and no fallback is still an OPAQUE gap. On the first run against a baseline recorded by 0.3.0 or earlier, each resolved contextual field reports one `COVERAGE_GAP` WARN instead of a false type change or `CONTRACT_REMOVED`.
+- `@Contextual` fields are now analysed instead of reported as coverage gaps (#230). The extractor resolves each one the way the runtime does: the `Json`/`Cbor` instance's `SerializersModule` first, then the compiler's fallback serializer (a builtin such as `kotlin.time.Instant`, or the class's own `@Serializable` serializer). Swapping a registered contextual serializer is now a `PROPERTY_TYPE_CHANGED` BREAK. Previously it was only a coverage-gap WARN even though real decodes throw. A type with no module entry and no fallback is still an OPAQUE gap. On the first run against a baseline recorded by 0.3.0 or earlier, each resolved contextual field reports one `COVERAGE_GAP` WARN instead of a false type change or `CONTRACT_REMOVED`.
 
 ## [0.3.0] - 2026-10-20
 
