@@ -51,6 +51,8 @@ GitHub Action. Most projects start with the Gradle plugin.
     | `types` | `ListProperty<String>` | `[]` (required under `EXPLICIT` discovery) | FQNs of `@Serializable` root types to check |
     | `discovery` | `Property<DiscoveryMode>` | `EXPLICIT` | How types are found when `types` is empty: `EXPLICIT`, `OPT_OUT`, or `OPT_IN`. See [Discovery modes](configuration.md#discovery-modes) |
     | `jsonInstance` | `Property<String>` | unset | FQN of a `Json` instance describing the wire; unset = default `Json`. If set but it can't be loaded, extraction fails |
+    | `format` | `Property<WireFormat>` | `JSON` | `JSON` or `CBOR`. See [CBOR](cbor.md) |
+    | `cborInstance` | `Property<String>` | unset | With `format = CBOR`: FQN of the `Cbor` instance describing the wire; unset = `Cbor.Default` |
     | `baselineRef` | `Property<String>` | auto-detected | Git ref to check against. Unset ⇒ auto-detect the default branch (`origin/HEAD` → `origin/main` → `origin/master` → local `main`/`master`) |
     | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
     | `failOnBreaking` | `Property<Boolean>` | `true` | A `BREAK` finding fails the build |

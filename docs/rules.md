@@ -270,8 +270,10 @@ rejects the other.
 ## Config awareness
 
 The classifier reads your actual `Json { }` config (set with `jsonInstance`, see
-[Configuration](configuration.md)). It doesn't assume defaults. The same change can
-be `SAFE` under one config and `BREAK` under another:
+[Configuration](configuration.md)), or your `Cbor { }` config (`cborInstance`, see
+[CBOR](cbor.md)). It doesn't assume defaults. The same change can be `SAFE` under one
+config and `BREAK` under another. `ignoreUnknownKeys` and `encodeDefaults` mean the
+same under CBOR; the other settings below are JSON-only:
 
 | Setting | Default | Flips |
 |---|---|---|
