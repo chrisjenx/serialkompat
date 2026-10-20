@@ -7,13 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-20
+
+serialkompat now gates **CBOR** as well as JSON. Persisted CBOR, such as client caches and job-queue payloads, gets the same rule matrix and the same CI gate, plus rules for the features only CBOR has. The headline case: a field added under a strict `Cbor` reader is a forward `BREAK`, because an old build crashes reading the entry a newer build wrote. Start with the [CBOR guide](https://chrisjenx.github.io/serialkompat/cbor/).
+
+This is a minor bump: the public API (`Element`, `Contract`, `SnapshotConfig`, new `Change` subtypes) and the snapshot format gain CBOR fields. Existing JSON snapshots are byte-identical and keep working.
+
 ### Added
-- **CBOR support** ([docs](https://chrisjenx.github.io/serialkompat/cbor/)): check kotlinx-serialization-cbor models to the same level as JSON. Snapshots now record their wire format (`SnapshotConfig.format`, `WireFormat.JSON` or `CBOR`) and the CBOR configuration. A CBOR snapshot's `@config` writes `format=cbor` and only the settings `Cbor` has; JSON snapshots are unchanged. New rules: `CONFIG_FORMAT` (snapshots of different formats aren't compared), `CONFIG_CBOR_BYTE_STRING`, `CONFIG_CBOR_DEFINITE_LENGTH`, `CONFIG_CBOR_TAGS`. The extractor reads a project's `Cbor` instance (`SchemaExtractionMain.run(format = CBOR, cborInstanceFqn = ...)`, CLI `--format cbor --cbor <fqn>`, `CborConfigReader`), and a CBOR round-trip oracle proves the rule matrix against real kotlinx-serialization-cbor. A tag flag change is judged per direction: a reader that starts verifying tags its writer didn't encode is a `BREAK`.
-- CBOR-only rules, each proved against real kotlinx-serialization-cbor: `PROPERTY_CBOR_LABEL` (`@CborLabel` changes once labels are written), `PROPERTY_BYTE_STRING` (`@ByteString` toggled), `CBOR_TAGS_CHANGED` (`@KeyTags` / `@ValueTags` / `@ObjectTags` under verifying readers), `CBOR_ARRAY_LAYOUT` (`@CborArray` positional changes: appending an optional element still crashes old readers, even with `ignoreUnknownKeys`), and `CBOR_ARRAY_OMITTED_DEFAULT` (a mid-array element omitted at its default shifts every later position). API: `Element` gains `cborLabel`, `byteString`, `keyTags`, `valueTags`; `Contract` gains `cborArray`, `objectTags`; new `Change` subtypes and `CborTagGroup`.
-- Gradle DSL for CBOR: `serialkompat { format.set(WireFormat.CBOR); cborInstance.set("com.example.WireCbor.instance") }`. Both are extraction inputs, so they are part of `serialkompatExtract`'s build-cache key.
+- **CBOR support** (#218, #219, #220; [docs](https://chrisjenx.github.io/serialkompat/cbor/)): check kotlinx-serialization-cbor models to the same level as JSON. Snapshots now record their wire format (`SnapshotConfig.format`, `WireFormat.JSON` or `CBOR`) and the CBOR configuration. A CBOR snapshot's `@config` writes `format=cbor` and only the settings `Cbor` has; JSON snapshots are unchanged. New rules: `CONFIG_FORMAT` (snapshots of different formats aren't compared), `CONFIG_CBOR_BYTE_STRING`, `CONFIG_CBOR_DEFINITE_LENGTH`, `CONFIG_CBOR_TAGS`. The extractor reads a project's `Cbor` instance (`SchemaExtractionMain.run(format = CBOR, cborInstanceFqn = ...)`, CLI `--format cbor --cbor <fqn>`, `CborConfigReader`), and a CBOR round-trip oracle proves the rule matrix against real kotlinx-serialization-cbor. A tag flag change is judged per direction: a reader that starts verifying tags its writer didn't encode is a `BREAK`.
+- CBOR-only rules (#221), each proved against real kotlinx-serialization-cbor: `PROPERTY_CBOR_LABEL` (`@CborLabel` changes once labels are written), `PROPERTY_BYTE_STRING` (`@ByteString` toggled), `CBOR_TAGS_CHANGED` (`@KeyTags` / `@ValueTags` / `@ObjectTags` under verifying readers), `CBOR_ARRAY_LAYOUT` (`@CborArray` positional changes: appending an optional element still crashes old readers, even with `ignoreUnknownKeys`), and `CBOR_ARRAY_OMITTED_DEFAULT` (a mid-array element omitted at its default shifts every later position). API: `Element` gains `cborLabel`, `byteString`, `keyTags`, `valueTags`; `Contract` gains `cborArray`, `objectTags`; new `Change` subtypes and `CborTagGroup`.
+- Gradle DSL for CBOR (#222): `serialkompat { format.set(WireFormat.CBOR); cborInstance.set("com.example.WireCbor.instance") }`. Both are extraction inputs, so they are part of `serialkompatExtract`'s build-cache key.
+- A [CBOR guide](https://chrisjenx.github.io/serialkompat/cbor/) (#223): setup, why `FULL` suits persisted data, checking types that are sent as JSON and cached as CBOR, and how CBOR differs from JSON.
 
 ### Fixed
 - `DISCRIMINATOR_COLLISION` no longer fires under `Json { useArrayPolymorphism = true }`, where no discriminator key is written.
+- Fix hints on CBOR findings no longer suggest JSON-only remedies (`explicitNulls=false`, `@JsonNames`, `coerceInputValues`) (#224).
 
 ## [0.2.0] - 2026-10-14
 
