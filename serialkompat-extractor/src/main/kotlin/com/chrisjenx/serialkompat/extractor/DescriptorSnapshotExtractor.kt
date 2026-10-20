@@ -7,6 +7,7 @@ import com.chrisjenx.serialkompat.core.EncodeDefaultMode
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.Subtype
+import com.chrisjenx.serialkompat.core.WireFormat
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -272,7 +273,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
                 val elements =
                     (0 until descriptor.elementsCount).map { i ->
                         referenced += referencedContracts(descriptor.getElementDescriptor(i))
-                        elementOf(descriptor, i, encodeDefaults[i])
+                        elementOf(descriptor, i, encodeDefaults[i], config.format)
                     }
                 Contract(serialName, kind, elements = elements)
             }
@@ -324,6 +325,7 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         owner: SerialDescriptor,
         index: Int,
         encodeDefault: EncodeDefaultMode?,
+        format: WireFormat,
     ): Element {
         val descriptor = owner.getElementDescriptor(index)
         val annotations = owner.getElementAnnotations(index)
@@ -336,7 +338,13 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
             type = if (descriptor.isNullable) typeRef(descriptor) else typeRefNullable(descriptor),
             optional = owner.isElementOptional(index),
             nullable = descriptor.isNullable,
-            jsonNames = annotations.filterIsInstance<JsonNames>().flatMap { it.names.toList() },
+            // @JsonNames is a Json-only decode alias; Cbor ignores it.
+            jsonNames =
+                if (format == WireFormat.CBOR) {
+                    emptyList()
+                } else {
+                    annotations.filterIsInstance<JsonNames>().flatMap { it.names.toList() }
+                },
             // @EncodeDefault isn't a @SerialInfo annotation, so it comes from bytecode
             // reflection instead (EncodeDefaultReader, #158); null = unknown.
             encodeDefault = encodeDefault,
@@ -416,15 +424,20 @@ public object DescriptorSnapshotExtractor : SnapshotExtractor {
         }
     }
 
+    /** The class-discriminator key, or `null` for CBOR, whose polymorphism has none (array-style). */
     private fun discriminatorOf(
         descriptor: SerialDescriptor,
         config: SnapshotConfig,
-    ): String =
-        descriptor.annotations
-            .filterIsInstance<JsonClassDiscriminator>()
-            .firstOrNull()
-            ?.discriminator
-            ?: config.classDiscriminator
+    ): String? =
+        if (config.format == WireFormat.CBOR) {
+            null
+        } else {
+            descriptor.annotations
+                .filterIsInstance<JsonClassDiscriminator>()
+                .firstOrNull()
+                ?.discriminator
+                ?: config.classDiscriminator
+        }
 
     /** The serial name used as a contract's identity and type ref, less any nullable marker. */
     private fun contractName(descriptor: SerialDescriptor): String = descriptor.serialName.removeSuffix("?")
