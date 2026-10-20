@@ -168,15 +168,63 @@ class CborFormatModelTest {
         assertTrue(findings(Change.ConfigChanged("preferCborLabelsOverNames", "true", "false")).isEmpty())
     }
 
+    private fun tagFindings(
+        field: String,
+        old: SnapshotConfig,
+        new: SnapshotConfig,
+    ): List<Finding> =
+        Classifier().classify(
+            listOf(Change.ConfigChanged(field, old.flag(field).toString(), new.flag(field).toString())),
+            old,
+            new,
+        )
+
+    private fun SnapshotConfig.flag(field: String): Boolean =
+        SnapshotConfig::class.java
+            .getMethod("get" + field.replaceFirstChar(Char::uppercase))
+            .invoke(this) as Boolean
+
     @Test
-    fun `changing a tag flag warns both ways`() {
-        for (flag in CBOR_TAG_FLAGS) {
-            val f = findings(Change.ConfigChanged(flag, "false", "true"))
-            assertEquals(Severity.WARN, f.severity(CompatibilityDirection.BACKWARD), flag)
-            assertEquals(Severity.WARN, f.severity(CompatibilityDirection.FORWARD), flag)
-            assertTrue(f.all { it.rule == Rules.CONFIG_CBOR_TAGS }, flag)
+    fun `a new reader that starts verifying tags breaks on old untagged data`() {
+        // Proved in CborRoundTripOracleTest: a verifying reader rejects data written without the tags.
+        for ((verify, encode) in TAG_GROUPS) {
+            val f = tagFindings(verify, SnapshotConfig.cbor(), SnapshotConfig.cbor().with(verify))
+            assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.BACKWARD), verify)
+            assertEquals(null, f.severity(CompatibilityDirection.FORWARD), verify)
+            assertTrue(f.all { it.rule == Rules.CONFIG_CBOR_TAGS }, verify)
+            // Old data that already carried the tags is fine.
+            val tagged = SnapshotConfig.cbor().with(encode)
+            assertTrue(tagFindings(verify, tagged, tagged.with(verify)).isEmpty(), verify)
         }
     }
+
+    @Test
+    fun `a new writer that stops encoding tags breaks old verifying readers`() {
+        for ((verify, encode) in TAG_GROUPS) {
+            val old = SnapshotConfig.cbor().with(encode).with(verify)
+            val new = SnapshotConfig.cbor().with(verify)
+            val f = tagFindings(encode, old, new)
+            assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD), encode)
+        }
+    }
+
+    @Test
+    fun `encoding tags for readers that skip them is safe`() {
+        for ((_, encode) in TAG_GROUPS) {
+            assertTrue(tagFindings(encode, SnapshotConfig.cbor(), SnapshotConfig.cbor().with(encode)).isEmpty(), encode)
+        }
+    }
+
+    private fun SnapshotConfig.with(flag: String): SnapshotConfig =
+        when (flag) {
+            "encodeKeyTags" -> copy(encodeKeyTags = true)
+            "encodeValueTags" -> copy(encodeValueTags = true)
+            "encodeObjectTags" -> copy(encodeObjectTags = true)
+            "verifyKeyTags" -> copy(verifyKeyTags = true)
+            "verifyValueTags" -> copy(verifyValueTags = true)
+            "verifyObjectTags" -> copy(verifyObjectTags = true)
+            else -> error(flag)
+        }
 
     @Test
     fun `a CBOR config finding names Cbor, not Json`() {
@@ -214,14 +262,12 @@ class CborFormatModelTest {
     }
 
     private companion object {
-        val CBOR_TAG_FLAGS =
+        /** (verify flag, encode flag) per tag group. */
+        val TAG_GROUPS =
             listOf(
-                "encodeKeyTags",
-                "encodeValueTags",
-                "encodeObjectTags",
-                "verifyKeyTags",
-                "verifyValueTags",
-                "verifyObjectTags",
+                "verifyKeyTags" to "encodeKeyTags",
+                "verifyValueTags" to "encodeValueTags",
+                "verifyObjectTags" to "encodeObjectTags",
             )
     }
 }

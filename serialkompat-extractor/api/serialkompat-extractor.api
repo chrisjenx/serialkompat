@@ -1,3 +1,8 @@
+public final class com/chrisjenx/serialkompat/extractor/CborConfigReader {
+	public static final field INSTANCE Lcom/chrisjenx/serialkompat/extractor/CborConfigReader;
+	public final fun read (Lkotlinx/serialization/cbor/Cbor;)Lcom/chrisjenx/serialkompat/core/SnapshotConfig;
+}
+
 public final class com/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor : com/chrisjenx/serialkompat/extractor/SnapshotExtractor {
 	public static final field INSTANCE Lcom/chrisjenx/serialkompat/extractor/DescriptorSnapshotExtractor;
 	public fun extract (Ljava/lang/Iterable;Lkotlinx/serialization/modules/SerializersModule;Lcom/chrisjenx/serialkompat/core/SnapshotConfig;)Lcom/chrisjenx/serialkompat/core/Snapshot;
@@ -29,8 +34,8 @@ public final class com/chrisjenx/serialkompat/extractor/SchemaExtractionMain {
 	public final fun discoverTypeNames (Ljava/lang/ClassLoader;)Ljava/util/List;
 	public static synthetic fun discoverTypeNames$default (Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/lang/ClassLoader;ILjava/lang/Object;)Ljava/util/List;
 	public static final fun main ([Ljava/lang/String;)V
-	public final fun run (Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;)V
-	public static synthetic fun run$default (Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;ILjava/lang/Object;)V
+	public final fun run (Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;Lcom/chrisjenx/serialkompat/core/WireFormat;Ljava/lang/String;)V
+	public static synthetic fun run$default (Lcom/chrisjenx/serialkompat/extractor/SchemaExtractionMain;Ljava/util/List;Ljava/lang/String;Ljava/io/File;Ljava/util/List;Lcom/chrisjenx/serialkompat/extractor/DiscoveryMode;Lcom/chrisjenx/serialkompat/core/WireFormat;Ljava/lang/String;ILjava/lang/Object;)V
 }
 
 public abstract interface class com/chrisjenx/serialkompat/extractor/SnapshotExtractor {

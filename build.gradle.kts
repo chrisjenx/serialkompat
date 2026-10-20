@@ -150,12 +150,13 @@ val checkRulesProof = tasks.register("checkRulesProof") {
         "serialkompat-core/src/main/kotlin/com/chrisjenx/serialkompat/core/Finding.kt",
     )
     val rulesDoc = layout.projectDirectory.file("docs/rules.md")
-    val oracleTest = layout.projectDirectory.file(
-        "serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt",
-    )
+    // The JSON oracle and the CBOR oracle; a proof may cite a test in either.
+    val oracleTests = listOf("RoundTripOracleTest.kt", "CborRoundTripOracleTest.kt").map {
+        layout.projectDirectory.file("serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/$it")
+    }
     inputs.file(findingKt)
     inputs.file(rulesDoc)
-    inputs.file(oracleTest)
+    inputs.files(oracleTests)
     doLast {
         // PR 2 (#119 sweep) flips this true once every rule has a Rule reference section.
         val enforceComplete = false
@@ -173,10 +174,9 @@ val checkRulesProof = tasks.register("checkRulesProof") {
         val docText = rulesDoc.asFile.readText()
 
         // Oracle test method names, e.g. fun `removing an optional field`().
-        val testNames = Regex("""fun `([^`]+)`""")
-            .findAll(oracleTest.asFile.readText())
-            .map { it.groupValues[1] }
-            .toSet()
+        val testNames = oracleTests.flatMap { file ->
+            Regex("""fun `([^`]+)`""").findAll(file.asFile.readText()).map { it.groupValues[1] }
+        }.toSet()
 
         // Test names the docs cite: backtick link text on any `**Proof:**` line. The
         // citation must be backtick-wrapped so the gate can validate it — a proof line
@@ -198,7 +198,8 @@ val checkRulesProof = tasks.register("checkRulesProof") {
             throw GradleException(
                 "docs/rules.md Proof link(s) cite oracle tests that don't exist: " +
                     missingTests.joinToString(", ") +
-                    ". Match the link text to a test method name in RoundTripOracleTest.kt.",
+                    ". Match the link text to a test method name in RoundTripOracleTest.kt or " +
+                    "CborRoundTripOracleTest.kt.",
             )
         }
 

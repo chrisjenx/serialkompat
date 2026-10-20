@@ -5,10 +5,12 @@ import com.chrisjenx.serialkompat.core.ContractKind
 import com.chrisjenx.serialkompat.core.Snapshot
 import com.chrisjenx.serialkompat.core.SnapshotConfig
 import com.chrisjenx.serialkompat.core.SnapshotFormat
+import com.chrisjenx.serialkompat.core.WireFormat
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.serializer
 import java.io.File
 import kotlin.reflect.full.createType
@@ -45,6 +47,9 @@ public object SchemaExtractionMain {
      * [discovery] refines the *scanned* candidates (issue #115): `OPT_OUT` drops types
      * carrying `@SerialkompatIgnore`; `OPT_IN` keeps only `@SerialkompatChecked` types.
      * Manifest entries and explicit [typeNames] are deliberate acts and bypass the filter.
+     *
+     * [format] picks the wire format (design §6a). For [WireFormat.CBOR], [cborInstanceFqn] names
+     * the `Cbor` instance (or `null` for `Cbor.Default`), and [jsonInstanceFqn] must be unset.
      */
     @OptIn(ExperimentalSerializationApi::class)
     public fun run(
@@ -53,23 +58,10 @@ public object SchemaExtractionMain {
         output: File,
         scanDirs: List<File> = emptyList(),
         discovery: DiscoveryMode = DiscoveryMode.EXPLICIT,
+        format: WireFormat = WireFormat.JSON,
+        cborInstanceFqn: String? = null,
     ) {
-        // A configured jsonInstance that can't be loaded is a hard error, not a fallback. Its
-        // settings (ignoreUnknownKeys, explicitNulls, classDiscriminator, ...) and its module
-        // (the only source of open-polymorphic subtypes) decide every verdict, so silently
-        // swapping in Json.Default would check the wrong wire contract. Unset still uses defaults.
-        val json =
-            if (jsonInstanceFqn == null) {
-                Json
-            } else {
-                loadJson(jsonInstanceFqn) ?: error(
-                    "serialkompat: could not load the configured jsonInstance '$jsonInstanceFqn'. " +
-                        "Expected `owner.member` naming a kotlinx.serialization.json.Json reachable on " +
-                        "the runtime classpath (an object property or a top-level val). Fix or unset " +
-                        "serialkompat.jsonInstance.",
-                )
-            }
-        val config = if (json === Json) SnapshotConfig() else JsonConfigReader.read(json)
+        val (config, module) = loadFormat(format, jsonInstanceFqn, cborInstanceFqn)
         val scan = SerializableClassScanner.scan(scanDirs)
         if (scan.skippedGenerics.isNotEmpty()) {
             System.err.println(
@@ -185,7 +177,7 @@ public object SchemaExtractionMain {
         }
 
         val extracted =
-            DescriptorSnapshotExtractor.extract(descriptors, json.serializersModule, config, genericRoots)
+            DescriptorSnapshotExtractor.extract(descriptors, module, config, genericRoots)
         val snapshot = Snapshot(extracted.contracts + opaque, config)
         output.absoluteFile.parentFile?.mkdirs()
         output.writeText(SnapshotFormat.serialize(snapshot))
@@ -193,7 +185,7 @@ public object SchemaExtractionMain {
 
     /**
      * CLI shim: `--types a,b,c | --scan-classes dir1:dir2 --out path [--json fqn]
-     * [--discovery explicit|opt-out|opt-in]`.
+     * [--discovery explicit|opt-out|opt-in] [--format json|cbor] [--cbor fqn]`.
      * Requires at least one of: `--types`, `--scan-classes`, or a non-`explicit`
      * `--discovery` (which falls back to the classpath manifest, [TYPES_RESOURCE]).
      * `--scan-classes` takes [File.pathSeparator]-separated class directories.
@@ -223,8 +215,58 @@ public object SchemaExtractionMain {
         require(types.isNotEmpty() || scanDirs.isNotEmpty() || discovery != DiscoveryMode.EXPLICIT) {
             "serialkompat: --types or --scan-classes is required"
         }
-        run(types, options["json"], File(output), scanDirs, discovery)
+        val format =
+            options["format"]?.let { id ->
+                requireNotNull(WireFormat.fromId(id)) { "serialkompat: unknown --format '$id' (json or cbor)" }
+            } ?: WireFormat.JSON
+        run(types, options["json"], File(output), scanDirs, discovery, format, options["cbor"])
     }
+
+    /**
+     * The config and module that decide every verdict. A configured instance that can't be loaded
+     * is a hard error, not a fallback: its settings and its module (the only source of
+     * open-polymorphic subtypes) decide every verdict, so silently swapping in the default would
+     * check the wrong wire contract. Unset still uses the format's defaults.
+     */
+    private fun loadFormat(
+        format: WireFormat,
+        jsonInstanceFqn: String?,
+        cborInstanceFqn: String?,
+    ): Pair<SnapshotConfig, SerializersModule> =
+        when (format) {
+            WireFormat.JSON -> {
+                require(cborInstanceFqn == null) {
+                    "serialkompat: cborInstance is set but format is JSON. Set format = CBOR, or unset cborInstance."
+                }
+                val json =
+                    if (jsonInstanceFqn == null) {
+                        Json
+                    } else {
+                        loadMember(jsonInstanceFqn) as? Json ?: error(
+                            "serialkompat: could not load the configured jsonInstance '$jsonInstanceFqn'. " +
+                                "Expected `owner.member` naming a kotlinx.serialization.json.Json reachable on " +
+                                "the runtime classpath (an object property or a top-level val). Fix or unset " +
+                                "serialkompat.jsonInstance.",
+                        )
+                    }
+                (if (json === Json) SnapshotConfig() else JsonConfigReader.read(json)) to json.serializersModule
+            }
+
+            WireFormat.CBOR -> {
+                require(jsonInstanceFqn == null) {
+                    "serialkompat: jsonInstance is set but format is CBOR. Use cborInstance for a CBOR module."
+                }
+                try {
+                    CborSupport.load(cborInstanceFqn)
+                } catch (missing: NoClassDefFoundError) {
+                    throw IllegalStateException(
+                        "serialkompat: format = CBOR needs kotlinx-serialization-cbor on the runtime classpath " +
+                            "of the checked module.",
+                        missing,
+                    )
+                }
+            }
+        }
 
     /**
      * Classpath manifest of discovered `@Serializable` FQNs, one per line (blank
@@ -263,25 +305,22 @@ public object SchemaExtractionMain {
         }
         return options
     }
-
-    /**
-     * Best-effort reflective load of a `Json` instance named `owner.member`,
-     * supporting an `object`'s property or a file-level `val`. Returns `null` if
-     * it can't be resolved (the caller then assumes defaults).
-     */
-    private fun loadJson(fqn: String): Json? =
-        runCatching {
-            val lastDot = fqn.lastIndexOf('.')
-            if (lastDot <= 0) return null
-            val owner = Class.forName(fqn.substring(0, lastDot))
-            val member = fqn.substring(lastDot + 1)
-            val instance = runCatching { owner.getField("INSTANCE").get(null) }.getOrNull()
-            val getter = "get" + member.replaceFirstChar(Char::uppercase)
-            val value =
-                runCatching { owner.getMethod(getter).invoke(instance) }.getOrNull()
-                    ?: runCatching {
-                        owner.getDeclaredField(member).also { it.isAccessible = true }.get(instance)
-                    }.getOrNull()
-            value as? Json
-        }.getOrNull()
 }
+
+/**
+ * Best-effort reflective load of the value named `owner.member`, supporting an `object`'s property
+ * or a file-level `val`. Returns `null` if it can't be resolved; the caller checks its type.
+ */
+internal fun loadMember(fqn: String): Any? =
+    runCatching {
+        val lastDot = fqn.lastIndexOf('.')
+        if (lastDot <= 0) return null
+        val owner = Class.forName(fqn.substring(0, lastDot))
+        val member = fqn.substring(lastDot + 1)
+        val instance = runCatching { owner.getField("INSTANCE").get(null) }.getOrNull()
+        val getter = "get" + member.replaceFirstChar(Char::uppercase)
+        runCatching { owner.getMethod(getter).invoke(instance) }.getOrNull()
+            ?: runCatching {
+                owner.getDeclaredField(member).also { it.isAccessible = true }.get(instance)
+            }.getOrNull()
+    }.getOrNull()

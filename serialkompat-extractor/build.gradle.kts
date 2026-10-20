@@ -17,6 +17,9 @@ dependencies {
     api(libs.kotlinx.serialization.core)
     // Reads JSON-specific wire annotations (@JsonNames, @JsonClassDiscriminator).
     api(libs.kotlinx.serialization.json)
+    // Reads a project's Cbor instance (format = CBOR). compileOnly: a CBOR project already has it on
+    // its runtime classpath, and a JSON-only project never loads a Cbor class (CborSupport).
+    compileOnly(libs.kotlinx.serialization.cbor)
     // Resolves a serializer from a type loaded by name on the target's classpath.
     implementation(kotlin("reflect"))
 
