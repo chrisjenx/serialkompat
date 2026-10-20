@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/kotlin-2.4-blue.svg?logo=kotlin)](https://kotlinlang.org)
 
-**A backward/forward compatibility gate for [kotlinx-serialization](https://github.com/Kotlin/kotlinx.serialization) `@Serializable` models — like [`buf breaking`](https://buf.build/docs/breaking/), but for JSON.**
+**A backward/forward compatibility gate for [kotlinx-serialization](https://github.com/Kotlin/kotlinx.serialization) `@Serializable` models — like [`buf breaking`](https://buf.build/docs/breaking/), but for JSON and CBOR.**
 
 📖 **[Full documentation → chrisjenx.github.io/serialkompat](https://chrisjenx.github.io/serialkompat/)** · [quick start](https://chrisjenx.github.io/serialkompat/quickstart/) · [rules](https://chrisjenx.github.io/serialkompat/rules/) · [CI setup](https://chrisjenx.github.io/serialkompat/ci/) · [API](https://chrisjenx.github.io/serialkompat/api/)
 
@@ -31,9 +31,9 @@ serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
 
 ## Why
 
-`kotlinx-serialization-json` has no safety net for schema evolution. Rename a property, drop a default, or make a field non-null, and every old client still sending the old shape breaks. Persisted JSON can become undecodable. The usual defence is hand-written round-trip tests.
+`kotlinx-serialization-json` has no safety net for schema evolution. Rename a property, drop a default, or make a field non-null, and every old client still sending the old shape breaks. Persisted JSON (or CBOR) can become undecodable. The usual defence is hand-written round-trip tests.
 
-serialkompat turns wire compatibility into a CI gate. It reads the JSON schema from your compiled `@Serializable` models, diffs it against a baseline, and fails the build on incompatible changes. The rules are grounded in how kotlinx-serialization actually behaves.
+serialkompat turns wire compatibility into a CI gate. It reads the wire schema (JSON or [CBOR](https://chrisjenx.github.io/serialkompat/cbor/)) from your compiled `@Serializable` models, diffs it against a baseline, and fails the build on incompatible changes. The rules are grounded in how kotlinx-serialization actually behaves.
 
 ## How it works
 
@@ -64,7 +64,7 @@ plugins {
 }
 
 serialkompat {
-    // Root @Serializable types whose JSON wire contract must stay compatible.
+    // Root @Serializable types whose wire contract must stay compatible.
     types.set(listOf("com.example.wire.OrderEvent", "com.example.wire.Payment"))
     // Optional: read your real Json { } config (naming strategy, discriminator, …).
     jsonInstance.set("com.example.wire.WireJson.instance")
