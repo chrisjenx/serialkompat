@@ -1,9 +1,24 @@
-# serialkompat
+# Catch breaking JSON & CBOR changes before they ship
 
-**A backward/forward compatibility gate for [kotlinx-serialization](https://github.com/Kotlin/kotlinx.serialization) `@Serializable` models — like [`buf breaking`](https://buf.build/docs/breaking/), but for JSON and [CBOR](cbor.md).**
+A CI gate for kotlinx-serialization `@Serializable` models, like
+[`buf breaking`](https://buf.build/docs/breaking/) but for JSON and [CBOR](cbor.md).
 
-You delete a field. Payloads in queues, caches, and old app versions still carry it:
+<div class="sk-steps" markdown>
+<div class="sk-step" markdown>
+<span class="sk-step-n">1</span>
+**You change a model.** Rename a field, drop a default, add a required property.
+</div>
+<div class="sk-step" markdown>
+<span class="sk-step-n">2</span>
+**Old data is still out there.** Older app versions, queues, caches and databases hold the previous shape.
+</div>
+<div class="sk-step" markdown>
+<span class="sk-step-n">3</span>
+**The PR fails, with a fix.** serialkompat diffs against your target branch and says what breaks and how to fix it.
+</div>
+</div>
 
+<div class="sk-hero-pair" markdown>
 <div class="sk-hero" markdown>
 
 <div class="sk-hero-caption" markdown>The one-line change on your PR</div>
@@ -19,8 +34,6 @@ You delete a field. Payloads in queues, caches, and old app versions still carry
 
 </div>
 
-<div class="sk-hero-flow" aria-hidden="true"><span></span></div>
-
 <div class="sk-terminal">
 <div class="sk-terminal-bar"><i></i><i></i><i></i><b>CI</b></div>
 <pre><code><span class="sk-t-prompt">$</span> ./gradlew serialkompatCheck
@@ -33,55 +46,36 @@ serialkompat: 1 active finding(s) (1 breaking, 0 warning), 0 acknowledged
 
 <span class="sk-t-fail">BUILD FAILED</span></code></pre>
 </div>
+</div>
 
-serialkompat compares your models against a **baseline**: the schema at a git ref,
-usually your target branch. It extracts that baseline live on every run, so there is
-no baseline file to maintain.
+## Why it's trustworthy
 
-Every change is checked in both directions. *Backward* compatible means new code can
-read old data. *Forward* compatible means old code can read new data. Each verdict
-reflects how real kotlinx-serialization behaves under your actual `Json { }` config.
+<div class="grid cards" markdown>
+
+- **No baseline file**
+
+    The old schema is extracted live from your target branch on every run.
+
+- **Both directions**
+
+    New code reading old data, and old code reading new data.
+
+- **Proven, not guessed**
+
+    Every rule is round-trip tested against real kotlinx-serialization, under your `Json { }` / `Cbor { }` config.
+
+</div>
+
+## Get started
+
+```kotlin
+plugins {
+    id("com.chrisjenx.serialkompat") version "{{ skversion }}"
+}
+```
 
 [Quick start](quickstart.md){ .md-button .md-button--primary }
 [Rules](rules.md){ .md-button }
-[API](https://chrisjenx.github.io/serialkompat/api/){ .md-button }
+[GitHub Action](ci.md){ .md-button }
 
-## How it works
-
-<div class="sk-pipeline" markdown>
-<div class="sk-stage" markdown>`@Serializable`</div>
-<div class="sk-connector"></div>
-<div class="sk-stage" markdown>Extractor</div>
-<div class="sk-connector"></div>
-<div class="sk-stage" markdown>Snapshot</div>
-<div class="sk-connector"></div>
-<div class="sk-stage" markdown>Differ</div>
-<div class="sk-connector"></div>
-<div class="sk-stage" markdown>Classifier</div>
-<div class="sk-connector"></div>
-<div class="sk-stage" markdown>Report</div>
-</div>
-
-- **`@Serializable`**: your compiled Kotlin models.
-- **Extractor**: walks the runtime `SerialDescriptor` graph on the JVM, so it sees exactly what goes on the wire.
-- **Snapshot**: a canonical, comparable model of that wire schema.
-- **Differ**: lists the changes between two snapshots.
-- **Classifier**: applies the rules and your real `Json { }` config to turn each change into a finding with a severity.
-- **Report**: the findings plus an exit code, printed to the console. It is also available as [JSON, SARIF, and GitHub annotations](report-formats.md).
-
-## Is / is not
-
-| serialkompat is | serialkompat is not |
-|---|---|
-| A CI gate for JSON and CBOR wire/persisted-schema evolution of `@Serializable` models | A runtime validator |
-| Direction-aware (`BACKWARD` / `FORWARD` / `FULL`) and config-aware (`ignoreUnknownKeys`, `namingStrategy`, `encodeDefaults`, …) | A migration tool |
-| Grounded in real kotlinx-serialization behavior — every rule is backed by a round-trip oracle test | A replacement for API/schema versioning |
-| | A general-purpose JSON-schema linter |
-
-!!! note "Install"
-    The plugin is on the
-    [Gradle Plugin Portal](https://plugins.gradle.org/plugin/com.chrisjenx.serialkompat), so
-    a plain `plugins { id("com.chrisjenx.serialkompat") version "{{ skversion }}" }` works; see
-    [Setup](setup.md#gradle-plugin). Development happens in the open; see the
-    [issues](https://github.com/chrisjenx/serialkompat/issues) and
-    [milestones](https://github.com/chrisjenx/serialkompat/milestones).
+Not a runtime validator, migration tool or JSON-schema linter.

@@ -431,3 +431,76 @@
     opacity: 1;
   }
 }
+
+/*
+ * Story strip (.sk-steps) and the home hero pair. Reusable: any page can use
+ * <div class="sk-steps" markdown> with <div class="sk-step" markdown> children,
+ * each starting with <span class="sk-step-n">N</span>.
+ */
+
+.sk-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.sk-step {
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--sk-border);
+  border-radius: 0.5rem;
+  background: var(--sk-surface);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.sk-step p {
+  margin: 0;
+}
+
+/* White on --sk-accent-solid is 5.02:1 in both schemes; the slate --sk-accent
+   is too light for white text. */
+.sk-step-n {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  margin-bottom: 0.4rem;
+  border-radius: 50%;
+  background: var(--sk-accent-solid);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.sk-hero-pair {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 1rem;
+  align-items: start;
+  margin: 1.5rem 0;
+}
+
+.sk-hero-pair > * {
+  min-width: 0;
+}
+
+.sk-hero-pair .sk-hero,
+.sk-hero-pair .sk-terminal {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .sk-steps,
+  .sk-hero-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Three short cards fit one row at content width; Material's default 15rem
+   minimum would leave an orphan on the second row. */
+.md-typeset .grid.cards {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+}
