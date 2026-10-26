@@ -47,23 +47,28 @@ grouped by what changed. Every rule, in both directions, is in [the matrix](rule
 | **Fields** | | |
 | A required field was added | Give it a default, or make it nullable with `explicitNulls = false`. Readers should set `ignoreUnknownKeys` (forward). In CBOR only a default works | [`PROPERTY_ADDED`](rules.md#property_added) |
 | A field was removed | Keep it (deprecate it in code) until no reader or stored data uses it | [`PROPERTY_REMOVED`](rules.md#property_removed) |
-| A field became required | Keep a default so older payloads still decode | `PROPERTY_OPTIONALITY` |
-| A field became optional | Annotate it `@EncodeDefault(ALWAYS)`, set `encodeDefaults = true` on the writer, or keep it required | `PROPERTY_OPTIONALITY` |
-| A field's nullability changed | Keep it nullable, or introduce a new field | `PROPERTY_NULLABILITY` |
-| A field's type changed | Introduce a new field instead of changing the type | `PROPERTY_TYPE_CHANGED` |
+| A field became required | Keep a default so older payloads still decode | [`PROPERTY_OPTIONALITY`](rules.md#property_optionality) |
+| A field became optional | Annotate it `@EncodeDefault(ALWAYS)`, set `encodeDefaults = true` on the writer, or keep it required | [`PROPERTY_OPTIONALITY`](rules.md#property_optionality) |
+| A field's nullability changed | Keep it nullable, or introduce a new field | [`PROPERTY_NULLABILITY`](rules.md#property_nullability) |
+| A field's type changed | Introduce a new field instead of changing the type | [`PROPERTY_TYPE_CHANGED`](rules.md#property_type_changed) |
+| A `@JsonNames` alias was dropped | Keep the alias while any producer may still send that key | [`PROPERTY_JSON_NAMES`](rules.md#property_json_names) |
 | **Enums** | | |
 | A value was added | JSON: enable `coerceInputValues` and give the reading field a default. CBOR never coerces: ship the reader first, or bump major | [`ENUM_VALUE_ADDED`](rules.md#enum_value_added) |
-| A value was removed | Keep the value (deprecated) until no persisted or old data uses it | `ENUM_VALUE_REMOVED` |
+| A value was removed | Keep the value (deprecated) until no persisted or old data uses it | [`ENUM_VALUE_REMOVED`](rules.md#enum_value_removed) |
 | **Polymorphism** | | |
-| A subtype was added | Register a default deserializer on old readers, or bump major | `SUBTYPE_ADDED` |
-| A subtype was removed | Keep it until no old or persisted data uses it | `SUBTYPE_REMOVED` |
-| The discriminator key or value changed | Don't change it. It breaks all polymorphic decoding | `DISCRIMINATOR_CHANGED`, `DISCRIMINATOR_VALUE_CHANGED` |
-| A property collides with the discriminator | Rename the property, or set a different `@JsonClassDiscriminator` | `DISCRIMINATOR_COLLISION` |
+| A subtype was added | Register a default deserializer on old readers, or bump major | [`SUBTYPE_ADDED`](rules.md#subtype_added) |
+| A subtype was removed | Keep it until no old or persisted data uses it | [`SUBTYPE_REMOVED`](rules.md#subtype_removed) |
+| The discriminator key or value changed | Don't change it. It breaks all polymorphic decoding | [`DISCRIMINATOR_CHANGED`](rules.md#discriminator_changed), [`DISCRIMINATOR_VALUE_CHANGED`](rules.md#discriminator_value_changed) |
+| A property collides with the discriminator | Rename the property, or set a different `@JsonClassDiscriminator` | [`DISCRIMINATOR_COLLISION`](rules.md#discriminator_collision) |
 | **Types and config** | | |
-| A whole type was removed | Keep it while data or peers still use it | `CONTRACT_REMOVED` |
-| A `Json { }` setting changed | Revert it, or accept the change if every reader moves together | the `CONFIG_*` rules |
+| A whole type was removed | Keep it while data or peers still use it | [`CONTRACT_REMOVED`](rules.md#contract_removed) |
+| A `Json { }` or `Cbor { }` setting changed | Revert it, or accept the change if every reader moves together | [`CONFIG_NAMING_STRATEGY`](rules.md#config_naming_strategy), [`CONFIG_DISCRIMINATOR`](rules.md#config_discriminator), [`CONFIG_READER_STRICTNESS`](rules.md#config_reader_strictness), [`CONFIG_ENCODE_DEFAULTS`](rules.md#config_encode_defaults), [`CONFIG_EXPLICIT_NULLS`](rules.md#config_explicit_nulls), [`CONFIG_COERCE_INPUT`](rules.md#config_coerce_input), [`CONFIG_ARRAY_POLYMORPHISM`](rules.md#config_array_polymorphism), [`CONFIG_STRUCTURED_MAP_KEYS`](rules.md#config_structured_map_keys), [`CONFIG_SPECIAL_FLOATS`](rules.md#config_special_floats), [`CONFIG_FORMAT`](rules.md#config_format), [`CONFIG_CHANGED`](rules.md#config_changed), [`CONFIG_CBOR_BYTE_STRING`](rules.md#config_cbor_byte_string), [`CONFIG_CBOR_DEFINITE_LENGTH`](rules.md#config_cbor_definite_length), [`CONFIG_CBOR_TAGS`](rules.md#config_cbor_tags) (see the [config](rules.md#matrix-config) and [CBOR-only](rules.md#matrix-cbor) groups) |
 | **CBOR** | | |
-| A `@CborLabel`, tag or `@CborArray` layout changed | See the rule section | [`PROPERTY_CBOR_LABEL`](rules.md#property_cbor_label), [`CBOR_ARRAY_LAYOUT`](rules.md#cbor_array_layout) |
+| A `@CborLabel` changed | Keep it stable once labels are preferred, or bump major | [`PROPERTY_CBOR_LABEL`](rules.md#property_cbor_label) |
+| `@ByteString` was added or removed | Keep the `ByteArray` encoding stable; introduce a new field instead | [`PROPERTY_BYTE_STRING`](rules.md#property_byte_string) |
+| `@KeyTags`, `@ValueTags` or `@ObjectTags` changed | Keep them stable: a reader that verifies tags rejects any other tags. Or bump major | [`CBOR_TAGS_CHANGED`](rules.md#cbor_tags_changed) |
+| A `@CborArray` layout changed | Only append optional elements, and only when old readers never see new data; otherwise bump major | [`CBOR_ARRAY_LAYOUT`](rules.md#cbor_array_layout) |
+| A `@CborArray` element is omitted at its default | Annotate it `@EncodeDefault(ALWAYS)`, set `encodeDefaults = true`, or move it to the end | [`CBOR_ARRAY_OMITTED_DEFAULT`](rules.md#cbor_array_omitted_default) |
 
 For example, adding a field with a default keeps old payloads decodable:
 
@@ -79,7 +84,7 @@ For example, adding a field with a default keeps old payloads decodable:
     The finding disappears from the next run. Nothing was accepted, so the gate is as strict
     as before.
 
-A `COVERAGE_GAP` is not a break to fix in the model. See [Limitations](limitations.md).
+A [`COVERAGE_GAP`](rules.md#coverage_gap) is not a break to fix in the model. See [Limitations](limitations.md).
 
 ## Accept it { #accept-it }
 

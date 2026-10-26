@@ -54,9 +54,12 @@ oracle tests behind it. For example, [`PROPERTY_REMOVED`](rules.md#property_remo
 [`RoundTripOracleTest.kt`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
 and the CBOR ones in
 [`CborRoundTripOracleTest.kt`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/CborRoundTripOracleTest.kt).
+A few verdicts no round-trip can reach, such as an already-unserializable model or a fact
+the extractor couldn't record, also cite a classifier or extractor unit test.
 
 Two build gates keep the rules page honest: one fails if a shipped rule is missing from
-it, the other if a Proof link cites a test that doesn't exist. See
+it, the other if a rule has no section, a section has no Proof line, or a Proof link cites
+a test that doesn't exist. See
 [Contributing → Docs site](contributing.md#docs-site).
 
 ## Where the oracle stops { #where-the-oracle-stops }

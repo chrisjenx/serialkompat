@@ -102,7 +102,7 @@ apiValidation {
 }
 
 // Docs/code sync gate: every `Rules.*` constant must appear in docs/rules.md so the rule
-// matrix can never silently drift from the shipped rule set (see docs/rules.md "Keeping this page in sync").
+// matrix can never silently drift from the shipped rule set (see CONTRIBUTING.md "Docs site").
 val checkRulesDoc = tasks.register("checkRulesDoc") {
     group = "verification"
     description = "Fails if any Rules.* constant is undocumented in docs/rules.md."
@@ -141,27 +141,39 @@ if (tasks.findByName("check") == null) {
 }
 tasks.named("check") { dependsOn(checkRulesDoc) }
 
-// Docs proof gate (issue #119): every oracle test cited in a `**Proof:**` link in
-// docs/rules.md must exist, keeping the per-rule proof links from rotting. When
-// `enforceComplete` flips true (the #119 sweep, PR 2) it also fails if any Rules.*
-// constant lacks a `### `RULE_ID`` Rule reference section. Sibling to checkRulesDoc.
+// Docs proof gate (issue #119): every test cited in a `**Proof:**` link in docs/rules.md
+// must exist, keeping the per-rule proof links from rotting. With `enforceComplete` it also
+// fails if any Rules.* constant lacks a `### `RULE_ID`` Rule reference section, or if a
+// section has no `**Proof:**` line. Sibling to checkRulesDoc.
 val checkRulesProof = tasks.register("checkRulesProof") {
     group = "verification"
-    description = "Verifies docs/rules.md proof links resolve to real oracle tests."
+    description = "Verifies every rule in docs/rules.md has a section whose proof links resolve to real tests."
     val findingKt = layout.projectDirectory.file(
         "serialkompat-core/src/main/kotlin/com/chrisjenx/serialkompat/core/Finding.kt",
     )
     val rulesDoc = layout.projectDirectory.file("docs/rules.md")
-    // The JSON oracle and the CBOR oracle; a proof may cite a test in either.
-    val oracleTests = listOf("RoundTripOracleTest.kt", "CborRoundTripOracleTest.kt").map {
-        layout.projectDirectory.file("serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/$it")
-    }
+    // The test files a Proof line may cite: the JSON and CBOR round-trip oracles, plus the unit tests
+    // behind verdicts no round-trip can exercise (an unserializable model, an unrecorded fact).
+    val extractorTests = "serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor"
+    val coreTests = "serialkompat-core/src/test/kotlin/com/chrisjenx/serialkompat/core"
+    val proofTestPaths =
+        listOf(
+            "$extractorTests/RoundTripOracleTest.kt",
+            "$extractorTests/CborRoundTripOracleTest.kt",
+            "$extractorTests/ToleranceGapsTest.kt",
+            "$coreTests/DiscriminatorCollisionTest.kt",
+            "$coreTests/ClassifierTest.kt",
+            "$coreTests/ClassifierConfigTest.kt",
+            "$coreTests/CborRulesTest.kt",
+        )
+    val proofTests = proofTestPaths.associateWith { layout.projectDirectory.file(it) }
+    val proofTestNames = proofTestPaths.joinToString(", ") { it.substringAfterLast('/') }
     inputs.file(findingKt)
     inputs.file(rulesDoc)
-    inputs.files(oracleTests)
+    inputs.files(proofTests.values)
     doLast {
-        // PR 2 (#119 sweep) flips this true once every rule has a Rule reference section.
-        val enforceComplete = false
+        // On since the #119 sweep: every rule needs a Rule reference section with a Proof line.
+        val enforceComplete = true
 
         // The rule-id extraction below is duplicated from checkRulesDoc on purpose: a shared
         // top-level helper/val can't be captured into a task action under the configuration
@@ -175,15 +187,15 @@ val checkRulesProof = tasks.register("checkRulesProof") {
 
         val docText = rulesDoc.asFile.readText()
 
-        // Oracle test method names, e.g. fun `removing an optional field`().
-        val testNames = oracleTests.flatMap { file ->
-            Regex("""fun `([^`]+)`""").findAll(file.asFile.readText()).map { it.groupValues[1] }
-        }.toSet()
+        // Test method names per proof file, e.g. fun `removing an optional field`().
+        val testNames = proofTests.mapValues { (_, file) ->
+            Regex("""fun `([^`]+)`""").findAll(file.asFile.readText()).map { it.groupValues[1] }.toSet()
+        }
 
-        // Test names the docs cite: backtick link text on any `**Proof:**` line. The
-        // citation must be backtick-wrapped so the gate can validate it — a proof line
-        // with a link but no backtick citation would silently skip the check, so fail it.
-        val citeRegex = Regex("""\[`([^`]+)`\]""")
+        // Tests the docs cite: a backtick-wrapped link `[`test name`](…/<test file>)` on a
+        // `**Proof:**` line. A proof line with a link but no such citation would silently skip
+        // the check, so fail it.
+        val citeRegex = Regex("""\[`([^`]+)`\]\(([^)\s]+)\)""")
         val proofLines = docText.lineSequence()
             .filter { it.trimStart().startsWith("**Proof:**") }
             .toList()
@@ -194,22 +206,31 @@ val checkRulesProof = tasks.register("checkRulesProof") {
                     "backtick-wrapped test citation; wrap the test name in backticks so it is checked.",
             )
         }
-        val citedTests = proofLines.flatMap { line -> citeRegex.findAll(line).map { it.groupValues[1] } }
-        val missingTests = citedTests.filter { it !in testNames }
+        // Each cited name must be a test method in the very file its link points at.
+        val citedTests = proofLines.flatMap { line ->
+            citeRegex.findAll(line).map { it.groupValues[1] to it.groupValues[2] }
+        }
+        val missingTests = citedTests.filter { (name, url) ->
+            val path = proofTests.keys.firstOrNull { url.endsWith("/$it") }
+            path == null || name !in testNames.getValue(path)
+        }
         if (missingTests.isNotEmpty()) {
             throw GradleException(
-                "docs/rules.md Proof link(s) cite oracle tests that don't exist: " +
-                    missingTests.joinToString(", ") +
-                    ". Match the link text to a test method name in RoundTripOracleTest.kt or " +
-                    "CborRoundTripOracleTest.kt.",
+                "docs/rules.md Proof link(s) cite tests that don't exist in the linked file: " +
+                    missingTests.joinToString(", ") { (name, url) -> "`$name` (${url.substringAfterLast('/')})" } +
+                    ". Link each test name to the file that declares it, one of: $proofTestNames.",
             )
         }
 
-        // Rules that already have a `### `RULE_ID`` section.
-        val documented = Regex("""### `([A-Z_]+)`""")
-            .findAll(docText)
-            .map { it.groupValues[1] }
-            .toSet()
+        // Rules that already have a `### `RULE_ID`` section, each with the body up to the next heading.
+        val sectionRegex = Regex("""^### `([A-Z_]+)`.*$""", RegexOption.MULTILINE)
+        val headingRegex = Regex("""^#{1,3} """, RegexOption.MULTILINE)
+        val sections = sectionRegex.findAll(docText).associate { match ->
+            val bodyStart = match.range.last + 1
+            val bodyEnd = headingRegex.find(docText, bodyStart)?.range?.first ?: docText.length
+            match.groupValues[1] to docText.substring(bodyStart, bodyEnd)
+        }
+        val documented = sections.keys
         val missingSections = ruleIds.filter { it !in documented }
         if (missingSections.isNotEmpty()) {
             val gaps = missingSections.joinToString(", ")
@@ -217,6 +238,17 @@ val checkRulesProof = tasks.register("checkRulesProof") {
                 throw GradleException("docs/rules.md has no Rule reference section for: $gaps (issue #119).")
             }
             logger.lifecycle("checkRulesProof (warn, not yet enforced): missing section(s): $gaps.")
+        }
+        // Every rule section must prove its verdict: a `**Proof:**` line citing at least one test.
+        val unproven = sections.filter { (_, body) ->
+            body.lineSequence().none { it.trimStart().startsWith("**Proof:**") && citeRegex.containsMatchIn(it) }
+        }.keys
+        if (unproven.isNotEmpty()) {
+            val gaps = unproven.joinToString(", ")
+            if (enforceComplete) {
+                throw GradleException("docs/rules.md Rule reference section(s) with no cited test: $gaps.")
+            }
+            logger.lifecycle("checkRulesProof (warn, not yet enforced): section(s) with no cited test: $gaps.")
         }
         logger.lifecycle(
             "checkRulesProof: ${citedTests.size} proof link(s) valid, " +

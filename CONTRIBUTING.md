@@ -46,9 +46,7 @@ The `Docs` workflow runs `mkdocs build --strict` on any PR touching `docs/**`, `
 The rule matrix in `docs/rules.md` is hand-written, and two build gates keep it honest:
 
 - `checkRulesDoc` fails the build if any rule the classifier ships (a `Rules.*` constant) is missing from `docs/rules.md`.
-- `checkRulesProof` fails the build if a **Proof** link there cites an oracle test that doesn't exist.
-
-Not every rule has a section under the page's [Rule reference](https://chrisjenx.github.io/serialkompat/rules/#rule-reference) yet. Once they all do, `checkRulesProof` will also fail if a rule ships without one.
+- `checkRulesProof` fails the build if a rule has no section under the page's [Rule reference](https://chrisjenx.github.io/serialkompat/rules/#rule-reference), if a section has no **Proof** line, or if a **Proof** link cites a test that doesn't exist. A Proof line may cite the two round-trip oracles or the few unit-test files listed in the task (root `build.gradle.kts`).
 
 ## Before you push
 

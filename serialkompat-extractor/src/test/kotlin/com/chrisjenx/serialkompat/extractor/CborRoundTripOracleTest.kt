@@ -662,6 +662,25 @@ class CborRoundTripOracleTest {
             assertConfigOracle(Outer.serializer(), Outer(Inner()), strict, Cbor { useDefiniteLengthEncoding = true })
         assertEquals(Severity.WARN, f.single { it.direction == CompatibilityDirection.FORWARD }.severity)
         assertTrue(f.none { it.direction == CompatibilityDirection.BACKWARD })
+        assertTrue(f.all { it.rule == Rules.CONFIG_CBOR_DEFINITE_LENGTH }, f.toString())
+        // The real outcome behind the WARN: a definite-length writer's all-default Inner reads back as null.
+        val definite = Cbor { useDefiniteLengthEncoding = true }
+        val read = decodes(definite, Outer.serializer(), Outer(Inner()), strict, Outer.serializer())
+        assertEquals(Outer(null), read.getOrThrow())
+    }
+
+    @Test
+    fun `CBOR - disabling definite-length encoding adds no new loss and is not flagged`() {
+        // The null-for-all-default quirk lives in definite-length *bytes*: the old writer's own reader already
+        // gets null, so a new reader of old entries sees exactly what the old one did. The new writer's
+        // indefinite-length data round-trips through the old reader intact.
+        val definite = Cbor { useDefiniteLengthEncoding = true }
+        val value = Outer(Inner())
+        val oldSelf = decodes(definite, Outer.serializer(), value, definite, Outer.serializer()).getOrThrow()
+        val newOfOld = decodes(definite, Outer.serializer(), value, strict, Outer.serializer())
+        assertEquals(oldSelf, newOfOld.getOrThrow())
+        assertEquals(value, decodes(strict, Outer.serializer(), value, definite, Outer.serializer()).getOrThrow())
+        assertTrue(classify(Outer.serializer(), Outer.serializer(), definite, strict).isEmpty())
     }
 
     @Serializable
