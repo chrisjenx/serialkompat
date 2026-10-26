@@ -4,7 +4,17 @@
 #   anchors: old anchor id -> new page[#anchor]
 setup:
   default: installation.md
+  anchors:
+    gradle-plugin: installation.md#gradle-plugin
+    serialkompat-reference: configuration.md#serialkompat-reference
+    tasks: tasks-cli.md#tasks
+    cli: installation.md#cli
+    producing-snapshots: installation.md#producing-snapshots
+    github-action: installation.md#github-action
+    inputs: ci.md#inputs
 recipes:
   default: adopting.md
+  anchors:
+    first-time-adoption: quickstart.md#first-time-adoption
 deep-dive:
   default: architecture.md

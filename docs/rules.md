@@ -20,8 +20,8 @@ extracted wire schema of your models at two points in time).
 - **`FORWARD`**: old code reads new data (old reader ← new writer). Can code
   still running the *old* schema decode a payload written by the *new* one?
 - **`FULL`** checks both. It's the default, and the safest choice unless you
-  control both ends of a rollout. See [Configuration → Choosing a
-  direction](configuration.md#choosing-a-direction).
+  control both ends of a rollout. See [Which direction do I
+  pick?](concepts.md#choosing-a-direction).
 
 ## The matrix
 

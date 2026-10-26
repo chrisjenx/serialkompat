@@ -2,7 +2,7 @@
 
 This page lists every option in the `serialkompat { }` block, with its default and
 what it does. For the minimal setup, see [Quick start](quickstart.md). For the CLI
-and GitHub Action, see [Setup](setup.md).
+and GitHub Action, see [Installation](installation.md).
 
 ## `serialkompat { }` reference
 
@@ -146,7 +146,7 @@ serialkompat {
    specific ref. To override it for one run without editing this file, use the
    `serialkompatCheckAgainst` task with `-Pserialkompat.ref=<ref>`.
    (`serialkompatCheck` ignores that property.)
-4. See [Choosing a direction](#choosing-a-direction) below.
+4. See [Which direction do I pick?](concepts.md#choosing-a-direction).
 5. When `false`, `BREAK` findings are reported but don't fail the build. This is
    useful for a short audit period. It isn't recommended long-term.
 6. Guards against a silent no-op. If the baseline comes back with no types (wrong
@@ -172,25 +172,9 @@ serialkompat {
 
 ## Choosing a direction
 
-`direction` tells the classifier which reader/writer pairing must keep working
-after the change. Pick it from how the schema is actually used:
-
-| Direction | Guarantees | Use when |
-|---|---|---|
-| `BACKWARD` | New code can read data written by old code | Rolling deploys — a newer service version must decode messages/events produced by instances still running the old version |
-| `FORWARD` | Old code can read data written by new code | Persisted data with slow migrations, or mixed-version consumers — an older reader (a replica, a cached job, a client that hasn't upgraded yet) must decode records a newer writer just produced |
-| `FULL` | Both | Public APIs, shared wire formats, or persisted data with no controlled rollout order — the safest default when you don't control both ends |
-
-`FULL` is the default. Keep it unless you know only one direction matters.
-
-You need `FULL` for a queue whose producers and consumers deploy independently, or
-for long-lived stored rows that code from any past version may read. A rolling
-deploy of a single service, where old instances drain within minutes, only needs
-`BACKWARD` for that window.
-
-!!! warning
-    `BACKWARD` and `FORWARD` each drop half the guarantee. Choose one deliberately,
-    never as a way to silence findings.
+`direction` is `BACKWARD`, `FORWARD` or `FULL` (the default). Concepts explains what each
+guarantees and how to pick: see
+[Which direction do I pick?](concepts.md#choosing-a-direction).
 
 ## Report formats
 
