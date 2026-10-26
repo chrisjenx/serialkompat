@@ -1,3 +1,3 @@
 # Contributing
 
-How to build, test and contribute to serialkompat.
+--8<-- "CONTRIBUTING.md:3:"

@@ -152,30 +152,9 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
     comment. To show findings on a merge request, parse
     `build/serialkompat/report.json` and post it through the GitLab MR notes API.
 
-## Build cache & configuration cache
-
-- **`serialkompatExtract` is cacheable and relocatable.** Its cache key is the
-  module's classpath plus the `types`, `discovery`, `jsonInstance`, `format`, and
-  `cborInstance` settings.
-  It contains no absolute paths. With a shared (for example remote) build cache, the
-  baseline extraction for a commit CI has already built is restored `FROM-CACHE`
-  instead of starting a new JVM, even though it runs in a git worktree at a
-  different path.
-- **The check tasks are never cached or up-to-date, on purpose.** Their result
-  depends on what the baseline ref points at *now*, which isn't a task input. The
-  expensive part, the baseline snapshot, is still reused: it is stored per commit
-  SHA and serialkompat version in `build/serialkompat/baseline/`, and benefits from
-  the extract cache above. Upgrading serialkompat re-extracts the baseline instead
-  of reusing one an older version produced.
-- **Parallel multi-module builds are safe.** Under `--parallel`, modules take turns
-  extracting their baselines through one shared build service. That avoids
-  competing git worktree operations and many nested Gradle builds starting at once.
-- All tasks support the configuration cache and Gradle's Isolated Projects mode.
-- A custom `layout.buildDirectory` is honored, including one set in the build
-  script body, and the plugin works on the root project of a single-module build.
-
 ## Next
 
 - [Configuration](configuration.md) — the full `serialkompat { }` DSL, direction, `acceptedBreaks`.
 - [Rules](rules.md) — every rule the classifier can raise.
 - [Report formats](report-formats.md) — JSON schema, SARIF, and the inline annotations.
+- [Baseline & caching](baseline-caching.md#build-cache-configuration-cache) — build cache, configuration cache and `--parallel`.

@@ -18,3 +18,13 @@ recipes:
     first-time-adoption: quickstart.md#first-time-adoption
 deep-dive:
   default: architecture.md
+  anchors:
+    architecture: architecture.md#under-the-hood
+    extraction: architecture.md#extraction
+    when-a-type-cant-be-analysed: limitations.md#when-a-type-cant-be-analysed
+    classification-and-the-oracle: oracle.md#how-a-rule-is-proven
+    the-git-ref-baseline: baseline-caching.md#the-git-ref-baseline
+    caching: baseline-caching.md#caching
+    robustness: baseline-caching.md#robustness
+    further-reading: architecture.md#further-reading
+    next: architecture.md#next

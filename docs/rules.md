@@ -2,7 +2,7 @@
 
 This page lists every rule the classifier applies. Each rule decides how serious
 one kind of change is, in each direction, under your `Json { }` config. The rules
-run on every change the [Differ](deep-dive.md) finds between two snapshots (the
+run on every change the [differ](architecture.md#the-diff) finds between two snapshots (the
 extracted wire schema of your models at two points in time).
 
 ## Severity
@@ -112,7 +112,7 @@ change is inert. `CBOR_ARRAY_OMITTED_DEFAULT` is, like `DISCRIMINATOR_COLLISION`
 
 Each rule below shows the change as a diff, what happens on the wire in each
 direction, and a link to the oracle test that proves the verdict against real
-kotlinx-serialization. Only some rules have a worked example so far; the matrix
+kotlinx-serialization (see [The oracle](oracle.md)). Only some rules have a worked example so far; the matrix
 links the ones that do. Progress is tracked in
 [#119](https://github.com/chrisjenx/serialkompat/issues/119).
 
@@ -287,32 +287,3 @@ same under CBOR; the other settings below are JSON-only:
 | `allowStructuredMapKeys` | `false` | Toggling it is `CONFIG_STRUCTURED_MAP_KEYS`. A reader without it rejects maps with non-primitive keys, so it's a `BREAK` on the side that lacks it: backward if disabled, forward if enabled. |
 | `allowSpecialFloatingPointValues` | `false` | Toggling it is `CONFIG_SPECIAL_FLOATS`. A reader without it rejects `NaN` and `Infinity`, so it's a `WARN` (only payloads carrying those values fail) on the side that lacks it: backward if disabled, forward if enabled. |
 | `isLenient`, `decodeEnumsCaseInsensitive`, `allowTrailingComma`, `allowComments` | `false` | Reader-only. kotlinx writes the same bytes either way, but turning one off makes the new reader reject input the old one accepted (for example from a non-kotlinx producer). That is a `CONFIG_READER_STRICTNESS` `WARN` backward; turning one on is `SAFE`. |
-
-## The oracle guarantee
-
-Every rule above is backed by a round-trip oracle test. The test serializes a
-payload with the old model and decodes it with the new one (and the reverse), using
-real kotlinx-serialization under the declared `Json` config. It then checks that
-the classifier predicted what actually happened. The rules come from the library's
-real runtime behavior, config by config, not from reading its source or spec.
-
-`COVERAGE_GAP` is where that guarantee shows. When the extractor can't fully
-analyse a type, it records it as `OPAQUE` and never guesses `SAFE`. It reports a
-`WARN` and asks you to look. Unanalysable is never treated as compatible.
-
-A type that was `OPAQUE` in the baseline and is analysed now gets the same `WARN`,
-not a `CONTRACT_REMOVED`. The old shape was never seen, so the change can't be
-verified either way. [Deep dive](deep-dive.md#when-a-type-cant-be-analysed) lists
-what makes a type opaque.
-
-## Keeping this page in sync
-
-The matrix is hand-written, and two build gates keep it honest:
-
-- `checkRulesDoc` fails the build if any rule the classifier ships is missing
-  from this page.
-- `checkRulesProof` fails the build if a **Proof** link cites an oracle test that
-  doesn't exist.
-
-Not every rule has a [Rule reference](#rule-reference) section yet. Once they all
-do, `checkRulesProof` will also fail if a rule ships without one.

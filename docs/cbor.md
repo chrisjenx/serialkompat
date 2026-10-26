@@ -56,7 +56,7 @@ serialkompat {
 ### Adopting CBOR
 
 The baseline is extracted on `baselineRef` with *its* configuration (see
-[Deep dive](deep-dive.md)). On the change that sets `format = CBOR`, the baseline is
+[Baseline & caching](baseline-caching.md#the-git-ref-baseline)). On the change that sets `format = CBOR`, the baseline is
 still a JSON snapshot. Snapshots of different formats aren't compared, so that run
 reports a single `CONFIG_FORMAT` warning, and the gate starts comparing CBOR on the next
 change.

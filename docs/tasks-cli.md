@@ -20,7 +20,7 @@ is skipped, so applying the plugin never breaks `check` on its own.
 The plugin supports the configuration cache, `--parallel`, and Isolated Projects.
 `serialkompatExtract` is build-cacheable and relocatable. The check tasks are never
 cached, on purpose. See
-[CI setup → Build cache & configuration cache](ci.md#build-cache-configuration-cache).
+[Baseline & caching → Build cache & configuration cache](baseline-caching.md#build-cache-configuration-cache).
 
 ## CLI { #cli }
 

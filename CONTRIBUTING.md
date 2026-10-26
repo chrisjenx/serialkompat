@@ -4,7 +4,7 @@ Thanks for your interest! This project is built **in the open, test-first, one r
 
 ## Ground rules
 
-- Be kind. See the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Be kind. See the [Code of Conduct](https://github.com/chrisjenx/serialkompat/blob/main/CODE_OF_CONDUCT.md).
 - Every change lands via a pull request against `main`, with CI green.
 - One logical change per PR. Small, reviewable PRs merge faster.
 - Most work is tracked in [issues](https://github.com/chrisjenx/serialkompat/issues). If you want to work on something, comment on the issue (or open one) first so we don't duplicate effort.
@@ -43,6 +43,13 @@ build/docs-venv/bin/mkdocs serve   # live-reload at http://127.0.0.1:8000
 
 The `Docs` workflow runs `mkdocs build --strict` on any PR touching `docs/**`, `mkdocs.yml`, `requirements-docs.txt`, or `main.py` (the version macro). Broken links, broken nav, or a page missing from the nav fail the PR.
 
+The rule matrix in `docs/rules.md` is hand-written, and two build gates keep it honest:
+
+- `checkRulesDoc` fails the build if any rule the classifier ships (a `Rules.*` constant) is missing from `docs/rules.md`.
+- `checkRulesProof` fails the build if a **Proof** link there cites an oracle test that doesn't exist.
+
+Not every rule has a section under the page's [Rule reference](https://chrisjenx.github.io/serialkompat/rules/#rule-reference) yet. Once they all do, `checkRulesProof` will also fail if a rule ships without one.
+
 ## Before you push
 
 Run the full local gate. CI runs the same `build`, plus the secret scan and (for docs changes) the strict docs build:
@@ -53,7 +60,7 @@ Run the full local gate. CI runs the same `build`, plus the secret scan and (for
 
 - **Formatting** is enforced by Spotless + ktlint. `spotlessApply` fixes most issues.
 - **Public API stability** is enforced by [binary-compatibility-validator](https://github.com/Kotlin/binary-compatibility-validator). If you intentionally change a module's public API, run `./gradlew apiDump` and commit the updated `*.api` file. The diff is part of your PR review. Run `apiDump` and `apiCheck` as separate Gradle invocations; `./gradlew apiDump apiCheck` fails with a validation error.
-- **Rules docs** are gated too. `checkRulesDoc` fails if a `Rules.*` constant has no row in `docs/rules.md`, and `checkRulesProof` fails if a proof link there cites a missing oracle test. Add the docs row when you add a rule.
+- **Rules docs** are gated too (`checkRulesDoc`, `checkRulesProof`; see [Docs site](#docs-site)). Add the docs row when you add a rule.
 - **`serialkompat-annotations`** is Kotlin Multiplatform with Apple targets, which only build on macOS. On Linux they are skipped silently, so a green Linux build doesn't prove that module; CI builds it on a separate macOS job.
 - **Coverage** is reported by Kover.
 - **Secrets** are scanned by [gitleaks](https://github.com/gitleaks/gitleaks). CI runs it over the full history (`Secret Scan` workflow). To catch a secret before it is ever committed, enable the pre-commit hook once: `pip install pre-commit && pre-commit install`. Never commit credentials or signing keys; publishing secrets live only in CI secrets.
@@ -75,7 +82,7 @@ Use clear, imperative subject lines (e.g. `Add DISCRIMINATOR_COLLISION rule`). R
 - Fill in the PR template.
 - Link the issue the PR closes.
 - Ensure CI is green and the branch is up to date with `main`.
-- Expect review focused on correctness, test quality, and adherence to the [design](docs/design).
+- Expect review focused on correctness, test quality, and adherence to the [design](https://github.com/chrisjenx/serialkompat/tree/main/docs/design).
 
 ## Project layout
 
@@ -87,8 +94,8 @@ Use clear, imperative subject lines (e.g. `Add DISCRIMINATOR_COLLISION rule`). R
 | `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` CLI. Not published; no tracked API. |
 | `serialkompat-annotations` | `@SerialkompatIgnore` / `@SerialkompatChecked` discovery markers (Kotlin Multiplatform). |
 
-The authoritative design lives in [`docs/design`](docs/design). If a change deviates from the design, say so in the PR and we'll update the design together.
+The authoritative design lives in [`docs/design`](https://github.com/chrisjenx/serialkompat/tree/main/docs/design). If a change deviates from the design, say so in the PR and we'll update the design together.
 
 ## Licensing of contributions
 
-By contributing, you agree that your contributions are licensed under the [Apache License 2.0](LICENSE), the same license as the project.
+By contributing, you agree that your contributions are licensed under the [Apache License 2.0](https://github.com/chrisjenx/serialkompat/blob/main/LICENSE), the same license as the project.
