@@ -87,6 +87,10 @@ and modern".
 - **Removed pages get redirects.** `setup.md`, `recipes.md` and `deep-dive.md` are
   retired. Add `mkdocs-redirects` (pin it in `requirements-docs.txt`) with an entry for
   every retired page, pointing at the page that now holds most of its content.
+  - *As built:* no redirects plugin. Each retired page is a stub whose `redirect_stub` macro
+    (`main.py`) renders from `docs/redirects.yml` (old anchor → new page and anchor, plus a
+    default), and
+    `scripts/check_docs_site.py` checks every stub and target anchor in the built site.
   - Where an old anchor is well known, keep the same anchor id on the new home using
     `{ #id }`. Examples: `recipes.md#first-time-adoption`, `setup.md#gradle-plugin`,
     `#cli`, `#github-action`, `ci.md#build-cache-configuration-cache`.
@@ -236,6 +240,7 @@ Map every H2/H3 anchor of `setup.md`, `recipes.md` and `deep-dive.md`. That incl
 `README.md`'s `recipes/#persisted-data-horizon-multi-version-history` → `history.md`, and
 `#first-time-adoption` → `quickstart.md`. Use `mkdocs-redirects` only if it can do this;
 otherwise use the stubs alone. Check it with a local `mkdocs serve` and a few old URLs.
+*As built:* the stubs alone, from `docs/redirects.yml`, checked by `check_docs_site.py`.
 
 **One home per topic.** The builder removes the duplicates the audit found and replaces
 them with links:
@@ -376,6 +381,8 @@ closes it.
    - The output goes to committed golden files under `docs/snippets/reports/`.
    - The test fails when the output differs from the committed files. It rewrites them
      when run with a documented update switch (system property or Gradle `-P`).
+     *As built:* `DocsReportSamplesTest`, regenerated with
+     `./gradlew :serialkompat-core:test -Pserialkompat.updateDocs=true`.
    - Pages embed these files, which fixes the stale SARIF example permanently. Pin or
      omit the tool version so output is deterministic; under TestKit `toolVersion` is
      already null.
@@ -388,9 +395,13 @@ closes it.
      missing from `tasks-cli.md`;
    - a CLI flag is missing from `tasks-cli.md`.
 
-   Hook it on `check`.
+   Hook it on `check`. *As built:* it matches exact backticked tokens (`` `name` ``), with
+   nested DSL members as dotted paths (`history.dir`, `reports.json.required`) and
+   properties and flags as `` `-P<name>=`` or `` `--flag` ``; a bare substring doesn't count.
 4. **The existing gates stay:** `checkRulesDoc`, `checkRulesProof` (now enforcing),
-   `{{ skversion }}`, and the `CHANGELOG.md` include.
+   `{{ skversion }}`, and the `CHANGELOG.md` include. *As built:* `checkRulesProof` fails
+   unless every rule has a `` ### `RULE_ID` `` section with a **Proof** line citing a test
+   that is declared in the file its link points at.
 
 ## Decided: README and agents
 
@@ -414,6 +425,7 @@ closes it.
     Give every page a one-line description; this is the plugin's sections config.
   - **Fallback:** if the plugin conflicts with `--strict`, `macros` or snippets, generate
     both files in a `main.py` `on_post_build` hook from the built Markdown sources.
+    *As built:* the `mkdocs-llmstxt` plugin works with all three; no fallback was needed.
   - Either way they're published at the site root, and `--strict` stays green.
 - **Every page opens with a one or two sentence "what this page is for / who it's for"**
   and leads with the task. That also gives agents a summary.
@@ -472,7 +484,8 @@ Each PR passes `./gradlew build` and `mkdocs build --strict`, and is one logical
      exit codes and CLI flags). The site deploys on every merge, so no topic may be left
      without its home between PRs (*my call*). PR 3 completes these pages;
    - de-duplication, stale fixes, terminology;
-   - `mkdocs-redirects` and all cross-link updates;
+   - `mkdocs-redirects` and all cross-link updates (*as built:* redirect stubs from
+     `docs/redirects.yml`, no plugin);
    - the `docs.yml` paths and CLAUDE.md CI line.
 3. **New pages:** Got a BREAK?, Tasks & CLI, Limitations, Troubleshooting & FAQ, and the
    Installation KMP/Android and multi-module sections.

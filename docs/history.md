@@ -46,6 +46,9 @@ serialkompat: 2 active finding(s) (2 breaking, 0 warning), 0 acknowledged
     fix: Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.
 ```
 
+`(backward)` and `(forward)` name the direction that breaks; see
+[Backward vs forward](concepts.md#backward-vs-forward).
+
 The history check writes its report to `build/serialkompat/report-history.json` (and
 `report-history.sarif` if SARIF is on). It is kept separate from the pairwise `report.json`,
 so you always know which check produced which report.

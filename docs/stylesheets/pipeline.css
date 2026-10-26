@@ -16,7 +16,11 @@
  * --sk-accent-solid #15803d is the fixed fill for buttons: white text on it
  * is 5.02:1 in both schemes (the dark-scheme accent is too light for white text).
  *
- * Terminal colours are deliberately fixed in both schemes (see .sk-terminal).
+ * Terminal colours are deliberately fixed in both schemes (see .sk-terminal),
+ * measured against --sk-term-bg #1a1e26:
+ *   --sk-term-fg     #d8dee9  12.36:1
+ *   --sk-term-break  #ff6b6b   6.02:1
+ *   --sk-term-warn   #fbbf24  10.00:1
  */
 
 :root,
@@ -35,6 +39,7 @@
   --sk-term-label: #7b8496;
   --sk-term-prompt: #28c840;
   --sk-term-break: #ff6b6b;
+  --sk-term-warn: #fbbf24;
   --sk-term-dot-close: #ff5f57;
   --sk-term-dot-min: #febc2e;
   --sk-term-dot-max: #28c840;
@@ -92,8 +97,7 @@
   box-shadow: inset 0 -2px 0 var(--sk-accent);
 }
 
-.md-search__form:focus-within,
-.md-search__input:focus {
+.md-search__form:focus-within {
   outline: 2px solid var(--sk-accent);
   outline-offset: 1px;
 }
@@ -290,56 +294,6 @@
   color: var(--md-default-fg-color--light);
 }
 
-/* Vertical connector between the diff and the terminal: a rule with a
-   traveling pulse (the diff "flowing into" the gate) and an arrowhead. */
-.sk-hero-flow {
-  position: relative;
-  width: 2px;
-  height: 2rem;
-  margin: 0.4rem auto;
-  background: var(--sk-border);
-}
-
-.sk-hero-flow::before {
-  content: "";
-  position: absolute;
-  bottom: -2px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 6px solid var(--sk-border);
-}
-
-.sk-hero-flow span {
-  position: absolute;
-  top: -20%;
-  left: 50%;
-  width: 4px;
-  height: 30%;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: var(--sk-accent);
-  animation: sk-hero-drop 1.8s ease-in-out infinite;
-}
-
-@keyframes sk-hero-drop {
-  0% {
-    top: -30%;
-    opacity: 0;
-  }
-  20% {
-    opacity: 1;
-  }
-  80% {
-    opacity: 1;
-  }
-  100% {
-    top: 100%;
-    opacity: 0;
-  }
-}
-
 /* The terminal window. Deliberately dark in both color schemes — it reads
    as a terminal, and the fixed palette keeps contrast identical under
    Material's default and slate schemes. */
@@ -420,16 +374,13 @@
   font-weight: 700;
 }
 
-.sk-t-dim {
-  color: var(--sk-term-dim);
+.sk-t-warn {
+  color: var(--sk-term-warn);
+  font-weight: 700;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sk-hero-flow span {
-    animation: none;
-    top: 35%;
-    opacity: 1;
-  }
+.sk-t-dim {
+  color: var(--sk-term-dim);
 }
 
 /*
@@ -499,7 +450,8 @@
   }
 }
 
-/* Three short cards fit one row at content width; Material's default 15rem
+/* Intentionally site-wide: every .grid.cards block uses this narrower minimum.
+   Three short cards fit one row at content width; Material's default 15rem
    minimum would leave an orphan on the second row. */
 .md-typeset .grid.cards {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));

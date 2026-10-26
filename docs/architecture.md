@@ -184,7 +184,7 @@ serialkompat reports it as a `WARN` instead of passing it:
 <div class="sk-terminal-bar"><i></i><i></i><i></i><b>CI</b></div>
 <pre><code>serialkompat: 1 active finding(s) (0 breaking, 1 warning), 0 acknowledged
 
-  <b>WARN</b>  PROPERTY_REMOVED  com.example.Order  (backward)
+  <span class="sk-t-warn">WARN</span>  PROPERTY_REMOVED  com.example.Order  (backward)
     field 'note' was removed from com.example.Order
     <span class="sk-t-dim">fix: Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.</span></code></pre>
 </div>
@@ -201,8 +201,10 @@ decodes it with the new one (and the reverse) using the real library under the d
 config, and checks that every real failure was predicted as a `BREAK`. For
 `PROPERTY_REMOVED` that's the `removing an optional field` test in
 [`RoundTripOracleTest.kt`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt).
-A second test there, `a field rename silently loses data under a lenient reader`, proves
-the `ignoreUnknownKeys = true` case really drops data and is flagged as a `WARN`. See [The oracle](oracle.md) for how this works and what it covers.
+A second test there,
+`a field rename silently loses data under a lenient reader — flagged at least WARN`,
+proves the `ignoreUnknownKeys = true` case really drops data and is flagged as a `WARN`.
+See [The oracle](oracle.md) for how this works and what it covers.
 
 ## Under the hood { #under-the-hood }
 
