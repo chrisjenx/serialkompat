@@ -56,7 +56,9 @@ the gap, give serialkompat what it needs:
 - **Generic type with several instantiations:** check a concrete wrapper type per
   instantiation until type arguments are part of a contract's identity.
 
-A hand-written `KSerializer` is also opaque, for JSON and CBOR alike. If a type can't be
+A hand-written `KSerializer` whose descriptor the extractor can't see into, such as a custom
+primitive (`PrimitiveSerialDescriptor("Money", PrimitiveKind.STRING)`), is also opaque, for
+JSON and CBOR alike. If a type can't be
 made analysable, record that decision by adding the `COVERAGE_GAP` to
 [`acceptedBreaks`](got-a-break.md#accept-it) like any finding.
 

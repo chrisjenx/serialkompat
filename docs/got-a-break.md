@@ -10,7 +10,7 @@ it names the type, the rule, the direction and a `fix:` line.
 flowchart TD
     A[BREAK on your PR] --> B{Was the change intended?}
     B -- No --> F[Fix the model]
-    B -- Yes --> C{Is it a rename?}
+    B -- Yes --> C{Is it a type rename?}
     C -- Yes --> R[Declare a rename]
     C -- No --> D{Does any reader or stored data still depend on the old shape?}
     D -- Yes --> M[Bump the major version, then accept the break]
@@ -29,7 +29,7 @@ flowchart TD
 
 - **[Declare a rename](#declare-a-rename)**
 
-    A type or property moved. Say so, and it stops reading as remove plus add.
+    A type's serial name moved. Declare it, and it stops reading as remove plus add. A renamed property is still accepted by hand.
 
 - **[Bump major](#bump-major)**
 
@@ -45,13 +45,14 @@ grouped by what changed. Every rule, in both directions, is in [the matrix](rule
 | What changed | Usual fix | Rules |
 |---|---|---|
 | **Fields** | | |
-| A required field was added | Give it a default, or make it nullable with a default | [`PROPERTY_ADDED`](rules.md#property_added) |
+| A required field was added | Give it a default, or make it nullable with `explicitNulls = false`. Readers should set `ignoreUnknownKeys` (forward). In CBOR only a default works | [`PROPERTY_ADDED`](rules.md#property_added) |
 | A field was removed | Keep it (deprecate it in code) until no reader or stored data uses it | [`PROPERTY_REMOVED`](rules.md#property_removed) |
-| An optional field became required, or the reverse | Keep optionality, or annotate with `@EncodeDefault(ALWAYS)` (or set `encodeDefaults = true`) so the writer always emits it | `PROPERTY_OPTIONALITY` |
+| A field became required | Keep a default so older payloads still decode | `PROPERTY_OPTIONALITY` |
+| A field became optional | Annotate it `@EncodeDefault(ALWAYS)`, set `encodeDefaults = true` on the writer, or keep it required | `PROPERTY_OPTIONALITY` |
 | A field's nullability changed | Keep it nullable, or introduce a new field | `PROPERTY_NULLABILITY` |
 | A field's type changed | Introduce a new field instead of changing the type | `PROPERTY_TYPE_CHANGED` |
 | **Enums** | | |
-| A value was added | Enable `coerceInputValues` on the reader and give the reading field a default | [`ENUM_VALUE_ADDED`](rules.md#enum_value_added) |
+| A value was added | JSON: enable `coerceInputValues` and give the reading field a default. CBOR never coerces: ship the reader first, or bump major | [`ENUM_VALUE_ADDED`](rules.md#enum_value_added) |
 | A value was removed | Keep the value (deprecated) until no persisted or old data uses it | `ENUM_VALUE_REMOVED` |
 | **Polymorphism** | | |
 | A subtype was added | Register a default deserializer on old readers, or bump major | `SUBTYPE_ADDED` |
@@ -119,7 +120,8 @@ and keeps them in a separate count, so an accepted break stays visible.
 
 ## Declare a rename { #declare-a-rename }
 
-A rename reads as a removal plus an addition unless you declare it.
+A type rename reads as a removal plus an addition unless you declare it. A property rename
+can't be declared: serialkompat doesn't pair a removed property with an added one.
 
 - **A type's serial name changed:** declare it in `renames`. serialkompat then compares the
   two types' contents instead of reporting `CONTRACT_REMOVED`.
@@ -130,15 +132,25 @@ A rename reads as a removal plus an addition unless you declare it.
     }
     ```
 
-- **A property was renamed (JSON):** keep the old name readable with `@JsonNames`, so new code
-  still decodes old payloads.
+- **A property was renamed (JSON):** `renames` is for types only. Keep the old name readable
+  with `@JsonNames`, so new code still decodes old payloads.
 
     ```kotlin
+    import kotlinx.serialization.ExperimentalSerializationApi
+    import kotlinx.serialization.Serializable
+    import kotlinx.serialization.json.JsonNames
+
+    @OptIn(ExperimentalSerializationApi::class)
     @Serializable
     data class Order(
         @JsonNames("note") val memo: String? = null,
     )
     ```
+
+  The gate still reports the old name as `PROPERTY_REMOVED` and the new one as
+  `PROPERTY_ADDED`, because it doesn't pair them. Once you've confirmed the alias covers
+  your data, [accept](#accept-it) whichever of those the report fails, for example
+  `"com.example.wire.Order PROPERTY_REMOVED BACKWARD"`.
 
   CBOR has no such bridge: `@JsonNames` is ignored, and a renamed field is a remove plus an
   add. See [CBOR](cbor.md).
