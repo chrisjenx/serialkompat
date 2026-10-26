@@ -257,10 +257,16 @@ val checkDocsReference = tasks.register("checkDocsReference") {
         val repText = dslFiles[2].asFile.readText()
         val formats = funRe.findAll(repText).map { it.groupValues[1] }.toList()
         val repMembers = valRe.findAll(repText).map { it.groupValues[1] }.toList()
+        val histMembers = valRe.findAll(histText).map { it.groupValues[1] }.toList()
+        // Fail closed: a reformatted sub-block file must not silently drop its rows from the gate.
+        require(formats.isNotEmpty() && repMembers.isNotEmpty()) {
+            "checkDocsReference: found no reports{} formats/members — regex/paths wrong?"
+        }
+        require(histMembers.isNotEmpty()) { "checkDocsReference: found no history{} members — regex/paths wrong?" }
         val dsl = (
             valRe.findAll(extText).map { it.groupValues[1] } +
                 funRe.findAll(extText).map { it.groupValues[1] } +
-                valRe.findAll(histText).map { "history.${it.groupValues[1]}" } +
+                histMembers.map { "history.$it" } +
                 formats.flatMap { f -> repMembers.map { m -> "reports.$f.$m" } }
             ).distinct().toList()
         require(dsl.isNotEmpty()) { "checkDocsReference: found no DSL members — regex/paths wrong?" }
