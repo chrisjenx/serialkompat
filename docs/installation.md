@@ -81,6 +81,39 @@ Keep `fetch-depth: 0` and `pull-requests: write`: the baseline needs full git hi
 and the sticky comment needs the permission. [CI setup](ci.md) has the inputs, the
 sticky comment, versioning (`@v0`) and other CI systems such as GitLab.
 
+## Multi-module builds { #multi-module }
+
+Apply the plugin in each module that holds `@Serializable` wire models, and configure
+`types` (or `discovery`) per module. There is no repo-wide config: each module has its own
+`types`, `baselineRef` and scope. Modules that hold no wire models can leave the plugin
+off. [Monorepos](monorepos.md#many-modules) covers scoping and `--parallel`.
+
+Two things to know:
+
+- Gradle stops at the first failing module unless you pass `--continue`. See
+  [Troubleshooting](troubleshooting.md#continue).
+- The GitHub Action's sticky comment covers one module's report. See
+  [the Action in a multi-module build](monorepos.md#the-action) and
+  [the sticky comment](ci.md#the-sticky-comment).
+
+## Kotlin Multiplatform & Android { #kmp-android }
+
+Extraction reads compiled JVM descriptors on a JVM runtime classpath, so the module must
+produce JVM classes.
+
+- **Kotlin/JVM modules:** supported. The plugin reads the module's `runtimeClasspath`.
+- **Kotlin Multiplatform with a `jvm()` target:** supported. The plugin reads
+  `jvmRuntimeClasspath` and the `jvm()` target's compiled classes. Models in `commonMain`
+  are checked because they are compiled into that target. A functional test covers
+  `OPT_OUT` discovery of `commonMain` models in such a module.
+- **KMP with no `jvm()` target** (for example JS-only or native-only): the plugin stays a
+  safe no-op and doesn't break `check`, but it checks nothing there.
+- **Android modules** (`com.android.library`, `com.android.application`): not supported
+  directly. The plugin has no Android-specific handling: it looks up only
+  `runtimeClasspath` and `jvmRuntimeClasspath`, and it isn't tested on Android. Put the
+  wire models in a JVM or KMP-`jvm()` module and apply the plugin there; the Android module
+  can depend on that module like any other.
+
 ## CLI { #cli }
 
 The CLI diffs two snapshot files without a Gradle build in the loop. Use it for

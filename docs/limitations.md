@@ -1,6 +1,10 @@
 # Limitations
 
-What serialkompat cannot analyse, what to do about it, and the known limits.
+What serialkompat cannot analyse, what to do about it, and the known limits. It is for
+anyone who sees a `COVERAGE_GAP` warning, or wonders why a type isn't being checked.
+Findings are judged per direction: [backward (new code reads old data)](concepts.md#backward-vs-forward)
+and [forward (old code reads new data)](concepts.md#backward-vs-forward). A type that can't
+be analysed can't be judged in either.
 
 ## When a type can't be analysed { #when-a-type-cant-be-analysed }
 
@@ -41,19 +45,55 @@ gap, so lost coverage stays loud.
 
 ## What to do about an opaque type { #resolving-opaque }
 
-Each opaque type shows up as a `COVERAGE_GAP` `WARN` naming it. To close the gap, give
-serialkompat what it needs:
+Each opaque type shows up as a `COVERAGE_GAP` `WARN` naming it. A warning doesn't fail the
+build, but that type isn't being checked: treat it as work to do, not as a pass. To close
+the gap, give serialkompat what it needs:
 
-- **`@Contextual` field:** register a serializer for it in the `SerializersModule` of the
-  `Json` (or `Cbor`) instance you point `jsonInstance` / `cborInstance` at, or use a type with
-  a builtin or `@Serializable` serializer.
+- **`@Contextual` field:** see [`@Contextual` resolution](#contextual-resolution).
 - **Open polymorphic base:** register its subtypes in that same module.
 - **Serializer that can't load:** put the missing class on the module's runtime classpath, or
   fix the failing static initializer.
 - **Generic type with several instantiations:** check a concrete wrapper type per
   instantiation until type arguments are part of a contract's identity.
 
-A hand-written `KSerializer` is also opaque, for JSON and CBOR alike.
+A hand-written `KSerializer` whose descriptor the extractor can't see into, such as a custom
+primitive (`PrimitiveSerialDescriptor("Money", PrimitiveKind.STRING)`), is also opaque, for
+JSON and CBOR alike. If a type can't be
+made analysable, record that decision by adding the `COVERAGE_GAP` to
+[`acceptedBreaks`](got-a-break.md#accept-it) like any finding.
+
+## `@Contextual` resolution { #contextual-resolution }
+
+Since 0.3.1, serialkompat resolves each `@Contextual` field the way the runtime does:
+
+<div class="sk-steps" markdown>
+<div class="sk-step" markdown>
+<span class="sk-step-n">1</span>
+**The module entry.** It looks the type up in the `SerializersModule` of the `Json` (or
+`Cbor`) instance you point `jsonInstance` / `cborInstance` at.
+</div>
+<div class="sk-step" markdown>
+<span class="sk-step-n">2</span>
+**The compiler's fallback.** If the module has no entry, it uses the serializer the compiler
+captured: a builtin such as `kotlin.time.Instant`, or the class's own `@Serializable`
+serializer.
+</div>
+<div class="sk-step" markdown>
+<span class="sk-step-n">3</span>
+**Neither:** the field is `OPAQUE` and reported as a `COVERAGE_GAP`. A real encode would
+throw here too.
+</div>
+</div>
+
+Because the module entry wins, swapping a registered contextual serializer is a
+`PROPERTY_TYPE_CHANGED` `BREAK`, not a warning.
+
+!!! note "Upgrading from 0.3.0 or earlier"
+    Expect one `COVERAGE_GAP` `WARN` for each `@Contextual` field that is now resolved, the
+    first time you check against a baseline recorded by 0.3.0 or earlier. That baseline has
+    no analysed shape to compare with, so the warning replaces a false type change or
+    removal. It clears once the baseline is recorded by 0.3.1 or later. See the
+    [changelog](changelog.md).
 
 ## Known limits { #known-limits }
 
