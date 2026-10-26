@@ -2448,6 +2448,7 @@ class RoundTripOracleTest {
     @Test
     fun `CONFIG_DISCRIMINATOR - a changed classDiscriminatorMode is a BREAK both ways`() {
         // NONE stops writing the discriminator, so an old polymorphic reader can't resolve the subtype.
+        // Only that forward throw is observed; the backward BREAK is a deliberate (sound) over-prediction.
         val none = Json { classDiscriminatorMode = ClassDiscriminatorMode.NONE }
         assertEquals(Outcome.THREW, roundTrip(none, serializer<Poly>(), Poly.A(1), strict, serializer<Poly>()))
         assertConfigOracle(serializer<Poly>(), Poly.A(1), oldJson = strict, newJson = none)
