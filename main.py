@@ -75,7 +75,8 @@ def _redirect_stub(page):
     links = "".join(f'<li><a href="{html.escape(t)}">{html.escape(t)}</a></li>' for t in targets)
     script = (
         f"var m={data};"
-        "var h=decodeURIComponent(location.hash.slice(1));"
+        "var h=location.hash.slice(1);"
+        "try{h=decodeURIComponent(h)}catch(e){}"
         "location.replace(Object.prototype.hasOwnProperty.call(m.anchors,h)?m.anchors[h]:m.default);"
     )
     # No blank lines: Markdown must treat the whole thing as one raw HTML block.
@@ -83,7 +84,7 @@ def _redirect_stub(page):
         '<div class="redirect-stub">'
         '<meta name="robots" content="noindex">'
         f"<script>{script}</script>"
-        f"<p>This page has moved.</p><noscript><ul>{links}</ul></noscript>"
+        f"<p>This page has moved.</p><ul>{links}</ul>"
         "</div>"
     )
 

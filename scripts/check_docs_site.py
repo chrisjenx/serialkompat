@@ -38,7 +38,7 @@ def main(argv):
         html = html_of(md)
         if html is None:
             problems.append(f"{md}: target page missing (from {origin})")
-        elif anchor and not re.search(r'\bid=["\']%s["\']' % re.escape(anchor), html):
+        elif anchor and not re.search(r'(?<![\w-])id=["\']%s["\']' % re.escape(anchor), html):
             problems.append(f"{target}: target anchor missing (from {origin})")
 
     for stem, entry in redirects.items():
