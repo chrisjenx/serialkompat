@@ -36,7 +36,7 @@ CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport -x :serialk
 | `serialkompat-gradle` | The Gradle plugin (`serialkompatCheck`) | `java-gradle-plugin`. |
 | `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` (non-Gradle / cross-repo) | Application; excluded from `apiCheck`. |
 | `serialkompat-annotations` | `@SerialkompatIgnore` / `@SerialkompatChecked` discovery markers | **Kotlin Multiplatform** (only KMP module). `explicitApi()`. `RUNTIME` retention so the extractor scanner reads them from bytecode. |
-| `docs-samples` | The Kotlin models and `serialkompat { }` snippets the docs site embeds (`--8<--` regions) | Unpublished. Compiled + tested by `./gradlew build`; `snippets/*.gradle.kts` are applied by `DocsSnippetsFunctionalTest`. Excluded from `apiCheck`. |
+| `docs-samples` | The Kotlin models and `serialkompat { }` snippets the docs site embeds (`--8<--` regions) | Unpublished. Compiled + tested by `./gradlew build`; `snippets/*.gradle.kts` are applied by `DocsSnippetsFunctionalTest` (`help` only: checks DSL names/types, not execution-time value syntax such as `acceptedBreaks` strings). Excluded from `apiCheck`. |
 
 Keep the diff/classify engine (`-core`) decoupled from extraction and from where baselines come from — that decoupling is load-bearing (see design §3).
 

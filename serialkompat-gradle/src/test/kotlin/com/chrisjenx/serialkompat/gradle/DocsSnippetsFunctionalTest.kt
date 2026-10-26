@@ -12,7 +12,9 @@ import kotlin.test.assertTrue
  * renamed or removed DSL property fails the build instead of silently rotting in the docs.
  *
  * `help` only configures the project; extraction never runs, so the type names in the
- * snippets don't need to exist.
+ * snippets don't need to exist. That also means this validates DSL names and types only, not
+ * values checked at execution time (e.g. `acceptedBreaks` string syntax, or `cborInstance`
+ * set under `JSON`).
  */
 class DocsSnippetsFunctionalTest {
     private val snippetsDir = File(requireNotNull(System.getProperty("serialkompat.docsSnippetsDir")))

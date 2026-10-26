@@ -106,14 +106,7 @@ By default the report is written to `build/serialkompat/report.json`. To move or
 disable it:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-  reports {
-    json {
-      required.set(true)                                  // default
-      outputLocation.set(layout.buildDirectory.file("serialkompat/report.json"))
-    }
-  }
-}
+--8<-- "docs-samples/snippets/report-formats-json.gradle.kts"
 ```
 
 From the CLI, `--format=json` writes it to stdout.
@@ -124,11 +117,7 @@ SARIF 2.1.0 output is for **IDEs and third-party SARIF dashboards**. It's off by
 default. To enable it:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-  reports {
-    sarif { required.set(true) }                          // off by default -> report.sarif
-  }
-}
+--8<-- "docs-samples/snippets/report-formats-sarif.gradle.kts"
 ```
 
 or `--format=sarif` from the CLI.

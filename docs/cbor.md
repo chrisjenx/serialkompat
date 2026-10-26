@@ -39,7 +39,7 @@ modules. The module that owns the cache, with `kotlinx-serialization-cbor` on it
 classpath, can name the cached types in `types` even when another module defines them:
 
 ```kotlin title="storage/build.gradle.kts"
---8<-- "docs-samples/snippets/cbor-storage.gradle.kts:config"
+--8<-- "docs-samples/snippets/cbor-storage.gradle.kts"
 ```
 
 ## Adopting CBOR { #adopting-cbor }
