@@ -8,7 +8,7 @@ means, see [Got a BREAK?](got-a-break.md); for exit codes and flags, see
 Quoted messages are copied from the source. Where an entry has no message of its own
 (the failure is Gradle's, git's or GitHub's), it says so and describes what you'll see.
 
-### The baseline extraction fails on the first PR { #first-pr }
+## The baseline extraction fails on the first PR { #first-pr }
 
 **Symptom:** The check fails on the PR that adds the plugin, with one of:
 
@@ -30,7 +30,7 @@ it shows why) or skips extraction and writes no snapshot (the second).
 [Quick start → Your first PR](quickstart.md#first-time-adoption), which also covers the
 variants of this failure.
 
-### Shallow clone, or the baseline ref can't be found { #shallow-clone }
+## Shallow clone, or the baseline ref can't be found { #shallow-clone }
 
 **Symptom:** The check fails before extracting anything, with either of:
 
@@ -54,7 +54,7 @@ the ref (typically `origin/main`) at all, so there is nothing to resolve.
 [CI setup](ci.md). If the ref has a different name, set `baselineRef` or pass
 `-Pserialkompat.ref=<ref>`.
 
-### `jsonInstance` / `cborInstance` fails to load { #instance-fails }
+## `jsonInstance` / `cborInstance` fails to load { #instance-fails }
 
 **Symptom:** `serialkompatExtract` fails with:
 
@@ -81,7 +81,7 @@ different module, or the member not being a `Json`.
 name in step if you move it. The option is described in
 [Configuration](configuration.md#serialkompat-reference).
 
-### Every task was skipped { #all-skipped }
+## Every task was skipped { #all-skipped }
 
 **Symptom:** `serialkompatCheck` and the other tasks show as `SKIPPED` and nothing is
 checked. There is no serialkompat message; Gradle prints the skip.
@@ -94,7 +94,7 @@ set is a deliberate no-op.
 [Adopting gradually](adopting.md#discovery-modes). A module with neither will stay
 skipped, which is correct for modules that hold no wire models.
 
-### The baseline is empty { #empty-baseline }
+## The baseline is empty { #empty-baseline }
 
 **Symptom:** The check fails and the console starts with:
 
@@ -114,7 +114,7 @@ that one change and remove it afterwards. See
 [Quick start](quickstart.md#first-time-adoption). The CLI equivalent is
 `--allow-empty-baseline`.
 
-### A `COVERAGE_GAP` warning after upgrading to 0.3.1 { #coverage-gap-0-3-1 }
+## A `COVERAGE_GAP` warning after upgrading to 0.3.1 { #coverage-gap-0-3-1 }
 
 **Symptom:** After upgrading to 0.3.1, a check against a baseline recorded by 0.3.0 or
 earlier reports a `COVERAGE_GAP` `WARN` for fields marked `@Contextual`. There is no
@@ -130,7 +130,7 @@ baseline is recorded by the new version and compares fully. If a `@Contextual` f
 still reported after that, it has no module entry and no fallback serializer; see
 [`@Contextual` resolution](limitations.md#contextual-resolution).
 
-### The first run is slow { #slow-first-run }
+## The first run is slow { #slow-first-run }
 
 **Symptom:** The first check on a commit takes much longer than later ones. No message.
 
@@ -143,7 +143,7 @@ CI, keep Gradle's own caches (and the build cache, since `serialkompatExtract` i
 cacheable) between runs. After a serialkompat upgrade the baseline is re-extracted once.
 See [Baseline & caching](baseline-caching.md#caching).
 
-### The sticky comment fails with a 403 { #sticky-comment-403 }
+## The sticky comment fails with a 403 { #sticky-comment-403 }
 
 **Symptom:** The Action step that posts the pull-request comment fails with an HTTP 403
 from GitHub. The message is GitHub's, not serialkompat's, and the compatibility check
@@ -155,7 +155,7 @@ lacks the permission.
 **Fix:** Add `permissions: pull-requests: write` to the job. See
 [CI setup](ci.md) for the Action's requirements and the sticky comment.
 
-### In a multi-module build, one failing module stops the others { #continue }
+## In a multi-module build, one failing module stops the others { #continue }
 
 **Symptom:** With several modules using serialkompat, the build stops at the first
 module whose check fails, and the other modules' checks never run, so you see only one

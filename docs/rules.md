@@ -10,7 +10,7 @@ snapshots (the extracted wire schema of your models at two points in time).
 | Glyph | Severity | Meaning |
 |---|---|---|
 | ✅ | `SAFE` | No impact. The change round-trips cleanly. |
-| ⚠️ | `WARN` | Depends on config, or a silent semantic break: decode succeeds, but the data is wrong, defaulted, or dropped. No exception is thrown. |
+| ⚠️ | `WARN` | Depends on config, can't be verified (an unanalysable type), or a silent semantic break: decode succeeds, but the data is wrong, defaulted, or dropped. |
 | ❌ | `BREAK` | Decode fails. The reader throws. |
 
 ## Direction

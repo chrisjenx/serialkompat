@@ -99,8 +99,10 @@ produce JVM classes.
   `jvmRuntimeClasspath` and the `jvm()` target's compiled classes. Models in `commonMain`
   are checked because they are compiled into that target. A functional test covers
   `OPT_OUT` discovery of `commonMain` models in such a module.
-- **KMP with no `jvm()` target** (for example JS-only or native-only): the plugin stays a
-  safe no-op and doesn't break `check`, but it checks nothing there.
+- **KMP with no `jvm()` target** (for example JS-only): not supported. With no
+  serialkompat configuration the plugin is a no-op and doesn't break `check` (a functional
+  test covers a JS-only module). If you configure it there, there are no JVM classes to
+  extract. Add a `jvm()` target, or move the wire models to a module that has one.
 - **Android modules** (`com.android.library`, `com.android.application`): not supported
   directly. The plugin has no Android-specific handling: it looks up only
   `runtimeClasspath` and `jvmRuntimeClasspath`, and it isn't tested on Android. Put the

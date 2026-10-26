@@ -52,8 +52,8 @@ For example, `serialkompat diff a.snapshot b.snapshot --format=sarif > report.sa
 writes a SARIF 2.1.0 log. `--format` only changes what is printed, never the exit code.
 
 The CLI never crashes on bad input. Bad input exits `2`. An unknown flag prints an `error:`
-line plus the usage line. A missing or unreadable file or an invalid `--direction`
-prints just an `error:` line. Too few arguments print just the usage line.
+line plus the usage line. A missing or unreadable file, or a `--direction` or `--format`
+that is invalid or has no value, prints just an `error:` line. Too few arguments print just the usage line.
 `--direction` and `--format` accept either `--name=value` or `--name value`.
 
 The CLI also fails closed on an empty baseline. If the baseline file has no contracts

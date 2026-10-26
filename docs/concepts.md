@@ -86,9 +86,8 @@ Every finding has a severity.
     [Got a BREAK?](got-a-break.md).
 
 !!! warning "WARN"
-    The outcome depends on your configuration, or decoding succeeds but the data is
-    silently wrong, defaulted or dropped. No exception is thrown. A `WARN` never fails the build. Read it, and decide whether your
-    setup is affected. A type serialkompat couldn't analyse is also a `WARN`, because
+    Either the outcome depends on your configuration, or decoding succeeds but the data
+    is silently wrong, defaulted or dropped. A `WARN` never fails the build. Read it, and decide whether your setup is affected. A type serialkompat couldn't analyse is also a `WARN`, because
     unanalysable never means safe; see [Limitations](limitations.md).
 
 Breaks you have sanctioned with `acceptedBreaks` are called **accepted breaks** in these

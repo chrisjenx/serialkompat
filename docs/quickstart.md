@@ -35,9 +35,14 @@ Which failure you see on a first run depends on what the baseline ref has:
 - **No serialkompat configuration** (the usual case: the change that adds the plugin).
   The baseline extraction can't run there, so the check fails with a baseline-extraction
   error. Skip the check, as above.
-- **An explicit `types` list naming classes that don't exist there yet.** Those types
-  are recorded as unanalysable in the baseline, so the check reports them as
-  `CONTRACT_REMOVED` (`BREAK`). Skip the check, as above.
+- **An explicit `types` list (committed at `baselineRef`) naming classes that don't exist
+  there yet.** Those types are recorded as unanalysable in the baseline, so the first run
+  reports a `COVERAGE_GAP` `WARN` for each of them and passes. The warning clears once
+  `baselineRef` contains them. See
+  [When a type can't be analysed](limitations.md#when-a-type-cant-be-analysed). One exception: a type whose
+  `@SerialName` differs from its fully qualified class name is recorded under the class
+  name, so it doesn't match and is reported as `CONTRACT_REMOVED` (`BREAK`). Skip the
+  check for that run, as above.
 - **`OPT_IN` or `OPT_OUT` discovery, but no `@Serializable` types yet.** The baseline is
   empty. serialkompat treats an empty baseline as a misconfiguration by default;
   otherwise every type would look "newly added, therefore safe", and a real removal

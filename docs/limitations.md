@@ -35,7 +35,9 @@ a `COVERAGE_GAP` `WARN`, never a silent pass.
 A type that was opaque in the baseline but is analysed now (after a code change, or a
 newer serialkompat) has no old shape to compare with, so the change can't be verified
 either way. It is reported as one `COVERAGE_GAP` `WARN`, not as a removal plus an
-addition. The reverse, analysed to opaque, is still a `CONTRACT_REMOVED` `BREAK` plus the
+addition. That includes a listed type that didn't exist yet at `baselineRef`, unless its
+`@SerialName` differs from its class name (see
+[Quick start → Your first PR](quickstart.md#first-time-adoption)). The reverse, analysed to opaque, is still a `CONTRACT_REMOVED` `BREAK` plus the
 gap, so lost coverage stays loud.
 
 !!! note
