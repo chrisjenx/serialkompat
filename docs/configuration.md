@@ -30,6 +30,13 @@ and GitHub Action, see [Installation](installation.md).
 | `reports.sarif.required` | `Property<Boolean>` | `false` | Write the SARIF 2.1.0 report |
 | `reports.sarif.outputLocation` | `RegularFileProperty` | `build/serialkompat/report.sarif` | Where the SARIF report is written |
 
+Two options are nested blocks, written in the table as dotted paths:
+
+- `history` is a block holding `dir`, `sinceVersion`, `depth` and `maxAge`
+  (`history { dir.set(...) }`).
+- `reports` is a block holding the `json` and `sarif` sub-blocks, each with `required` and
+  `outputLocation` (`reports { json { required.set(true) } }`).
+
 The baseline, backward and forward are defined in [Concepts](concepts.md).
 
 The extension works with the configuration cache.
