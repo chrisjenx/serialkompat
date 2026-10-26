@@ -1,0 +1,2 @@
+::error title=PROPERTY_REMOVED::com.example.OrderEvent — field 'note' was removed from com.example.OrderEvent
+::warning title=ENUM_VALUE_ADDED::com.example.Status — enum value 'ARCHIVED' was added to com.example.Status

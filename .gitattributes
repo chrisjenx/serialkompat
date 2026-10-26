@@ -10,3 +10,6 @@
 # Binary files should be left untouched
 *.jar           binary
 
+
+# Generated docs snippets are compared byte-for-byte by tests
+docs/snippets/** text eol=lf
