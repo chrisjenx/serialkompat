@@ -3,9 +3,9 @@
 How to add serialkompat to a project: the Gradle plugin, the GitHub Action, or the
 standalone CLI. Most projects start with the Gradle plugin and add the Action in CI.
 
-The check compares your schema against a baseline in both directions: backward (new
-code reads old data) and forward (old code reads new data). See
-[Concepts](concepts.md) for what those mean.
+The check compares your schema against a baseline in both directions: [backward (new
+code reads old data)](concepts.md#backward-vs-forward) and [forward (old code reads new
+data)](concepts.md#backward-vs-forward).
 
 ## Gradle plugin { #gradle-plugin }
 

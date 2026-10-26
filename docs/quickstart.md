@@ -2,8 +2,8 @@
 
 Add the plugin, merge that first PR, then run `serialkompatCheck` and read the report.
 It takes about five minutes, and it's for any Gradle project with `@Serializable`
-models. The check covers backward (new code reads old data) and forward (old code reads
-new data) compatibility; see [Concepts](concepts.md#backward-vs-forward).
+models. The check covers [backward (new code reads old data)](concepts.md#backward-vs-forward)
+and [forward (old code reads new data)](concepts.md#backward-vs-forward) compatibility.
 
 ## 1. Your first PR { #first-time-adoption }
 
