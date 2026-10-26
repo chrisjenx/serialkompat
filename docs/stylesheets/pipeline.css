@@ -66,14 +66,17 @@
   color: #fff;
 }
 
+/* Hover darkens the fill (#166534, white text 7.13:1) rather than lightening it,
+   which would drop white text below 4.5:1. */
 .md-typeset .md-button--primary:hover,
 .md-typeset .md-button--primary:focus {
-  filter: brightness(1.1);
+  background: #166534;
+  border-color: #166534;
 }
 
 /* Material renders the logo as <img>, where currentColor cannot inherit, so the
    mark is drawn in near-black and inverted under slate. */
-[data-md-color-scheme="slate"] .md-header__button.md-logo img {
+[data-md-color-scheme="slate"] .md-logo img {
   filter: invert(1);
 }
 

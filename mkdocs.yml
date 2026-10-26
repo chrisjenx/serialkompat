@@ -8,6 +8,7 @@ edit_uri: edit/main/docs/
 # Engineering specs stay on GitHub, not in the site.
 exclude_docs: |
   design/
+  superpowers/
 
 theme:
   name: material
