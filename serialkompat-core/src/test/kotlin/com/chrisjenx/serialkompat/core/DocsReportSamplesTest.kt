@@ -82,7 +82,12 @@ class DocsReportSamplesTest {
     fun `docs report samples match the real reporters`() {
         val rendered = renderAll(report())
         assertEquals(rendered, renderAll(report()), "rendering must be deterministic")
-        val dir = File(System.getProperty("serialkompat.docsReportsDir"))
+        val dir =
+            File(
+                checkNotNull(System.getProperty("serialkompat.docsReportsDir")) {
+                    "run via Gradle: serialkompat.docsReportsDir is set by :serialkompat-core:test"
+                },
+            )
         if (System.getProperty("serialkompat.updateDocs") == "true") {
             dir.mkdirs()
             rendered.forEach { (name, text) -> File(dir, name).writeText(text) }

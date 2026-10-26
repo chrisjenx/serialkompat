@@ -16,10 +16,16 @@ changes whether the gate passes. To turn a format on, see the `reports.*` option
 Every example below renders the **same report**: three findings from one
 `serialkompatCheck` run.
 
-- An active breaking change: `PROPERTY_REMOVED` on `com.example.OrderEvent`.
-- An active warning: `ENUM_VALUE_ADDED` on `com.example.Status`.
+- An active breaking change: `PROPERTY_REMOVED` on `com.example.OrderEvent`, which
+  loses its optional `note` field.
+- An active warning: `ENUM_VALUE_ADDED` on `com.example.Status`. It is a warning, not
+  a break, because the reader config has `coerceInputValues = true` and
+  `OrderEvent` reads `Status` through a defaulted `status` field.
 - A break you acknowledged with `acceptedBreaks`: `PROPERTY_REMOVED` on
-  `com.example.LegacyPing`.
+  `com.example.LegacyPing`, which loses its optional `seq` field.
+
+The JSON and SARIF outputs sort findings by contract, so `LegacyPing` comes first
+there.
 
 Compare the renderings to see what each format keeps.
 
