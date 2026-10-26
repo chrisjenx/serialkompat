@@ -72,13 +72,16 @@ Details: [Architecture](https://chrisjenx.github.io/serialkompat/architecture/).
 | | |
 |---|---|
 | [Quick start](https://chrisjenx.github.io/serialkompat/quickstart/) | Add the plugin, merge, read the report |
+| [Installation](https://chrisjenx.github.io/serialkompat/installation/) | Multi-module, KMP, and the standalone CLI |
 | [GitHub Action](https://chrisjenx.github.io/serialkompat/ci/) | PR comments and annotations |
 | [Got a BREAK?](https://chrisjenx.github.io/serialkompat/got-a-break/) | Fix, rename or accept it |
 | [Adopting gradually](https://chrisjenx.github.io/serialkompat/adopting/) | Roll out on an existing codebase |
 | [Configuration](https://chrisjenx.github.io/serialkompat/configuration/) | Every option |
+| [Tasks & CLI](https://chrisjenx.github.io/serialkompat/tasks-cli/) | Tasks, `-P` properties, CLI flags, exit codes |
 | [Rules](https://chrisjenx.github.io/serialkompat/rules/) | What counts as breaking, per direction |
 | [Report formats](https://chrisjenx.github.io/serialkompat/report-formats/) | Console, JSON, SARIF, GitHub |
 | [CBOR](https://chrisjenx.github.io/serialkompat/cbor/) | The same gate for CBOR |
+| [Troubleshooting](https://chrisjenx.github.io/serialkompat/troubleshooting/) | Symptom, cause, fix |
 
 ## Modules
 
