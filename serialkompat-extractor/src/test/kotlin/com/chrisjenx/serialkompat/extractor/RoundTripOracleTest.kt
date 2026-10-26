@@ -2258,4 +2258,234 @@ class RoundTripOracleTest {
             )
         }
     }
+
+    // --- documented-verdict pins (docs/rules.md) -----------------------------------
+    // The oracle checks above prove soundness (a real throw was predicted). These pin each rule's
+    // documented verdict per direction against the real outcome, so the rules page can cite them.
+
+    /** [rule]'s verdict per direction (SAFE when it emits nothing that way) for old → new. */
+    private fun verdicts(
+        oldSerializer: KSerializer<*>,
+        newSerializer: KSerializer<*>,
+        rule: String,
+        oldJson: Json = strict,
+        newJson: Json = strict,
+    ): Map<CompatibilityDirection, Severity> {
+        val oldConfig = JsonConfigReader.read(oldJson)
+        val newConfig = JsonConfigReader.read(newJson)
+        val findings =
+            Classifier().classify(
+                SnapshotDiffer.diff(
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(oldSerializer.descriptor),
+                        oldJson.serializersModule,
+                        oldConfig,
+                    ),
+                    DescriptorSnapshotExtractor.extract(
+                        listOf(newSerializer.descriptor),
+                        newJson.serializersModule,
+                        newConfig,
+                    ),
+                ),
+                oldConfig,
+                newConfig,
+            )
+        return listOf(CompatibilityDirection.BACKWARD, CompatibilityDirection.FORWARD).associateWith { direction ->
+            findings
+                .filter { it.rule == rule && it.direction == direction }
+                .maxOfOrNull { it.severity } ?: Severity.SAFE
+        }
+    }
+
+    private fun verdict(
+        backward: Severity,
+        forward: Severity,
+    ) = mapOf(CompatibilityDirection.BACKWARD to backward, CompatibilityDirection.FORWARD to forward)
+
+    @Test
+    fun `PROPERTY_NULLABILITY - became non-null breaks new readers of old nulls, old readers are fine`() {
+        assertEquals(
+            Outcome.THREW,
+            roundTrip(strict, serializer(), NullabilityV1(null), strict, serializer<NullabilityV2>()),
+        )
+        assertEquals(
+            Outcome.DECODED,
+            roundTrip(strict, serializer(), NullabilityV2("x"), strict, serializer<NullabilityV1>()),
+        )
+        assertEquals(
+            verdict(backward = Severity.BREAK, forward = Severity.SAFE),
+            verdicts(serializer<NullabilityV1>(), serializer<NullabilityV2>(), Rules.PROPERTY_NULLABILITY),
+        )
+    }
+
+    @Test
+    fun `PROPERTY_NULLABILITY - became nullable breaks old readers of an explicit null`() {
+        assertEquals(
+            Outcome.DECODED,
+            roundTrip(strict, serializer(), NullabilityV2("x"), strict, serializer<NullabilityV1>()),
+        )
+        assertEquals(
+            Outcome.THREW,
+            roundTrip(strict, serializer(), NullabilityV1(null), strict, serializer<NullabilityV2>()),
+        )
+        assertEquals(
+            verdict(backward = Severity.SAFE, forward = Severity.BREAK),
+            verdicts(serializer<NullabilityV2>(), serializer<NullabilityV1>(), Rules.PROPERTY_NULLABILITY),
+        )
+    }
+
+    @Serializable
+    @SerialName("NullableDefault")
+    private data class NullableDefaultV1(
+        val id: String = "fallback",
+    )
+
+    @Serializable
+    @SerialName("NullableDefault")
+    private data class NullableDefaultV2(
+        val id: String? = "fallback",
+    )
+
+    @Test
+    fun `PROPERTY_NULLABILITY - became nullable with explicitNulls=false omits the null, a silent default`() {
+        // The writer omits the null key, so the old reader quietly substitutes its default: WARN, not SAFE.
+        val omitsNulls = Json { explicitNulls = false }
+        val decoded =
+            omitsNulls.decodeFromString(
+                serializer<NullableDefaultV1>(),
+                omitsNulls.encodeToString(serializer(), NullableDefaultV2(null)),
+            )
+        assertEquals(NullableDefaultV1("fallback"), decoded)
+        assertEquals(
+            verdict(backward = Severity.SAFE, forward = Severity.WARN),
+            verdicts(
+                serializer<NullableDefaultV1>(),
+                serializer<NullableDefaultV2>(),
+                Rules.PROPERTY_NULLABILITY,
+                oldJson = omitsNulls,
+                newJson = omitsNulls,
+            ),
+        )
+    }
+
+    @Test
+    fun `PROPERTY_JSON_NAMES - dropping an alias warns new readers, old readers are fine`() {
+        // Fresh Json per version: AliasV1/V2 descriptors compare equal and would share the alt-names cache.
+        assertFailsWith<Exception> { Json { }.decodeFromString(serializer<AliasV2>(), """{"legacy":"x"}""") }
+        assertEquals(AliasV2("x"), Json { }.decodeFromString(serializer<AliasV2>(), """{"name":"x"}"""))
+        assertEquals(AliasV1("x"), Json { }.decodeFromString(serializer<AliasV1>(), """{"name":"x"}"""))
+        assertEquals(
+            verdict(backward = Severity.WARN, forward = Severity.SAFE),
+            verdicts(serializer<AliasV1>(), serializer<AliasV2>(), Rules.PROPERTY_JSON_NAMES),
+        )
+    }
+
+    @Test
+    fun `ENUM_VALUE_REMOVED - new readers break on the removed value, old readers are fine`() {
+        assertEquals(
+            Outcome.THREW,
+            roundTrip(strict, serializer(), EnumStatusV2.C, strict, serializer<EnumStatusV1>()),
+        )
+        assertEquals(
+            Outcome.DECODED,
+            roundTrip(strict, serializer(), EnumStatusV1.B, strict, serializer<EnumStatusV2>()),
+        )
+        assertEquals(
+            verdict(backward = Severity.BREAK, forward = Severity.SAFE),
+            verdicts(serializer<EnumStatusV2>(), serializer<EnumStatusV1>(), Rules.ENUM_VALUE_REMOVED),
+        )
+    }
+
+    @Test
+    fun `SUBTYPE_REMOVED - new readers break on the removed subtype, old readers are fine`() {
+        assertEquals(
+            Outcome.THREW,
+            roundTrip(strict, serializer<ShapeV2>(), ShapeV2.Square(2.0), strict, serializer<ShapeV1>()),
+        )
+        assertEquals(
+            Outcome.DECODED,
+            roundTrip(strict, serializer<ShapeV1>(), ShapeV1.Circle(1.0), strict, serializer<ShapeV2>()),
+        )
+        assertEquals(
+            verdict(backward = Severity.BREAK, forward = Severity.SAFE),
+            verdicts(serializer<ShapeV2>(), serializer<ShapeV1>(), Rules.SUBTYPE_REMOVED),
+        )
+    }
+
+    @Test
+    fun `DISCRIMINATOR_CHANGED - a changed @JsonClassDiscriminator key breaks both ways`() {
+        val json = Json {}
+        assertEquals(Outcome.THREW, roundTrip(json, serializer<DiscV1>(), DiscV1.A(1), json, serializer<DiscV2>()))
+        assertEquals(Outcome.THREW, roundTrip(json, serializer<DiscV2>(), DiscV2.A(1), json, serializer<DiscV1>()))
+        assertEquals(
+            verdict(backward = Severity.BREAK, forward = Severity.BREAK),
+            verdicts(serializer<DiscV1>(), serializer<DiscV2>(), Rules.DISCRIMINATOR_CHANGED),
+        )
+    }
+
+    @Test
+    fun `CONFIG_NAMING_STRATEGY - a changed naming strategy breaks both ways`() {
+        val snake = Json { namingStrategy = JsonNamingStrategy.SnakeCase }
+        assertEquals(Outcome.THREW, roundTrip(strict, serializer(), Named("x", 1), snake, serializer<Named>()))
+        assertEquals(Outcome.THREW, roundTrip(snake, serializer(), Named("x", 1), strict, serializer<Named>()))
+        assertEquals(
+            verdict(backward = Severity.BREAK, forward = Severity.BREAK),
+            verdicts(serializer<Named>(), serializer<Named>(), Rules.CONFIG_NAMING_STRATEGY, strict, snake),
+        )
+    }
+
+    @Test
+    fun `CONFIG_DISCRIMINATOR - a changed classDiscriminator breaks both ways`() {
+        val kind = Json { classDiscriminator = "kind" }
+        assertEquals(Outcome.THREW, roundTrip(strict, serializer<Poly>(), Poly.A(1), kind, serializer<Poly>()))
+        assertEquals(Outcome.THREW, roundTrip(kind, serializer<Poly>(), Poly.A(1), strict, serializer<Poly>()))
+        assertEquals(
+            verdict(backward = Severity.BREAK, forward = Severity.BREAK),
+            verdicts(serializer<Poly>(), serializer<Poly>(), Rules.CONFIG_DISCRIMINATOR, strict, kind),
+        )
+    }
+
+    @Test
+    fun `CONFIG_DISCRIMINATOR - a changed classDiscriminatorMode is a BREAK both ways`() {
+        // NONE stops writing the discriminator, so an old polymorphic reader can't resolve the subtype.
+        val none = Json { classDiscriminatorMode = ClassDiscriminatorMode.NONE }
+        assertEquals(Outcome.THREW, roundTrip(none, serializer<Poly>(), Poly.A(1), strict, serializer<Poly>()))
+        assertConfigOracle(serializer<Poly>(), Poly.A(1), oldJson = strict, newJson = none)
+        assertEquals(
+            verdict(backward = Severity.BREAK, forward = Severity.BREAK),
+            verdicts(serializer<Poly>(), serializer<Poly>(), Rules.CONFIG_DISCRIMINATOR, strict, none),
+        )
+    }
+
+    @Test
+    fun `CONFIG_EXPLICIT_NULLS - toggling explicitNulls warns both ways`() {
+        // A nullable field with a default absorbs the omitted null, so both directions decode: WARN, not BREAK.
+        val omitsNulls = Json { explicitNulls = false }
+        val value = NullHolder("x", note = null)
+        assertEquals(value, omitsNulls.decodeFromString(serializer(), strict.encodeToString(serializer(), value)))
+        assertEquals(value, strict.decodeFromString(serializer(), omitsNulls.encodeToString(serializer(), value)))
+        assertEquals(
+            verdict(backward = Severity.WARN, forward = Severity.WARN),
+            verdicts(
+                serializer<NullHolder>(),
+                serializer<NullHolder>(),
+                Rules.CONFIG_EXPLICIT_NULLS,
+                oldJson = strict,
+                newJson = omitsNulls,
+            ),
+        )
+    }
+
+    @Test
+    fun `PROPERTY_TYPE_CHANGED - numeric widening is safe for new readers, a BREAK for old ones`() {
+        assertEquals(Outcome.DECODED, roundTrip(strict, serializer(), WidenV1(5), strict, serializer<WidenV2>()))
+        assertEquals(
+            Outcome.THREW,
+            roundTrip(strict, serializer(), WidenV2(Long.MAX_VALUE), strict, serializer<WidenV1>()),
+        )
+        assertEquals(
+            verdict(backward = Severity.SAFE, forward = Severity.BREAK),
+            verdicts(serializer<WidenV1>(), serializer<WidenV2>(), Rules.PROPERTY_TYPE_CHANGED),
+        )
+    }
 }
