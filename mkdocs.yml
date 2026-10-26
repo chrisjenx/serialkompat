@@ -9,6 +9,8 @@ edit_uri: edit/main/docs/
 exclude_docs: |
   design/
   superpowers/
+  redirects.yml
+  snippets/
 
 theme:
   name: material
