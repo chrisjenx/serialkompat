@@ -58,6 +58,38 @@ plugins:
       # contains literal GitHub-Actions `${{ ... }}` expressions; pinning this keeps a
       # future plugin-default change from silently switching to strict and breaking the build.
       on_undefined: keep
+  - llmstxt:
+      markdown_description: >-
+        A CI gate for kotlinx-serialization @Serializable models, like buf breaking but for
+        JSON and CBOR: it diffs the wire schema against a git-ref baseline and fails CI on
+        incompatible changes.
+      full_output: llms-full.txt
+      sections:
+        Get started:
+          - index.md: "Overview, the one-minute story and a worked diff-to-verdict example."
+          - quickstart.md: "Add the plugin, merge the first PR, run serialkompatCheck and read the report."
+          - installation.md: "Add serialkompat as a Gradle plugin, GitHub Action or standalone CLI."
+          - concepts.md: "The baseline, backward versus forward compatibility, BREAK versus WARN, and a glossary."
+        Guides:
+          - ci.md: "Fail CI on a break with the GitHub Action or any CI that honours an exit code."
+          - got-a-break.md: "Decision path for a reported break: fix it, accept it, rename it, or bump the major version."
+          - adopting.md: "Adopt serialkompat in an existing codebase with discovery modes and annotations."
+          - monorepos.md: "Scope each module's check to the wire types it owns."
+          - history.md: "Check the current schema against every released version, for persisted data."
+          - cbor.md: "Check kotlinx-serialization-cbor models with the same rules and gate as JSON."
+          - cross-repo.md: "Diff snapshots from different repositories with the standalone CLI."
+        Reference:
+          - configuration.md: "Every option in the serialkompat { } block, with defaults."
+          - tasks-cli.md: "Every Gradle task, the standalone CLI and its flags, and the exit codes."
+          - rules.md: "Every classification rule, its severity per direction, and its round-trip proof."
+          - report-formats.md: "Console, JSON, SARIF and GitHub annotation output, with byte-exact examples."
+          - limitations.md: "What serialkompat cannot analyse, what to do about coverage gaps, and known limits."
+          - troubleshooting.md: "Common failures and questions as symptom, cause and fix."
+        How it works:
+          - architecture.md: "One run of serialkompatCheck from start to finish, and the component map."
+          - oracle.md: "Why verdicts can be trusted: every rule is checked against real kotlinx-serialization."
+          - baseline-caching.md: "How the baseline is rebuilt from a git ref and cached under Gradle's caches."
+          - contributing.md: "How to build, test and contribute to serialkompat."
 
 extra_css:
   - stylesheets/pipeline.css

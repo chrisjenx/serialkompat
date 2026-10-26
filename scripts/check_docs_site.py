@@ -51,6 +51,14 @@ def main(argv):
     if not (site / "rules" / "index.html").is_file():
         problems.append("rules/index.html: missing")
 
+    for name in ("llms.txt", "llms-full.txt"):
+        path = site / name
+        if not path.is_file() or path.stat().st_size == 0:
+            problems.append(f"{name}: missing or empty")
+    full = site / "llms-full.txt"
+    if full.is_file() and "{{" in full.read_text(encoding="utf-8"):
+        problems.append("llms-full.txt: contains unexpanded '{{'")
+
     if problems:
         print("\n".join(problems))
         return 1
