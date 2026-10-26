@@ -95,8 +95,10 @@ subprojects {
 }
 
 // The CLI is an application, not a library, so it has no tracked binary API.
+// docs-samples is unpublished docs example code (#110), so it has none either.
 apiValidation {
     ignoredProjects.add("serialkompat-cli")
+    ignoredProjects.add("docs-samples")
 }
 
 // Docs/code sync gate: every `Rules.*` constant must appear in docs/rules.md so the rule

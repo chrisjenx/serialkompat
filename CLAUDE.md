@@ -25,7 +25,7 @@ Guidance for Claude Code (and humans) working in this repo.
 ./gradlew koverHtmlReport  # coverage -> build/reports/kover
 ```
 
-CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport -x :serialkompat-annotations:build` on ubuntu, JDK 17 and 21, plus a `macos-latest` job for `:serialkompat-annotations:build`. `Secret Scan` (`gitleaks.yml`) runs gitleaks over the full history on PRs and pushes to `main`. `Docs` (`docs.yml`) runs `dokkaGenerate` + `mkdocs build --strict` + `check_docs_site.py` on PRs touching `docs/**`, `mkdocs.yml`, `requirements-docs.txt`, `main.py`, `CHANGELOG.md`, `CONTRIBUTING.md` or `scripts/check_docs_site.py` (and deploys on push to `main`).
+CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport -x :serialkompat-annotations:build` on ubuntu, JDK 17 and 21, plus a `macos-latest` job for `:serialkompat-annotations:build`. `Secret Scan` (`gitleaks.yml`) runs gitleaks over the full history on PRs and pushes to `main`. `Docs` (`docs.yml`) runs `dokkaGenerate` + `mkdocs build --strict` + `check_docs_site.py` on PRs touching `docs/**`, `docs-samples/**`, `mkdocs.yml`, `requirements-docs.txt`, `main.py`, `CHANGELOG.md`, `CONTRIBUTING.md` or `scripts/check_docs_site.py` (and deploys on push to `main`).
 
 ## Modules
 
@@ -36,6 +36,7 @@ CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport -x :serialk
 | `serialkompat-gradle` | The Gradle plugin (`serialkompatCheck`) | `java-gradle-plugin`. |
 | `serialkompat-cli` | Standalone `serialkompat diff <baseline> <current>` (non-Gradle / cross-repo) | Application; excluded from `apiCheck`. |
 | `serialkompat-annotations` | `@SerialkompatIgnore` / `@SerialkompatChecked` discovery markers | **Kotlin Multiplatform** (only KMP module). `explicitApi()`. `RUNTIME` retention so the extractor scanner reads them from bytecode. |
+| `docs-samples` | The Kotlin models and `serialkompat { }` snippets the docs site embeds (`--8<--` regions) | Unpublished. Compiled + tested by `./gradlew build`; `snippets/*.gradle.kts` are applied by `DocsSnippetsFunctionalTest`. Excluded from `apiCheck`. |
 
 Keep the diff/classify engine (`-core`) decoupled from extraction and from where baselines come from — that decoupling is load-bearing (see design §3).
 

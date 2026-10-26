@@ -11,4 +11,5 @@ include(
     "serialkompat-extractor",
     "serialkompat-gradle",
     "serialkompat-cli",
+    "docs-samples",
 )

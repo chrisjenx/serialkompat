@@ -53,3 +53,10 @@ tasks.jar {
         attributes(mapOf("Implementation-Version" to project.version))
     }
 }
+
+// Docs/code sync gate (#110): DocsSnippetsFunctionalTest applies every docs Gradle snippet.
+val docsSnippetsDir = rootProject.file("docs-samples/snippets")
+tasks.test {
+    systemProperty("serialkompat.docsSnippetsDir", docsSnippetsDir.absolutePath)
+    inputs.dir(docsSnippetsDir)
+}
