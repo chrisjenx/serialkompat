@@ -1,0 +1,10 @@
+# Retired page stem -> where it now lives. Used by redirect_stub() (main.py) and checked
+# against the built site by scripts/check_docs_site.py.
+#   default: page the retired page itself lands on
+#   anchors: old anchor id -> new page[#anchor]
+setup:
+  default: installation.md
+recipes:
+  default: adopting.md
+deep-dive:
+  default: architecture.md

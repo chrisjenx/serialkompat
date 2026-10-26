@@ -1,7 +1,11 @@
 """mkdocs-macros hooks. Exposes the project version so install snippets never go stale."""
+import html
+import json
 import os
 import re
 import subprocess
+
+import yaml
 
 _STABLE_TAG = re.compile(r"v(\d+\.\d+\.\d+)$")
 
@@ -51,5 +55,39 @@ def _read_version() -> str:
     return "dev"
 
 
+def _page_url(target):
+    """`installation.md#x` -> `../installation/#x` (stubs live one directory below the root)."""
+    page, _, anchor = target.partition("#")
+    stem = page.removesuffix(".md")
+    url = "../" if stem == "index" else f"../{stem}/"
+    return f"{url}#{anchor}" if anchor else url
+
+
+def _redirect_stub(page):
+    """HTML for a retired page: noindex, JS anchor -> new location map, no-JS link list."""
+    with open("docs/redirects.yml", encoding="utf-8") as fh:
+        entry = (yaml.safe_load(fh) or {})[page]
+    default = _page_url(entry["default"])
+    anchors = {old: _page_url(t) for old, t in (entry.get("anchors") or {}).items()}
+    targets = list(dict.fromkeys([default, *anchors.values()]))
+    # `</` is escaped so the JSON can never close the script element.
+    data = json.dumps({"default": default, "anchors": anchors}).replace("</", "<\\/")
+    links = "".join(f'<li><a href="{html.escape(t)}">{html.escape(t)}</a></li>' for t in targets)
+    script = (
+        f"var m={data};"
+        "var h=decodeURIComponent(location.hash.slice(1));"
+        "location.replace(Object.prototype.hasOwnProperty.call(m.anchors,h)?m.anchors[h]:m.default);"
+    )
+    # No blank lines: Markdown must treat the whole thing as one raw HTML block.
+    return (
+        '<div class="redirect-stub">'
+        '<meta name="robots" content="noindex">'
+        f"<script>{script}</script>"
+        f"<p>This page has moved.</p><noscript><ul>{links}</ul></noscript>"
+        "</div>"
+    )
+
+
 def define_env(env):
     env.variables["skversion"] = _read_version()
+    env.macro(_redirect_stub, "redirect_stub")

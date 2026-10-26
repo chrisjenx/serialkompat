@@ -38,6 +38,7 @@ theme:
         icon: material/brightness-4
         name: Switch to system preference
   features:
+    - navigation.tabs
     - navigation.sections
     - navigation.top
     - navigation.footer
@@ -84,16 +85,36 @@ markdown_extensions:
       check_paths: true
       base_path: ["."]
 
+not_in_nav: |
+  setup.md
+  recipes.md
+  deep-dive.md
+
 nav:
   - Home: index.md
-  - Quick start: quickstart.md
-  - Setup: setup.md
-  - CI setup: ci.md
-  - Configuration: configuration.md
-  - Rules: rules.md
-  - CBOR: cbor.md
-  - Report formats: report-formats.md
-  - Recipes: recipes.md
-  - Deep dive: deep-dive.md
-  - API: https://chrisjenx.github.io/serialkompat/api/
-  - Changelog: changelog.md
+  - Get started:
+      - Quick start: quickstart.md
+      - Installation: installation.md
+      - Concepts: concepts.md
+  - Guides:
+      - CI: ci.md
+      - Got a BREAK?: got-a-break.md
+      - Adopting gradually: adopting.md
+      - Monorepos: monorepos.md
+      - Persisted data & history: history.md
+      - CBOR: cbor.md
+      - Cross-repo with the CLI: cross-repo.md
+  - Reference:
+      - Configuration: configuration.md
+      - Tasks & CLI: tasks-cli.md
+      - Rules: rules.md
+      - Report formats: report-formats.md
+      - Limitations: limitations.md
+      - Troubleshooting & FAQ: troubleshooting.md
+  - How it works:
+      - Architecture: architecture.md
+      - The oracle: oracle.md
+      - Baseline & caching: baseline-caching.md
+      - Contributing: contributing.md
+      - Changelog: changelog.md
+      - API: https://chrisjenx.github.io/serialkompat/api/
