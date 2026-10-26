@@ -81,7 +81,7 @@ The two tasks you'll use most:
 
 If you set neither `types` nor a [discovery mode](https://chrisjenx.github.io/serialkompat/configuration/#discovery-modes), the plugin does nothing.
 
-The report also renders as JSON (`build/serialkompat/report.json`), SARIF, and GitHub annotations; see [report formats](https://chrisjenx.github.io/serialkompat/report-formats/). For a 5-minute walkthrough, read the [quick start](https://chrisjenx.github.io/serialkompat/quickstart/). For the CLI and every option, see [setup](https://chrisjenx.github.io/serialkompat/setup/).
+The report also renders as JSON (`build/serialkompat/report.json`), SARIF, and GitHub annotations; see [report formats](https://chrisjenx.github.io/serialkompat/report-formats/). For a 5-minute walkthrough, read the [quick start](https://chrisjenx.github.io/serialkompat/quickstart/). For the CLI and installation, see [installation](https://chrisjenx.github.io/serialkompat/installation/), and for every option, [configuration](https://chrisjenx.github.io/serialkompat/configuration/).
 
 ## CI (GitHub Action)
 

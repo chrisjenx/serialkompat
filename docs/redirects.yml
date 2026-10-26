@@ -1,0 +1,37 @@
+# Retired page stem -> where it now lives. Used by redirect_stub() (main.py) and checked
+# against the built site by scripts/check_docs_site.py.
+#   default: page the retired page itself lands on
+#   anchors: old anchor id -> new page[#anchor]
+setup:
+  default: installation.md
+  anchors:
+    gradle-plugin: installation.md#gradle-plugin
+    serialkompat-reference: configuration.md#serialkompat-reference
+    tasks: tasks-cli.md#tasks
+    cli: installation.md#cli
+    producing-snapshots: installation.md#producing-snapshots
+    github-action: installation.md#github-action
+    inputs: ci.md#inputs
+recipes:
+  default: adopting.md
+  anchors:
+    cross-repo-diff-with-the-cli: cross-repo.md#cross-repo-diff-with-the-cli
+    first-time-adoption: quickstart.md#first-time-adoption
+    gradual-adoption-with-discovery-modes: adopting.md#gradual-adoption-with-discovery-modes
+    sanctioning-a-deliberate-break: got-a-break.md#sanctioning-a-deliberate-break
+    monorepo-scoping: monorepos.md#monorepo-scoping
+    persisted-data-horizon-multi-version-history: history.md#persisted-data-horizon-multi-version-history
+    bounding-the-horizon-retention: history.md#bounding-the-horizon-retention
+    next: adopting.md#next
+deep-dive:
+  default: architecture.md
+  anchors:
+    architecture: architecture.md#under-the-hood
+    extraction: architecture.md#extraction
+    when-a-type-cant-be-analysed: limitations.md#when-a-type-cant-be-analysed
+    classification-and-the-oracle: oracle.md#how-a-rule-is-proven
+    the-git-ref-baseline: baseline-caching.md#the-git-ref-baseline
+    caching: baseline-caching.md#caching
+    robustness: baseline-caching.md#robustness
+    further-reading: architecture.md#further-reading
+    next: architecture.md#next

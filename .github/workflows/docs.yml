@@ -9,6 +9,9 @@ on:
       - "mkdocs.yml"
       - "requirements-docs.txt"
       - "main.py"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "scripts/check_docs_site.py"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
@@ -46,6 +49,8 @@ jobs:
         run: ./gradlew dokkaGenerate --stacktrace
       - name: Build site (strict)
         run: mkdocs build --strict
+      - name: Check redirects and anchors
+        run: python scripts/check_docs_site.py site
       - name: Nest API docs under /api
         run: mkdir -p site/api && cp -R build/dokka/html/. site/api/
       - uses: actions/upload-pages-artifact@v5
