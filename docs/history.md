@@ -26,12 +26,7 @@ That is what makes the history trustworthy: you can't quietly rewrite it to get 
 gate. The directory is configurable:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-    types.set(listOf("com.example.wire.OrderEvent"))
-    history {
-        dir.set(layout.projectDirectory.dir("serialkompat/history")) // the default
-    }
-}
+--8<-- "docs-samples/snippets/history-dir.gradle.kts"
 ```
 
 `serialkompatCheckHistory` checks the current schema against every recorded version at once.
@@ -83,15 +78,7 @@ horizon: the last N releases, everything since some version, or everything withi
 window. Set retention bounds in the `history` block:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-    history {
-        depth.set(10)                          // only the newest 10 recorded versions
-        // or:
-        sinceVersion.set("2.0.0")              // only versions >= 2.0.0
-        // or:
-        maxAge.set(java.time.Duration.ofDays(548)) // only versions recorded in the last ~18 months
-    }
-}
+--8<-- "docs-samples/snippets/history-retention.gradle.kts:retention"
 ```
 
 Set one bound or combine several. Combining is **most-permissive**: a version is checked if

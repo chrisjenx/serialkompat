@@ -88,11 +88,7 @@ finding to `acceptedBreaks`. It stops failing the build but still appears in the
 the break stays visible. Copy the type, rule and direction from the finding.
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-    acceptedBreaks.set(listOf(
-        "com.example.wire.Payment PROPERTY_REMOVED BACKWARD",
-    ))
-}
+--8<-- "docs-samples/snippets/got-a-break-accepted.gradle.kts"
 ```
 
 ### Sanctioning a deliberate break { #sanctioning-a-deliberate-break }
@@ -127,24 +123,14 @@ can't be declared: serialkompat doesn't pair a removed property with an added on
   two types' contents instead of reporting `CONTRACT_REMOVED`.
 
     ```kotlin title="build.gradle.kts"
-    serialkompat {
-        renames.put("com.example.wire.LegacyOrder", "com.example.wire.OrderEvent")
-    }
+    --8<-- "docs-samples/snippets/got-a-break-renames.gradle.kts"
     ```
 
 - **A property was renamed (JSON):** `renames` is for types only. Keep the old name readable
   with `@JsonNames`, so new code still decodes old payloads.
 
     ```kotlin
-    import kotlinx.serialization.ExperimentalSerializationApi
-    import kotlinx.serialization.Serializable
-    import kotlinx.serialization.json.JsonNames
-
-    @OptIn(ExperimentalSerializationApi::class)
-    @Serializable
-    data class Order(
-        @JsonNames("note") val memo: String? = null,
-    )
+    --8<-- "docs-samples/src/main/kotlin/com/example/Order.kt:order"
     ```
 
   The gate still reports the old name as `PROPERTY_REMOVED` and the new one as

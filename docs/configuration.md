@@ -30,6 +30,9 @@ and GitHub Action, see [Installation](installation.md).
 | `reports.sarif.required` | `Property<Boolean>` | `false` | Write the SARIF 2.1.0 report |
 | `reports.sarif.outputLocation` | `RegularFileProperty` | `build/serialkompat/report.sarif` | Where the SARIF report is written |
 
+`history` and `reports` are nested blocks: `history { dir.set(...) }` and
+`reports { json { required.set(true) } }`.
+
 The baseline, backward and forward are defined in [Concepts](concepts.md).
 
 The extension works with the configuration cache.
@@ -49,7 +52,7 @@ always wins. The modes, the annotations and the precedence rules are on
 ## Annotated example
 
 ```kotlin title="build.gradle.kts"
-import com.chrisjenx.serialkompat.core.CompatibilityDirection
+--8<-- "docs-samples/snippets/configuration-full.gradle.kts:imports"
 
 plugins {
     kotlin("jvm")
@@ -57,23 +60,7 @@ plugins {
     id("com.chrisjenx.serialkompat") version "{{ skversion }}"
 }
 
-serialkompat {
-    types.set(listOf( // (1)!
-        "com.example.wire.OrderEvent",
-        "com.example.wire.Payment",
-    ))
-    jsonInstance.set("com.example.wire.WireJson.instance") // (2)!
-    baselineRef.set("origin/main") // (3)!
-    direction.set(CompatibilityDirection.FULL) // (4)!
-    failOnBreaking.set(true) // (5)!
-    failOnEmptyBaseline.set(true) // (6)!
-    include.set(listOf("com.example.wire")) // (7)!
-    exclude.set(listOf("com.example.wire.internal")) // (8)!
-    renames.put("com.example.wire.LegacyOrder", "com.example.wire.OrderEvent") // (9)!
-    acceptedBreaks.set(listOf( // (10)!
-        "com.example.wire.Payment PROPERTY_REMOVED BACKWARD",
-    ))
-}
+--8<-- "docs-samples/snippets/configuration-full.gradle.kts:config"
 ```
 
 1. The root types to check. Nested types and sealed subtypes reachable from these
@@ -133,12 +120,7 @@ serialkompat writes a JSON report by default. Use the nested `reports { }` block
 turn on SARIF (for IDEs and dashboards) or to move the output files:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-  reports {
-    json { required.set(true) }               // default -> build/serialkompat/report.json
-    sarif { required.set(true) }              // opt-in  -> build/serialkompat/report.sarif
-  }
-}
+--8<-- "docs-samples/snippets/configuration-reports.gradle.kts"
 ```
 
 Each format also has an `outputLocation` you can set, for example

@@ -1,0 +1,11 @@
+serialkompat: 2 active finding(s) (1 breaking, 1 warning), 1 acknowledged
+
+  BREAK  PROPERTY_REMOVED  com.example.OrderEvent  (backward)
+    field 'note' was removed from com.example.OrderEvent
+    fix: Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.
+  WARN  ENUM_VALUE_ADDED  com.example.Status  (forward)
+    enum value 'ARCHIVED' was added to com.example.Status
+    fix: Enable coerceInputValues *and* give the reading field a default, or bump major.
+
+acknowledged:
+  BREAK  PROPERTY_REMOVED  com.example.LegacyPing  (backward)  [acknowledged]

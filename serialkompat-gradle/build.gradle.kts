@@ -53,3 +53,23 @@ tasks.jar {
         attributes(mapOf("Implementation-Version" to project.version))
     }
 }
+
+// Docs/code sync gate (#110): DocsSnippetsFunctionalTest applies every docs Gradle snippet.
+// The path goes in through an argument provider with a RELATIVE input, so the absolute path
+// doesn't become part of the test task's cache key (relocatable).
+class DocsSnippetsDirArgument(
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    val dir: File,
+) : CommandLineArgumentProvider {
+    override fun asArguments(): List<String> = listOf("-Dserialkompat.docsSnippetsDir=${dir.absolutePath}")
+}
+
+val docsSnippetsDir = rootProject.file("docs-samples/snippets")
+tasks.test {
+    inputs
+        .dir(docsSnippetsDir)
+        .withPropertyName("docsSnippets")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    jvmArgumentProviders.add(DocsSnippetsDirArgument(docsSnippetsDir))
+}

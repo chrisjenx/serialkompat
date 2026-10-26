@@ -16,10 +16,16 @@ changes whether the gate passes. To turn a format on, see the `reports.*` option
 Every example below renders the **same report**: three findings from one
 `serialkompatCheck` run.
 
-- An active breaking change: `PROPERTY_REMOVED` on `com.example.OrderEvent`.
-- An active warning: `ENUM_VALUE_ADDED` on `com.example.Status`.
+- An active breaking change: `PROPERTY_REMOVED` on `com.example.OrderEvent`, which
+  loses its optional `note` field.
+- An active warning: `ENUM_VALUE_ADDED` on `com.example.Status`. It is a warning, not
+  a break, because the reader config has `coerceInputValues = true` and
+  `OrderEvent` reads `Status` through a defaulted `status` field.
 - A break you acknowledged with `acceptedBreaks`: `PROPERTY_REMOVED` on
-  `com.example.LegacyPing`.
+  `com.example.LegacyPing`, which loses its optional `seq` field.
+
+The JSON and SARIF outputs sort findings by contract, so `LegacyPing` comes first
+there.
 
 Compare the renderings to see what each format keeps.
 
@@ -30,17 +36,7 @@ no `--format`. Active findings come first, each with its fix hint, followed by a
 short list of acknowledged breaks.
 
 ```text
-serialkompat: 2 active finding(s) (1 breaking, 1 warning), 1 acknowledged
-
-  BREAK  PROPERTY_REMOVED  com.example.OrderEvent  (backward)
-    field 'note' was removed from com.example.OrderEvent
-    fix: Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.
-  WARN  ENUM_VALUE_ADDED  com.example.Status  (forward)
-    enum value 'ARCHIVED' was added to com.example.Status
-    fix: Enable coerceInputValues *and* give the reading field a default, or bump major.
-
-acknowledged:
-  BREAK  PROPERTY_REMOVED  com.example.LegacyPing  (backward)  [acknowledged]
+--8<-- "docs/snippets/reports/console.txt"
 ```
 
 ## JSON
@@ -49,48 +45,7 @@ The JSON report's first key is **`schemaVersion`** (currently `"1.0"`), so your
 tooling can rely on its shape:
 
 ```json
-{
-  "schemaVersion": "1.0",
-  "summary": {
-    "total": 3,
-    "breaking": 1,
-    "warning": 1,
-    "acknowledged": 1,
-    "failed": true
-  },
-  "findings": [
-    {
-      "rule": "PROPERTY_REMOVED",
-      "severity": "BREAK",
-      "direction": "BACKWARD",
-      "contract": "com.example.OrderEvent",
-      "detail": "field 'note'",
-      "message": "field 'note' was removed from com.example.OrderEvent",
-      "fixHint": "Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.",
-      "acknowledged": false
-    },
-    {
-      "rule": "ENUM_VALUE_ADDED",
-      "severity": "WARN",
-      "direction": "FORWARD",
-      "contract": "com.example.Status",
-      "detail": "value 'ARCHIVED'",
-      "message": "enum value 'ARCHIVED' was added to com.example.Status",
-      "fixHint": "Enable coerceInputValues *and* give the reading field a default, or bump major.",
-      "acknowledged": false
-    },
-    {
-      "rule": "PROPERTY_REMOVED",
-      "severity": "BREAK",
-      "direction": "BACKWARD",
-      "contract": "com.example.LegacyPing",
-      "detail": "field 'seq'",
-      "message": "field 'seq' was removed from com.example.LegacyPing",
-      "fixHint": "Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.",
-      "acknowledged": true
-    }
-  ]
-}
+--8<-- "docs/snippets/reports/report.json"
 ```
 
 `summary.breaking` and `summary.warning` count only **active** findings. The
@@ -106,14 +61,7 @@ By default the report is written to `build/serialkompat/report.json`. To move or
 disable it:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-  reports {
-    json {
-      required.set(true)                                  // default
-      outputLocation.set(layout.buildDirectory.file("serialkompat/report.json"))
-    }
-  }
-}
+--8<-- "docs-samples/snippets/report-formats-json.gradle.kts"
 ```
 
 From the CLI, `--format=json` writes it to stdout.
@@ -124,11 +72,7 @@ SARIF 2.1.0 output is for **IDEs and third-party SARIF dashboards**. It's off by
 default. To enable it:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-  reports {
-    sarif { required.set(true) }                          // off by default -> report.sarif
-  }
-}
+--8<-- "docs-samples/snippets/report-formats-sarif.gradle.kts"
 ```
 
 or `--format=sarif` from the CLI.
@@ -159,75 +103,7 @@ shared report renders as:
 ??? example "report.sarif (full log)"
 
     ```json
-    {
-      "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-      "version": "2.1.0",
-      "runs": [
-        {
-          "tool": {
-            "driver": {
-              "name": "serialkompat",
-              "informationUri": "https://chrisjenx.github.io/serialkompat/",
-              "version": "0.1.0",
-              "rules": [
-                { "id": "CONTRACT_REMOVED", "name": "CONTRACT_REMOVED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "PROPERTY_ADDED", "name": "PROPERTY_ADDED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "PROPERTY_REMOVED", "name": "PROPERTY_REMOVED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "PROPERTY_OPTIONALITY", "name": "PROPERTY_OPTIONALITY", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "PROPERTY_NULLABILITY", "name": "PROPERTY_NULLABILITY", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "PROPERTY_JSON_NAMES", "name": "PROPERTY_JSON_NAMES", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "PROPERTY_TYPE_CHANGED", "name": "PROPERTY_TYPE_CHANGED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "ENUM_VALUE_ADDED", "name": "ENUM_VALUE_ADDED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "ENUM_VALUE_REMOVED", "name": "ENUM_VALUE_REMOVED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "SUBTYPE_ADDED", "name": "SUBTYPE_ADDED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "SUBTYPE_REMOVED", "name": "SUBTYPE_REMOVED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "DISCRIMINATOR_CHANGED", "name": "DISCRIMINATOR_CHANGED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "DISCRIMINATOR_VALUE_CHANGED", "name": "DISCRIMINATOR_VALUE_CHANGED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "DISCRIMINATOR_COLLISION", "name": "DISCRIMINATOR_COLLISION", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_CHANGED", "name": "CONFIG_CHANGED", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_NAMING_STRATEGY", "name": "CONFIG_NAMING_STRATEGY", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_DISCRIMINATOR", "name": "CONFIG_DISCRIMINATOR", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_READER_STRICTNESS", "name": "CONFIG_READER_STRICTNESS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_ENCODE_DEFAULTS", "name": "CONFIG_ENCODE_DEFAULTS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_EXPLICIT_NULLS", "name": "CONFIG_EXPLICIT_NULLS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_COERCE_INPUT", "name": "CONFIG_COERCE_INPUT", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_ARRAY_POLYMORPHISM", "name": "CONFIG_ARRAY_POLYMORPHISM", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_STRUCTURED_MAP_KEYS", "name": "CONFIG_STRUCTURED_MAP_KEYS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "CONFIG_SPECIAL_FLOATS", "name": "CONFIG_SPECIAL_FLOATS", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" },
-                { "id": "COVERAGE_GAP", "name": "COVERAGE_GAP", "helpUri": "https://chrisjenx.github.io/serialkompat/rules/" }
-              ]
-            }
-          },
-          "results": [
-            {
-              "ruleId": "PROPERTY_REMOVED",
-              "ruleIndex": 2,
-              "level": "error",
-              "message": { "text": "field 'note' was removed from com.example.OrderEvent" },
-              "locations": [ { "logicalLocations": [ { "fullyQualifiedName": "com.example.OrderEvent" } ] } ],
-              "properties": { "direction": "BACKWARD", "detail": "field 'note'", "fixHint": "Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major." }
-            },
-            {
-              "ruleId": "ENUM_VALUE_ADDED",
-              "ruleIndex": 7,
-              "level": "warning",
-              "message": { "text": "enum value 'ARCHIVED' was added to com.example.Status" },
-              "locations": [ { "logicalLocations": [ { "fullyQualifiedName": "com.example.Status" } ] } ],
-              "properties": { "direction": "FORWARD", "detail": "value 'ARCHIVED'", "fixHint": "Enable coerceInputValues *and* give the reading field a default, or bump major." }
-            },
-            {
-              "ruleId": "PROPERTY_REMOVED",
-              "ruleIndex": 2,
-              "level": "error",
-              "message": { "text": "field 'seq' was removed from com.example.LegacyPing" },
-              "locations": [ { "logicalLocations": [ { "fullyQualifiedName": "com.example.LegacyPing" } ] } ],
-              "suppressions": [ { "kind": "external", "status": "accepted", "justification": "retired in v3; no live producers — accepted by alice" } ],
-              "properties": { "direction": "BACKWARD", "detail": "field 'seq'", "fixHint": "Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major." }
-            }
-          ]
-        }
-      ]
-    }
+    --8<-- "docs/snippets/reports/report.sarif"
     ```
 
 ## GitHub annotations
@@ -251,8 +127,7 @@ For the shared report, the two **active** findings become annotations; the
 acknowledged `LegacyPing` break produces none:
 
 ```text
-::error title=PROPERTY_REMOVED::com.example.OrderEvent — field 'note' was removed from com.example.OrderEvent
-::warning title=ENUM_VALUE_ADDED::com.example.Status — enum value 'ARCHIVED' was added to com.example.Status
+--8<-- "docs/snippets/reports/github.txt"
 ```
 
 ## CLI: `--format`

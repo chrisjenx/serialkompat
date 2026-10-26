@@ -16,15 +16,7 @@ Set the format, and point `cborInstance` at the `Cbor` your code really uses, so
 settings and `SerializersModule` decide the verdicts:
 
 ```kotlin title="build.gradle.kts"
-import com.chrisjenx.serialkompat.core.CompatibilityDirection
-import com.chrisjenx.serialkompat.core.WireFormat
-
-serialkompat {
-    format.set(WireFormat.CBOR)
-    cborInstance.set("com.example.storage.WireCbor.instance") // unset = Cbor.Default
-    types.set(listOf("com.example.storage.CacheEntry"))
-    direction.set(CompatibilityDirection.FULL)
-}
+--8<-- "docs-samples/snippets/cbor-setup.gradle.kts"
 ```
 
 `cborInstance` names an `object` property (`com.example.WireCbor.instance`) or a
@@ -47,11 +39,7 @@ modules. The module that owns the cache, with `kotlinx-serialization-cbor` on it
 classpath, can name the cached types in `types` even when another module defines them:
 
 ```kotlin title="storage/build.gradle.kts"
-serialkompat {
-    format.set(WireFormat.CBOR)
-    cborInstance.set("com.example.storage.CacheCbor.instance")
-    types.set(listOf("com.example.api.OrderResponse", "com.example.api.UserResponse"))
-}
+--8<-- "docs-samples/snippets/cbor-storage.gradle.kts"
 ```
 
 ## Adopting CBOR { #adopting-cbor }

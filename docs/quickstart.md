@@ -18,9 +18,7 @@ plugins {
     id("com.chrisjenx.serialkompat") version "{{ skversion }}"
 }
 
-serialkompat {
-    types.set(listOf("com.example.Order")) // (1)!
-}
+--8<-- "docs-samples/snippets/quickstart-types.gradle.kts"
 ```
 
 1. Fully-qualified names of the `@Serializable` root types to check. Everything
@@ -48,10 +46,7 @@ Which failure you see on a first run depends on what the baseline ref has:
 For an empty baseline, opt out explicitly for the run where you expect it:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-    discovery.set(com.chrisjenx.serialkompat.extractor.DiscoveryMode.OPT_OUT)
-    failOnEmptyBaseline.set(false) // only while baselineRef predates these types
-}
+--8<-- "docs-samples/snippets/quickstart-empty-baseline.gradle.kts"
 ```
 
 Once `baselineRef` (for example `origin/main`) contains the commit that added these

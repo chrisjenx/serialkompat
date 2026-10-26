@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "summary": {
+    "total": 3,
+    "breaking": 1,
+    "warning": 1,
+    "acknowledged": 1,
+    "failed": true
+  },
+  "findings": [
+    {
+      "rule": "PROPERTY_REMOVED",
+      "severity": "BREAK",
+      "direction": "BACKWARD",
+      "contract": "com.example.LegacyPing",
+      "detail": "field 'seq'",
+      "message": "field 'seq' was removed from com.example.LegacyPing",
+      "fixHint": "Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.",
+      "acknowledged": true
+    },
+    {
+      "rule": "PROPERTY_REMOVED",
+      "severity": "BREAK",
+      "direction": "BACKWARD",
+      "contract": "com.example.OrderEvent",
+      "detail": "field 'note'",
+      "message": "field 'note' was removed from com.example.OrderEvent",
+      "fixHint": "Removing a field drops its data for tolerant readers; keep it (or bridge a rename with @JsonNames) until nothing uses it; else bump major.",
+      "acknowledged": false
+    },
+    {
+      "rule": "ENUM_VALUE_ADDED",
+      "severity": "WARN",
+      "direction": "FORWARD",
+      "contract": "com.example.Status",
+      "detail": "value 'ARCHIVED'",
+      "message": "enum value 'ARCHIVED' was added to com.example.Status",
+      "fixHint": "Enable coerceInputValues *and* give the reading field a default, or bump major.",
+      "acknowledged": false
+    }
+  ]
+}
