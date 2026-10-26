@@ -6,20 +6,19 @@ This is a reference for people who already have serialkompat
 
 ## Gradle tasks { #tasks }
 
-| Task | Does |
-|---|---|
-| `serialkompatExtract` | Extracts the current schema to `build/serialkompat/current.snapshot` |
-| `serialkompatCheck` | Extracts and diffs against `baselineRef`; wired into `check` |
-| `serialkompatCheckAgainst` | Same as `serialkompatCheck`, but the ref can be overridden with `-Pserialkompat.ref=<ref>` |
-| `serialkompatRecord` | Records the current schema into the published history (`-Pserialkompat.recordVersion=X.Y.Z`). See [Persisted data & history](history.md) |
-| `serialkompatCheckHistory` | Checks the current schema against every recorded version; wired into `check` (skipped until a version is recorded) |
+| Task | What it does | Wired into `check`? | Cacheable? |
+|---|---|---|---|
+| `serialkompatExtract` | Extracts the current schema to `build/serialkompat/current.snapshot` | Indirectly: every other task depends on it | Yes (build-cacheable, relocatable) |
+| `serialkompatCheck` | Extracts, then diffs against `baselineRef`. Fails on an active `BREAK` | Yes | No, never cached on purpose |
+| `serialkompatCheckAgainst` | Same as `serialkompatCheck`, but the ref can be overridden with `-Pserialkompat.ref=<ref>` | No, run it ad hoc | No |
+| `serialkompatRecord` | Records the current schema into the published history (`-Pserialkompat.recordVersion=X.Y.Z`). See [Persisted data & history](history.md) | No, an explicit release-time step | No |
+| `serialkompatCheckHistory` | Checks the current schema against every recorded version | Yes, but skipped until a version is recorded | No |
 
 If neither `types` nor a non-`EXPLICIT` `discovery` mode is set, every serialkompat task
 is skipped, so applying the plugin never breaks `check` on its own.
 
-The plugin supports the configuration cache, `--parallel`, and Isolated Projects.
-`serialkompatExtract` is build-cacheable and relocatable. The check tasks are never
-cached, on purpose. See
+The plugin supports the configuration cache, `--parallel`, and Isolated Projects. The
+check tasks have no cacheable outputs, so they always run. See
 [Baseline & caching → Build cache & configuration cache](baseline-caching.md#build-cache-configuration-cache).
 
 ## Gradle properties { #properties }
@@ -64,13 +63,11 @@ Two empty snapshots still pass.
 
 ## Exit codes { #exit-codes }
 
-Under Gradle, `serialkompatCheck` passes when there are no active `BREAK` findings
-(`WARN`s don't fail it). An active `BREAK` fails the task, so the build exits non-zero.
+The two tools signal results differently.
 
-The standalone CLI has a finer-grained contract:
-
-| Code | Meaning |
-|---|---|
-| `0` | No breaking findings (there may still be `WARN`s) |
-| `1` | At least one active `BREAK` finding (unless `--no-fail`) |
-| `2` | Usage error (bad arguments, unreadable snapshot, etc.), or an empty baseline without `--allow-empty-baseline` |
+| Outcome | Gradle (`serialkompatCheck`, `serialkompatCheckAgainst`, `serialkompatCheckHistory`) | CLI (`serialkompat diff`) |
+|---|---|---|
+| No active `BREAK` (there may be `WARN`s) | Task passes | Exit `0` |
+| At least one active `BREAK` | Task fails, so the build exits non-zero | Exit `1` (exit `0` with `--no-fail`) |
+| Usage error (bad arguments, unreadable snapshot) | Not applicable | Exit `2` |
+| Empty baseline, current has contracts | Pairwise checks fail unless `failOnEmptyBaseline` is off (see [Configuration](configuration.md)) | Exit `2` unless `--allow-empty-baseline` |
