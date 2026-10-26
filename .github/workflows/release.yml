@@ -180,7 +180,7 @@ jobs:
           # Maintain the floating major tag that Action consumers pin
           # (uses: chrisjenx/serialkompat@v1). Stable releases only — never
           # move v<major> onto a prerelease. This is the tag; the one-time
-          # Marketplace *listing* is a manual step (see README → Publishing).
+          # Marketplace *listing* is a manual step (see RELEASING.md).
           if [[ "$VERSION" != *-* ]]; then
             MAJOR="v${VERSION%%.*}"
             git tag -f -a "$MAJOR" -m "serialkompat $MAJOR → v$VERSION" "$GITHUB_SHA"

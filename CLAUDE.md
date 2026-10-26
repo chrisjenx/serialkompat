@@ -60,13 +60,13 @@ Maven Central publishing is **live** for SNAPSHOTs (vanniktech `maven-publish` o
 
 ## Releasing
 
-Releases are **the maintainer's call** — never dispatch `Release` unless explicitly asked. When asked:
+Releases are **the maintainer's call** — never dispatch `Release` unless explicitly asked. Full maintainer detail: [RELEASING.md](RELEASING.md). When asked:
 
 1. **Notes PR:** rename `## [Unreleased]` in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD`, add an empty `## [Unreleased]` above it, merge.
 2. **Dispatch** `gh workflow run release.yml --ref main -f version=X.Y.Z`. Preflight refuses a final release without that CHANGELOG section; the GitHub release body is that section (`scripts/changelog-section.sh`) plus generated PR notes. It publishes to Central and the Gradle Plugin Portal, tags `vX.Y.Z`, moves the floating `v<major>` tag (`v0` while 0.x), and opens a version-bump PR (`gradle.properties` → next `-SNAPSHOT`, README install snippet → `X.Y.Z`).
 3. **Merge the bump PR** (it's authored by `GITHUB_TOKEN`, so its CI is dispatched by the workflow). Its merge redeploys the docs site, whose `{{ skversion }}` comes from the newest `vX.Y.Z` tag.
 4. **Verify:** `gh release view vX.Y.Z`, the artifacts on Maven Central (can take ~30 min to appear), and the version on plugins.gradle.org/plugin/com.chrisjenx.serialkompat.
 
-Semver while 0.x: a breaking change to the DSL, snapshot format or public API bumps the minor. Details: README → Publishing.
+Semver while 0.x: a breaking change to the DSL, snapshot format or public API bumps the minor. Details: [RELEASING.md](RELEASING.md).
 
 See the [issues](https://github.com/chrisjenx/serialkompat/issues) and [milestones](https://github.com/chrisjenx/serialkompat/milestones) for the build order.
