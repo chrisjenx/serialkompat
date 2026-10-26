@@ -66,6 +66,13 @@ public sealed interface Change {
         val element: String,
         val wasNullable: Boolean,
         val nowNullable: Boolean,
+        /**
+         * Whether the old (baseline) element had a default. When a field becomes nullable and the new
+         * writer omits nulls (`explicitNulls = false`), an old reader decodes the absent key to this
+         * default (a silent substitution, WARN) or, with no default, throws `MissingFieldException`
+         * (BREAK). `false` when unknown, so an unknown default is never treated as safe.
+         */
+        val wasOptional: Boolean = false,
     ) : Change
 
     /**
@@ -134,6 +141,17 @@ public sealed interface Change {
         val field: String,
         val oldValue: String,
         val newValue: String,
+        /**
+         * `explicitNulls` only: whether every baseline (old) reader decodes an omitted null under
+         * `explicitNulls = true` — i.e. no baseline field is nullable without a default. A writer with
+         * `explicitNulls = false` omits a null; a reader with `explicitNulls = true` then throws
+         * `MissingFieldException` on a nullable no-default field. The classifier keeps the forward
+         * direction a WARN only when this is `true`; `false` (the default, also used when unknown)
+         * makes it a BREAK.
+         */
+        val baselineOmittedNullsDecode: Boolean = false,
+        /** As [baselineOmittedNullsDecode], for the current (new) readers and the backward direction. */
+        val currentOmittedNullsDecode: Boolean = false,
     ) : Change
 
     /**

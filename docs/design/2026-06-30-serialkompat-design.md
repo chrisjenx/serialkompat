@@ -461,7 +461,9 @@ and `classDiscriminator` / `classDiscriminatorMode` → `CONFIG_DISCRIMINATOR`
 `CONFIG_READER_STRICTNESS` and disabling `coerceInputValues` →
 `CONFIG_COERCE_INPUT` (backward WARN only); disabling `encodeDefaults` →
 `CONFIG_ENCODE_DEFAULTS` (forward WARN only); any `explicitNulls` toggle →
-`CONFIG_EXPLICIT_NULLS` (WARN both ways); anything else → `CONFIG_CHANGED` (WARN).
+`CONFIG_EXPLICIT_NULLS` (WARN both ways, except a BREAK in the direction whose writer
+now omits nulls for a reader with `explicitNulls=true` that has a nullable no-default
+field, judged over that reader's snapshot); anything else → `CONFIG_CHANGED` (WARN).
 Loosening a reader-side flag is SAFE.
 
 **Honest limit:** reading *your* `Json` config describes the sides you own (Kotlin
@@ -599,7 +601,7 @@ says what downgrades them. The authoritative per-rule table, with rule IDs, is
 | Rename **with `@JsonNames(old)`** | **BREAK** (designed: SAFE) | **BREAK** | **Not implemented:** elements pair by key only, so an alias-bridged rename is still scored as a plain rename (remove + add). Conservative: never a false SAFE |
 | optional → **required** | **BREAK** | SAFE | backward = old payloads omit it |
 | required → **optional** | SAFE | **BREAK** | forward per field (#158/#176): `@EncodeDefault(ALWAYS)`→SAFE; `NEVER`→BREAK; no annotation→SAFE iff writer `encodeDefaults`; mode unknown→WARN under `encodeDefaults=true`, else BREAK |
-| non-null → **nullable** (`T`→`T?`) | SAFE | **BREAK** | forward: old reader chokes on emitted `null`; new writer `explicitNulls=false`→**WARN** |
+| non-null → **nullable** (`T`→`T?`) | SAFE | **BREAK** | forward: old reader chokes on emitted `null`; new writer `explicitNulls=false` omits it instead→**WARN** if the old field has a default (silent default), else still **BREAK** (`MissingFieldException`) |
 | nullable → **non-null** (`T?`→`T`) | **BREAK** | SAFE | backward: old `null` can't decode |
 | Change type (`String`↔`Int`, restructure) | **BREAK** | **BREAK** | numeric widening (`Byte`/`Short`/`Int`→wider int, `Float→Double`): B SAFE / F BREAK. A change where exactly one side bears a generic hole, or only hole ordinals differ, is not a finding; a different shape with holes on both sides (`List<#0>` → `#0`) is BREAK (§14) |
 | Drop a `@JsonNames` alias | **WARN** | SAFE | `PROPERTY_JSON_NAMES`; adding an alias is SAFE |

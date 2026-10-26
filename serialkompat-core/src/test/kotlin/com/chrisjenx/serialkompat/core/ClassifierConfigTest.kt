@@ -71,9 +71,45 @@ class ClassifierConfigTest {
     }
 
     @Test
-    fun `changing explicitNulls is a WARN`() {
-        val f = classify(Change.ConfigChanged("explicitNulls", "true", "false"))
+    fun `changing explicitNulls is a WARN when omitted nulls still decode`() {
+        val f =
+            classify(
+                Change.ConfigChanged(
+                    "explicitNulls",
+                    "true",
+                    "false",
+                    baselineOmittedNullsDecode = true,
+                    currentOmittedNullsDecode = true,
+                ),
+            )
         assertEquals(Severity.WARN, f.backward())
+        assertEquals(Severity.WARN, f.forward())
+    }
+
+    @Test
+    fun `no longer writing nulls breaks forward when an old reader requires a nullable field`() {
+        // The new writer omits a null; the old explicitNulls=true reader's nullable no-default field is
+        // then missing -> MissingFieldException. Unknown (default) = not proven to decode = BREAK.
+        val f = classify(Change.ConfigChanged("explicitNulls", "true", "false", currentOmittedNullsDecode = true))
+        assertEquals(Severity.WARN, f.backward())
+        assertEquals(Severity.BREAK, f.forward())
+    }
+
+    @Test
+    fun `a reader that requires written nulls breaks backward on old data that omitted them`() {
+        // Symmetric: the old writer omitted nulls; the new explicitNulls=true reader requires the field.
+        val f = classify(Change.ConfigChanged("explicitNulls", "false", "true", baselineOmittedNullsDecode = true))
+        assertEquals(Severity.BREAK, f.backward())
+        assertEquals(Severity.WARN, f.forward())
+        assertTrue(f.all { it.rule == Rules.CONFIG_EXPLICIT_NULLS && "default" in it.fixHint.orEmpty() }, "$f")
+    }
+
+    @Test
+    fun `a decode flag only matters for the reader that meets omitted nulls`() {
+        // true->false: only the OLD reader meets `{}`, so only baselineOmittedNullsDecode is consulted.
+        val f = classify(Change.ConfigChanged("explicitNulls", "true", "false", baselineOmittedNullsDecode = true))
+        assertEquals(Severity.WARN, f.backward())
+        assertEquals(Severity.WARN, f.forward())
     }
 
     @Test
@@ -94,9 +130,10 @@ class ClassifierConfigTest {
     }
 
     @Test
-    fun `changing explicitNulls warns forward too`() {
-        val f = classify(Change.ConfigChanged("explicitNulls", "true", "false"))
-        assertEquals(Severity.WARN, f.forward())
+    fun `changing explicitNulls with unknown snapshot facts breaks the direction meeting omitted nulls`() {
+        // A hand-built change carries no snapshot facts; unanalysable is not safe.
+        assertVerdict("explicitNulls", "true", "false", Rules.CONFIG_EXPLICIT_NULLS, Severity.WARN, Severity.BREAK)
+        assertVerdict("explicitNulls", "false", "true", Rules.CONFIG_EXPLICIT_NULLS, Severity.BREAK, Severity.WARN)
     }
 
     @Test

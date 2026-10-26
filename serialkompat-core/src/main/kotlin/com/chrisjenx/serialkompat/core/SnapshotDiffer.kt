@@ -54,7 +54,20 @@ public object SnapshotDiffer {
                 add(Change.ConfigChanged("format", old.config.format.id, new.config.format.id))
                 return@buildList
             }
-            addAll(diffConfig(old.config, new.config))
+            addAll(
+                diffConfig(old.config, new.config).map { change ->
+                    // Which readers decode a null that the other side's writer omits: judged over the
+                    // unscoped baseline (an out-of-scope reader is still on the wire) and the current side.
+                    if (change.field == "explicitNulls") {
+                        change.copy(
+                            baselineOmittedNullsDecode = omittedNullsDecode(enumReaders),
+                            currentOmittedNullsDecode = omittedNullsDecode(new),
+                        )
+                    } else {
+                        change
+                    }
+                },
+            )
 
             // Which enums, in the *baseline* (old = the forward reader), are read only by defaulted
             // direct properties — the precondition for coerceInputValues to rescue an added value (#129).
@@ -277,10 +290,19 @@ public object SnapshotDiffer {
             }
         }
 
+    /**
+     * Whether every reader in [snapshot] decodes an omitted null under `explicitNulls = true`: no
+     * element is nullable without a default. `explicitNulls` only governs class properties (nulls
+     * inside collections are always written), so a direct-element scan suffices. An opaque contract
+     * has no elements to inspect; it is reported as a coverage gap on its own.
+     */
+    private fun omittedNullsDecode(snapshot: Snapshot): Boolean =
+        snapshot.contracts.none { contract -> contract.elements.any { it.nullable && !it.optional } }
+
     private fun diffConfig(
         old: SnapshotConfig,
         new: SnapshotConfig,
-    ): List<Change> {
+    ): List<Change.ConfigChanged> {
         val fields =
             listOf<Triple<String, Any, Any>>(
                 Triple("classDiscriminator", old.classDiscriminator, new.classDiscriminator),
@@ -399,7 +421,15 @@ public object SnapshotDiffer {
                             )
                         }
                         if (old.nullable != new.nullable) {
-                            add(Change.ElementNullabilityChanged(contract, name, old.nullable, new.nullable))
+                            add(
+                                Change.ElementNullabilityChanged(
+                                    contract,
+                                    name,
+                                    old.nullable,
+                                    new.nullable,
+                                    wasOptional = old.optional,
+                                ),
+                            )
                         }
                         if (old.jsonNames != new.jsonNames) {
                             add(Change.ElementJsonNamesChanged(contract, name, old.jsonNames, new.jsonNames))

@@ -2091,4 +2091,171 @@ class RoundTripOracleTest {
             "a resolved contextual type is not a gap: $findings",
         )
     }
+
+    // --- explicitNulls=false omits a null: a required reader field then throws ---------------------
+
+    @Serializable
+    @SerialName("NullableNoDefault")
+    private data class RequiredNonNull(
+        val id: String,
+    )
+
+    @Serializable
+    @SerialName("NullableNoDefault")
+    private data class NullableNoDefault(
+        val id: String?,
+    )
+
+    @Serializable
+    @SerialName("NullableWithDefault")
+    private data class NonNullWithDefault(
+        val id: String = "d",
+    )
+
+    @Serializable
+    @SerialName("NullableWithDefault")
+    private data class NullableWithDefault(
+        val id: String? = null,
+    )
+
+    /** The classifier's findings for [old] -> [new] under the given configs, as (rule, direction) -> severity. */
+    private fun verdictsOf(
+        old: SerialDescriptor,
+        new: SerialDescriptor,
+        oldJson: Json,
+        newJson: Json,
+    ): Map<Pair<String, CompatibilityDirection>, Severity> {
+        val oldConfig = JsonConfigReader.read(oldJson)
+        val newConfig = JsonConfigReader.read(newJson)
+        val changes =
+            SnapshotDiffer.diff(
+                DescriptorSnapshotExtractor.extract(listOf(old), config = oldConfig),
+                DescriptorSnapshotExtractor.extract(listOf(new), config = newConfig),
+            )
+        return Classifier()
+            .classify(changes, oldConfig, newConfig)
+            .associate { (it.rule to it.direction) to it.severity }
+    }
+
+    @Test
+    fun `PROPERTY_NULLABILITY - became nullable without a default breaks old readers when nulls are omitted`() {
+        // New writer (explicitNulls=false) encodes NullableNoDefault(null) as `{}`; the old reader's `id` is
+        // required and non-null -> MissingFieldException. Classifier: PROPERTY_NULLABILITY forward WARN only.
+        val omitsNulls = Json { explicitNulls = false }
+        assertOracleAgrees(
+            serializer<RequiredNonNull>(),
+            RequiredNonNull("x"),
+            serializer<NullableNoDefault>(),
+            NullableNoDefault(null),
+            oldJson = omitsNulls,
+            newJson = omitsNulls,
+        )
+        val verdicts =
+            verdictsOf(
+                serializer<RequiredNonNull>().descriptor,
+                serializer<NullableNoDefault>().descriptor,
+                omitsNulls,
+                omitsNulls,
+            )
+        assertEquals(
+            mapOf((Rules.PROPERTY_NULLABILITY to CompatibilityDirection.FORWARD) to Severity.BREAK),
+            verdicts,
+        )
+    }
+
+    @Test
+    fun `PROPERTY_NULLABILITY - became nullable with a default and omitted nulls is a silent default`() {
+        // The new writer omits the null (`{}`); the old reader decodes its default "d" instead: no throw, but
+        // not the written value -> silent substitution = WARN forward, never SAFE and never BREAK.
+        val omitsNulls = Json { explicitNulls = false }
+        val decoded =
+            omitsNulls.decodeFromString(
+                serializer<NonNullWithDefault>(),
+                omitsNulls.encodeToString(serializer<NullableWithDefault>(), NullableWithDefault(null)),
+            )
+        assertEquals(NonNullWithDefault("d"), decoded)
+        assertOracleAgrees(
+            serializer<NonNullWithDefault>(),
+            NonNullWithDefault("x"),
+            serializer<NullableWithDefault>(),
+            NullableWithDefault(null),
+            oldJson = omitsNulls,
+            newJson = omitsNulls,
+        )
+        val verdicts =
+            verdictsOf(
+                serializer<NonNullWithDefault>().descriptor,
+                serializer<NullableWithDefault>().descriptor,
+                omitsNulls,
+                omitsNulls,
+            )
+        assertEquals(
+            mapOf((Rules.PROPERTY_NULLABILITY to CompatibilityDirection.FORWARD) to Severity.WARN),
+            verdicts,
+        )
+    }
+
+    @Test
+    fun `CONFIG_EXPLICIT_NULLS - omitting nulls breaks old readers of a nullable no-default field`() {
+        // New writer (explicitNulls=false) encodes NullableNoDefault(null) as `{}`; the old explicitNulls=true
+        // reader requires `id` -> MissingFieldException. Classifier: CONFIG_EXPLICIT_NULLS WARN both ways only.
+        assertConfigOracle(
+            serializer<NullableNoDefault>(),
+            NullableNoDefault(null),
+            oldJson = strict,
+            newJson = Json { explicitNulls = false },
+        )
+        val d = serializer<NullableNoDefault>().descriptor
+        assertEquals(
+            mapOf(
+                (Rules.CONFIG_EXPLICIT_NULLS to CompatibilityDirection.BACKWARD) to Severity.WARN,
+                (Rules.CONFIG_EXPLICIT_NULLS to CompatibilityDirection.FORWARD) to Severity.BREAK,
+            ),
+            verdictsOf(d, d, strict, Json { explicitNulls = false }),
+        )
+    }
+
+    @Test
+    fun `CONFIG_EXPLICIT_NULLS - a reader that stops accepting omitted nulls breaks on old data`() {
+        // Symmetric: the OLD writer (explicitNulls=false) encoded NullableNoDefault(null) as `{}`; the new
+        // explicitNulls=true reader requires `id` -> MissingFieldException = a real backward BREAK.
+        val omitsNulls = Json { explicitNulls = false }
+        assertFailsWith<Exception> {
+            strict.decodeFromString(
+                serializer<NullableNoDefault>(),
+                omitsNulls.encodeToString(serializer<NullableNoDefault>(), NullableNoDefault(null)),
+            )
+        }
+        assertConfigOracle(
+            serializer<NullableNoDefault>(),
+            NullableNoDefault(null),
+            oldJson = omitsNulls,
+            newJson = strict,
+        )
+        val d = serializer<NullableNoDefault>().descriptor
+        assertEquals(
+            mapOf(
+                (Rules.CONFIG_EXPLICIT_NULLS to CompatibilityDirection.BACKWARD) to Severity.BREAK,
+                (Rules.CONFIG_EXPLICIT_NULLS to CompatibilityDirection.FORWARD) to Severity.WARN,
+            ),
+            verdictsOf(d, d, omitsNulls, strict),
+        )
+    }
+
+    @Test
+    fun `CONFIG_EXPLICIT_NULLS - stays a WARN both ways when every nullable field has a default`() {
+        // NullHolder's only nullable field defaults to null, so an omitted null decodes either way.
+        val d = serializer<NullHolder>().descriptor
+        val omitsNulls = Json { explicitNulls = false }
+        for ((old, new) in listOf(strict to omitsNulls, omitsNulls to strict)) {
+            assertConfigOracle(serializer<NullHolder>(), NullHolder("x", null), oldJson = old, newJson = new)
+            assertEquals(
+                mapOf(
+                    (Rules.CONFIG_EXPLICIT_NULLS to CompatibilityDirection.BACKWARD) to Severity.WARN,
+                    (Rules.CONFIG_EXPLICIT_NULLS to CompatibilityDirection.FORWARD) to Severity.WARN,
+                ),
+                verdictsOf(d, d, old, new),
+            )
+        }
+    }
 }
