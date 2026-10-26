@@ -47,17 +47,13 @@ multiplatform, so the annotations are available there.
 Switch to `OPT_IN` with no `types` list:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-    discovery.set(com.chrisjenx.serialkompat.extractor.DiscoveryMode.OPT_IN)
-}
+--8<-- "docs-samples/snippets/adopting-opt-in.gradle.kts"
 ```
 
 Nothing is checked yet. As you review each wire type, annotate it:
 
 ```kotlin
-@Serializable
-@SerialkompatChecked
-data class OrderEvent(val id: String)
+--8<-- "docs-samples/src/main/kotlin/com/example/OrderEvent.kt:order-event"
 ```
 
 Each newly annotated type joins the gate on its next run. You don't touch the plugin config
@@ -76,15 +72,11 @@ When coverage is essentially complete, switch to `DiscoveryMode.OPT_OUT` so ever
 type is checked, and mark the few intentionally unstable types with `@SerialkompatIgnore`:
 
 ```kotlin title="build.gradle.kts"
-serialkompat {
-    discovery.set(com.chrisjenx.serialkompat.extractor.DiscoveryMode.OPT_OUT)
-}
+--8<-- "docs-samples/snippets/adopting-opt-out.gradle.kts"
 ```
 
 ```kotlin
-@Serializable
-@SerialkompatIgnore // internal scratch type, no cross-version contract
-data class DebugDump(val raw: String)
+--8<-- "docs-samples/src/main/kotlin/com/example/DebugDump.kt:debug-dump"
 ```
 
 Both modes fail safe. `OPT_IN` never checks a type you haven't reviewed. `OPT_OUT` never

@@ -9,11 +9,7 @@ Restrict each module's check to serial-name prefixes with `include` and `exclude
 match, `exclude` wins:
 
 ```kotlin title="modules/orders/build.gradle.kts"
-serialkompat {
-    types.set(listOf("com.example.wire.OrderEvent"))
-    include.set(listOf("com.example.wire.orders"))
-    exclude.set(listOf("com.example.wire.orders.internal"))
-}
+--8<-- "docs-samples/snippets/monorepos-module.gradle.kts"
 ```
 
 `include` defaults to `[""]`, which matches everything. Set it when a module should ignore

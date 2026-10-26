@@ -15,7 +15,7 @@ so `gradlePluginPortal()` (Gradle's default plugin repository) is all you need. 
 it by id and version, and configure it:
 
 ```kotlin title="build.gradle.kts"
-import com.chrisjenx.serialkompat.core.CompatibilityDirection
+--8<-- "docs-samples/snippets/installation.gradle.kts:imports"
 
 plugins {
     kotlin("jvm")
@@ -23,14 +23,7 @@ plugins {
     id("com.chrisjenx.serialkompat") version "{{ skversion }}"
 }
 
-serialkompat {
-    types.set(listOf("com.example.wire.OrderEvent", "com.example.wire.Payment"))
-    jsonInstance.set("com.example.wire.WireJson.instance")
-    // baselineRef is optional. Unset, it auto-detects your default branch.
-    direction.set(CompatibilityDirection.FULL)
-    failOnBreaking.set(true)
-    failOnEmptyBaseline.set(true)
-}
+--8<-- "docs-samples/snippets/installation.gradle.kts:config"
 ```
 
 The [baseline](concepts.md#the-baseline) isn't read from a checked-in file. serialkompat
