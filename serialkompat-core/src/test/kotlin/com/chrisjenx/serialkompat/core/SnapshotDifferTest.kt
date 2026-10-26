@@ -221,6 +221,75 @@ class SnapshotDifferTest {
     }
 
     @Test
+    fun `an explicitNulls change records whether each side's readers decode an omitted null`() {
+        // A nullable field with no default can't decode an omitted null under explicitNulls=true; a
+        // defaulted or non-null field is unaffected. Each side is judged over its own contracts.
+        val required = clazz("T", Element("id", "String", nullable = true))
+        val defaulted = clazz("T", Element("id", "String", optional = true, nullable = true))
+        val on = SnapshotConfig(explicitNulls = true)
+        val off = SnapshotConfig(explicitNulls = false)
+        assertEquals(
+            listOf(
+                Change.ConfigChanged(
+                    "explicitNulls",
+                    "true",
+                    "false",
+                    baselineOmittedNullsDecode = false,
+                    currentOmittedNullsDecode = true,
+                ),
+            ),
+            // The field's optionality change is its own Change; only the config change is asserted here.
+            diff(snapshot(required, config = on), snapshot(defaulted, config = off))
+                .filterIsInstance<Change.ConfigChanged>(),
+        )
+        val nonNull = clazz("T", Element("id", "String"))
+        assertEquals(
+            listOf(
+                Change.ConfigChanged(
+                    "explicitNulls",
+                    "false",
+                    "true",
+                    baselineOmittedNullsDecode = true,
+                    currentOmittedNullsDecode = true,
+                ),
+            ),
+            diff(snapshot(nonNull, config = off), snapshot(nonNull, config = on)),
+        )
+    }
+
+    @Test
+    fun `omitted-null decodability is judged over the unscoped baseline`() {
+        // An out-of-scope baseline reader still sits on the wire, like enum coercibility (#129).
+        val inScope = snapshot(clazz("A", Element("id", "String")), config = SnapshotConfig())
+        val full =
+            snapshot(
+                clazz("A", Element("id", "String")),
+                clazz("B", Element("note", "String", nullable = true)),
+            )
+        val current = snapshot(clazz("A", Element("id", "String")), config = SnapshotConfig(explicitNulls = false))
+        val change = SnapshotDiffer.diff(inScope, current, emptyMap(), full).single() as Change.ConfigChanged
+        assertFalse(change.baselineOmittedNullsDecode)
+    }
+
+    @Test
+    fun `a nullability change records whether the old field had a default`() {
+        val old = snapshot(clazz("T", Element("id", "String", optional = true)))
+        val new = snapshot(clazz("T", Element("id", "String", optional = true, nullable = true)))
+        assertEquals(
+            listOf(
+                Change.ElementNullabilityChanged(
+                    "T",
+                    "id",
+                    wasNullable = false,
+                    nowNullable = true,
+                    wasOptional = true,
+                ),
+            ),
+            diff(old, new),
+        )
+    }
+
+    @Test
     fun `changing a contract's kind surfaces as remove and add`() {
         val old = snapshot(clazz("T", Element("id", "String")))
         val new = snapshot(Contract("T", ContractKind.ENUM, enumValues = listOf("A")))

@@ -198,15 +198,32 @@ class ClassifierTest {
     }
 
     @Test
-    fun `non-null to nullable — forward only a WARN when the writer omits nulls`() {
-        // explicitNulls=false: the writer omits a null field, so whether an old reader chokes
-        // depends on that field's optionality (unknowable here) — conditional, so WARN not BREAK.
+    fun `non-null to nullable — forward only a WARN when nulls are omitted and the old field has a default`() {
+        // explicitNulls=false: the writer omits a null field; an old reader whose field has a default
+        // decodes that default instead — no throw, but a silent substitution, so WARN.
         val f =
             classify(
-                Change.ElementNullabilityChanged("T", "x", wasNullable = false, nowNullable = true),
+                Change.ElementNullabilityChanged("T", "x", false, nowNullable = true, wasOptional = true),
                 new = SnapshotConfig(explicitNulls = false),
             )
+        assertNull(f.severity(CompatibilityDirection.BACKWARD))
         assertEquals(Severity.WARN, f.severity(CompatibilityDirection.FORWARD))
+    }
+
+    @Test
+    fun `non-null to nullable — forward breaks when the writer omits nulls and the old field is required`() {
+        // explicitNulls=false omits the null, and the old reader requires the (non-null) field →
+        // MissingFieldException whatever that reader's own explicitNulls. Unknown optionality = BREAK.
+        for (old in listOf(strict, SnapshotConfig(explicitNulls = false))) {
+            val f =
+                classify(
+                    Change.ElementNullabilityChanged("T", "x", wasNullable = false, nowNullable = true),
+                    old = old,
+                    new = SnapshotConfig(explicitNulls = false),
+                )
+            assertEquals(Severity.BREAK, f.severity(CompatibilityDirection.FORWARD))
+            assertTrue("default" in f.single().fixHint.orEmpty(), "hint should name the default fix")
+        }
     }
 
     @Test

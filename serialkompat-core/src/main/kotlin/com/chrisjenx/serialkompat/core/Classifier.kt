@@ -166,11 +166,23 @@ public class Classifier(
                         "field '${change.element}'",
                         backward = Severity.SAFE,
                         // forward: an emitted null breaks an old non-null reader. If the writer omits
-                        // nulls (explicitNulls=false) the key is simply absent, so whether it breaks
-                        // depends on that field's optionality (not visible here) — conditional → WARN.
-                        forward = if (newConfig.explicitNulls) Severity.BREAK else Severity.WARN,
+                        // nulls (explicitNulls=false) the key is absent instead: an old field with a
+                        // default decodes that default (silent substitution → WARN); a required one
+                        // throws MissingFieldException whatever the old reader's config (BREAK).
+                        forward =
+                            when {
+                                newConfig.explicitNulls -> Severity.BREAK
+                                change.wasOptional -> Severity.WARN
+                                else -> Severity.BREAK
+                            },
                         message = "field '${change.element}' became nullable in ${change.contract}",
-                        fixHint = "Old readers can't accept null here; introduce a new field or bump major.",
+                        fixHint =
+                            if (newConfig.explicitNulls) {
+                                "Old readers can't accept null here; introduce a new field or bump major."
+                            } else {
+                                "Old readers need this field when the null is omitted; give the old field a " +
+                                    "default first, introduce a new field, or bump major."
+                            },
                     )
                 } else {
                     Verdict(
@@ -630,13 +642,20 @@ public class Classifier(
                     )
                 }
 
-                // Whether nulls are written; conditional in both directions — kept coarse (WARN).
+                // Whether nulls are written. A writer with explicitNulls=false omits a null; a reader with
+                // explicitNulls=true then throws MissingFieldException on a nullable no-default field, so
+                // that direction is a BREAK unless the differ found no such field among its readers.
+                // Otherwise the data decodes but may differ (a default replaces the null) — WARN.
                 "explicitNulls" -> {
                     ConfigSpec(
                         Rules.CONFIG_EXPLICIT_NULLS,
-                        Severity.WARN,
-                        Severity.WARN,
-                        "This changes whether nulls appear on the wire.",
+                        // backward: the old writer omitted nulls only if it was false, i.e. now enabled.
+                        if (enabled && !change.currentOmittedNullsDecode) Severity.BREAK else Severity.WARN,
+                        // forward: the new writer omits nulls when it is now disabled.
+                        if (disabled && !change.baselineOmittedNullsDecode) Severity.BREAK else Severity.WARN,
+                        "This changes whether nulls appear on the wire. A reader with explicitNulls=true " +
+                            "can't decode an omitted null into a nullable field with no default; give such " +
+                            "fields a default (= null) first, or bump major.",
                     )
                 }
 
