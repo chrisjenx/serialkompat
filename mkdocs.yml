@@ -8,29 +8,47 @@ edit_uri: edit/main/docs/
 # Engineering specs stay on GitHub, not in the site.
 exclude_docs: |
   design/
+  superpowers/
 
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  font:
+    text: Inter
+    code: Fira Code
   palette:
+    # System preference first, then explicit light / dark (Metro's pattern).
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
+      primary: white
+      accent: green
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
+      primary: black
+      accent: green
       toggle:
         icon: material/brightness-4
-        name: Switch to light mode
+        name: Switch to system preference
   features:
     - navigation.sections
+    - navigation.top
     - navigation.footer
+    - content.action.edit
+    - content.action.view
     - content.code.copy
+    - content.code.select
     - content.code.annotate
     - content.tabs.link
     - search.suggest
+    - search.highlight
 
 plugins:
   - search
@@ -52,6 +70,8 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - tables
+  - toc:
+      permalink: true
   - pymdownx.details
   - pymdownx.superfences:
       custom_fences:

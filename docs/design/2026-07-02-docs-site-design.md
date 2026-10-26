@@ -1,3 +1,5 @@
+> **Superseded** by [2026-10-22-docs-site-redesign.md](2026-10-22-docs-site-redesign.md).
+
 # Docs site design
 
 **Date:** 2026-07-02 · **Status:** approved · **Owner:** @chrisjenx

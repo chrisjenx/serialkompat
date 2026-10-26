@@ -1,14 +1,107 @@
 /*
- * serialkompat animated pipeline.
- * Pure CSS, no JS, no external assets. Dark-mode aware via Material for
- * MkDocs CSS custom properties. Honors prefers-reduced-motion.
+ * serialkompat docs theme tokens and components.
+ * Pure CSS, no JS, no external assets. Colours are CSS variables on :root and
+ * on Material's slate scheme; components never hard-code a colour.
+ *
+ * Contrast (WCAG 2.x), measured against #ffffff (light) and slate's
+ * --md-default-bg-color hsl(232 15% 21%) = #2e303e (dark):
+ *   --sk-accent  light #15803d  5.02:1 on #ffffff
+ *                dark  #4ade80  7.49:1 on #2e303e
+ *   --sk-break   light #b91c1c  6.47:1 on #ffffff
+ *                dark  #f87171  4.72:1 on #2e303e
+ *   --sk-warn    light #a16207  4.92:1 on #ffffff
+ *                dark  #fbbf24  7.82:1 on #2e303e
+ * No single green reaches 4.5:1 on both backgrounds (the best common value,
+ * #16a34a, gives 3.30 / 3.96), so --sk-accent flips per scheme.
+ * --sk-accent-solid #15803d is the fixed fill for buttons: white text on it
+ * is 5.02:1 in both schemes (the dark-scheme accent is too light for white text).
+ *
+ * Terminal colours are deliberately fixed in both schemes (see .sk-terminal).
  */
 
+:root,
+[data-md-color-scheme="default"] {
+  --sk-accent: #15803d;
+  --sk-accent-solid: #15803d;
+  --sk-break: #b91c1c;
+  --sk-warn: #a16207;
+  --sk-surface: #f6f8fa;
+  --sk-border: #d0d7de;
+
+  --sk-term-bg: #1a1e26;
+  --sk-term-bar: #262c38;
+  --sk-term-fg: #d8dee9;
+  --sk-term-dim: #8b93a5;
+  --sk-term-label: #7b8496;
+  --sk-term-prompt: #28c840;
+  --sk-term-break: #ff6b6b;
+  --sk-term-dot-close: #ff5f57;
+  --sk-term-dot-min: #febc2e;
+  --sk-term-dot-max: #28c840;
+}
+
+[data-md-color-scheme="slate"] {
+  --sk-accent: #4ade80;
+  --sk-break: #f87171;
+  --sk-warn: #fbbf24;
+  --sk-surface: #262833;
+  --sk-border: #3d4052;
+}
+
+/* Material derives these from the accent/primary palette. With primary
+   white/black they would be white-on-white or black-on-black, and the stock
+   green accent (#00c753) is 2.2:1 on white, so route them to our tokens. */
+:root,
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"] {
+  --md-accent-fg-color: var(--sk-accent);
+  --md-accent-fg-color--transparent: color-mix(in srgb, var(--sk-accent) 10%, transparent);
+}
+
+.md-typeset .md-button--primary,
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button--primary:focus {
+  background: var(--sk-accent-solid);
+  border-color: var(--sk-accent-solid);
+  color: #fff;
+}
+
+/* Hover darkens the fill (#166534, white text 7.13:1) rather than lightening it,
+   which would drop white text below 4.5:1. */
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button--primary:focus {
+  background: #166534;
+  border-color: #166534;
+}
+
+/* Material renders the logo as <img>, where currentColor cannot inherit, so the
+   mark is drawn in near-black and inverted under slate. */
+[data-md-color-scheme="slate"] .md-logo img {
+  filter: invert(1);
+}
+
+/* Header: active tab / hover indicator and search focus ring. */
+.md-tabs__link--active,
+.md-tabs__link:hover,
+.md-tabs__link:focus {
+  color: var(--sk-accent);
+  opacity: 1;
+}
+
+.md-tabs__item--active {
+  box-shadow: inset 0 -2px 0 var(--sk-accent);
+}
+
+.md-search__form:focus-within,
+.md-search__input:focus {
+  outline: 2px solid var(--sk-accent);
+  outline-offset: 1px;
+}
+
 .sk-pipeline {
-  --sk-stage-bg: var(--md-code-bg-color);
-  --sk-stage-border: var(--md-default-fg-color--lightest);
+  --sk-stage-bg: var(--sk-surface);
+  --sk-stage-border: var(--sk-border);
   --sk-stage-fg: var(--md-default-fg-color);
-  --sk-accent: var(--md-primary-fg-color);
 
   /* Never wrap: a wrapped row strands connectors mid-air. Stages shrink to
      their labels and connectors absorb the slack; below the media-query
@@ -204,7 +297,7 @@
   width: 2px;
   height: 2rem;
   margin: 0.4rem auto;
-  background: var(--md-default-fg-color--lighter);
+  background: var(--sk-border);
 }
 
 .sk-hero-flow::before {
@@ -215,7 +308,7 @@
   transform: translateX(-50%);
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
-  border-top: 6px solid var(--md-default-fg-color--lighter);
+  border-top: 6px solid var(--sk-border);
 }
 
 .sk-hero-flow span {
@@ -226,7 +319,7 @@
   height: 30%;
   transform: translateX(-50%);
   border-radius: 999px;
-  background: var(--md-primary-fg-color);
+  background: var(--sk-accent);
   animation: sk-hero-drop 1.8s ease-in-out infinite;
 }
 
@@ -253,8 +346,8 @@
 .sk-terminal {
   margin: 0 0 1.5rem;
   border-radius: 0.5rem;
-  border: 1px solid var(--md-default-fg-color--lightest);
-  background: #1a1e26;
+  border: 1px solid var(--sk-border);
+  background: var(--sk-term-bg);
   overflow: hidden;
 }
 
@@ -263,22 +356,22 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.5rem 0.75rem;
-  background: #262c38;
+  background: var(--sk-term-bar);
 }
 
 .sk-terminal-bar i {
   width: 0.65rem;
   height: 0.65rem;
   border-radius: 50%;
-  background: #ff5f57;
+  background: var(--sk-term-dot-close);
 }
 
 .sk-terminal-bar i:nth-of-type(2) {
-  background: #febc2e;
+  background: var(--sk-term-dot-min);
 }
 
 .sk-terminal-bar i:nth-of-type(3) {
-  background: #28c840;
+  background: var(--sk-term-dot-max);
 }
 
 .sk-terminal-bar b {
@@ -286,7 +379,7 @@
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.08em;
-  color: #7b8496;
+  color: var(--sk-term-label);
 }
 
 .sk-terminal pre {
@@ -307,7 +400,7 @@
   display: block;
   padding: 0;
   background: transparent;
-  color: #d8dee9;
+  color: var(--sk-term-fg);
   font-size: 0.7rem;
   line-height: 1.55;
   /* Wrap long report lines the way a real terminal soft-wraps them,
@@ -317,18 +410,18 @@
 }
 
 .sk-t-prompt {
-  color: #28c840;
+  color: var(--sk-term-prompt);
   font-weight: 700;
 }
 
 .sk-t-break,
 .sk-t-fail {
-  color: #ff6b6b;
+  color: var(--sk-term-break);
   font-weight: 700;
 }
 
 .sk-t-dim {
-  color: #8b93a5;
+  color: var(--sk-term-dim);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -337,4 +430,77 @@
     top: 35%;
     opacity: 1;
   }
+}
+
+/*
+ * Story strip (.sk-steps) and the home hero pair. Reusable: any page can use
+ * <div class="sk-steps" markdown> with <div class="sk-step" markdown> children,
+ * each starting with <span class="sk-step-n">N</span>.
+ */
+
+.sk-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.sk-step {
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--sk-border);
+  border-radius: 0.5rem;
+  background: var(--sk-surface);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.sk-step p {
+  margin: 0;
+}
+
+/* White on --sk-accent-solid is 5.02:1 in both schemes; the slate --sk-accent
+   is too light for white text. */
+.sk-step-n {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  margin-bottom: 0.4rem;
+  border-radius: 50%;
+  background: var(--sk-accent-solid);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.sk-hero-pair {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 1rem;
+  align-items: start;
+  margin: 1.5rem 0;
+}
+
+.sk-hero-pair > * {
+  min-width: 0;
+}
+
+.sk-hero-pair .sk-hero,
+.sk-hero-pair .sk-terminal {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .sk-steps,
+  .sk-hero-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Three short cards fit one row at content width; Material's default 15rem
+   minimum would leave an orphan on the second row. */
+.md-typeset .grid.cards {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
 }
