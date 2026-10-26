@@ -1,13 +1,12 @@
 # Concepts
 
 The ideas behind every serialkompat report: the baseline, backward versus forward
-compatibility, `BREAK` versus `WARN`, and a glossary. Read this once and the rest of the
-docs use these words without redefining them.
+compatibility, `BREAK` versus `WARN`, and a glossary of the terms used across these docs.
 
 ## The baseline { #the-baseline }
 
 The baseline is the schema you compare against. serialkompat doesn't read it from a
-file you commit and then forget to update. It rebuilds it on every run from a git ref:
+checked-in file. It rebuilds it on every run from a git ref:
 
 ```mermaid
 flowchart LR
@@ -81,14 +80,14 @@ or `--direction` on the [CLI](tasks-cli.md#cli).
 Every finding has a severity.
 
 !!! failure "BREAK"
-    Real data would fail to decode, or decode wrongly, in the stated direction. A
+    Decoding fails: the reader throws, in the stated direction. A
     `BREAK` fails the build (unless you set `failOnBreaking` to `false`). You have four
     ways out: fix it, accept it, declare a rename, or bump the major version. See
     [Got a BREAK?](got-a-break.md).
 
 !!! warning "WARN"
-    The outcome depends on your configuration, or decoding succeeds but the data
-    silently changes. A `WARN` never fails the build. Read it, and decide whether your
+    The outcome depends on your configuration, or decoding succeeds but the data is
+    silently wrong, defaulted or dropped. No exception is thrown. A `WARN` never fails the build. Read it, and decide whether your
     setup is affected. A type serialkompat couldn't analyse is also a `WARN`, because
     unanalysable never means safe; see [Limitations](limitations.md).
 
