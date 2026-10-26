@@ -297,6 +297,17 @@ class CborRulesTest {
     }
 
     @Test
+    fun `a CborArray element whose @EncodeDefault mode was not recorded is a WARN both ways`() {
+        // A hidden ALWAYS would close the gap and a hidden NEVER would open it: unknown, so WARN, never SAFE.
+        val mid = Element("m", "kotlin.Int", optional = true, encodeDefault = null)
+        val c = cls(x, mid, y, cborArray = listOf("x", "m", "y"))
+        val f = findings(c, c)
+        assertEquals(Severity.WARN, f.severity(backward))
+        assertEquals(Severity.WARN, f.severity(forward))
+        assertTrue(f.all { it.rule == Rules.CBOR_ARRAY_OMITTED_DEFAULT }, f.toString())
+    }
+
+    @Test
     fun `a trailing optional element is not an omitted-default gap`() {
         val c = cls(x, y, zOptional, cborArray = listOf("x", "y", "z"))
         assertTrue(findings(c, c).isEmpty())
