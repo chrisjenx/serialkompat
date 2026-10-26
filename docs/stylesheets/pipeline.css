@@ -4,13 +4,17 @@
  * on Material's slate scheme; components never hard-code a colour.
  *
  * Contrast (WCAG 2.x), measured against #ffffff (light) and slate's
- * --md-default-bg-color hsl(232 15% 21%) = #2e303e (dark):
+ * --md-default-bg-color hsl(225 15% 14%) = #1e2129 (dark):
  *   --sk-accent  light #15803d  5.02:1 on #ffffff
- *                dark  #4ade80  7.49:1 on #2e303e
+ *                dark  #4ade80  9.24:1 on #1e2129
  *   --sk-break   light #b91c1c  6.47:1 on #ffffff
- *                dark  #f87171  4.72:1 on #2e303e
+ *                dark  #f87171  5.82:1 on #1e2129
  *   --sk-warn    light #a16207  4.92:1 on #ffffff
- *                dark  #fbbf24  7.82:1 on #2e303e
+ *                dark  #fbbf24  9.64:1 on #1e2129
+ * Slate text is lifted from Material's translucent defaults (body 82% = 8.9:1,
+ * headings/TOC 56% = 4.9:1, links #5e8bde = 4.8:1), which read dim:
+ *   body  #eceef2  13.86:1   light (headings, TOC) #c4c8d2  9.61:1
+ *   code  #dfe2ea  12.42:1   links #82aaff  7.01:1
  * No single green reaches 4.5:1 on both backgrounds (the best common value,
  * #16a34a, gives 3.30 / 3.96), so --sk-accent flips per scheme.
  * --sk-accent-solid #15803d is the fixed fill for buttons: white text on it
@@ -19,6 +23,8 @@
  * Terminal colours are deliberately fixed in both schemes (see .sk-terminal),
  * measured against --sk-term-bg #1a1e26:
  *   --sk-term-fg     #d8dee9  12.36:1
+ *   --sk-term-dim    #a3abbb   7.24:1
+ *   --sk-term-label  #9aa3b5   6.58:1
  *   --sk-term-break  #ff6b6b   6.02:1
  *   --sk-term-warn   #fbbf24  10.00:1
  */
@@ -35,8 +41,8 @@
   --sk-term-bg: #1a1e26;
   --sk-term-bar: #262c38;
   --sk-term-fg: #d8dee9;
-  --sk-term-dim: #8b93a5;
-  --sk-term-label: #7b8496;
+  --sk-term-dim: #a3abbb;
+  --sk-term-label: #9aa3b5;
   --sk-term-prompt: #28c840;
   --sk-term-break: #ff6b6b;
   --sk-term-warn: #fbbf24;
@@ -51,6 +57,16 @@
   --sk-warn: #fbbf24;
   --sk-surface: #262833;
   --sk-border: #3d4052;
+
+  --md-default-fg-color: #eceef2;
+  --md-default-fg-color--light: #c4c8d2;
+  --md-default-fg-color--lighter: hsla(225, 15%, 90%, 0.5);
+  --md-code-fg-color: #dfe2ea;
+}
+
+/* Material sets the slate link colour on [scheme][primary]; match that specificity. */
+[data-md-color-scheme="slate"][data-md-color-primary] {
+  --md-typeset-a-color: #82aaff;
 }
 
 /* Material derives these from the accent/primary palette. With primary

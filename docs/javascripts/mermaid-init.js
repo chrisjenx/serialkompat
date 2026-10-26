@@ -13,9 +13,33 @@
 // preserved untouched in the built HTML as:
 //   <pre class="mermaid-diagram"><code>...diagram source...</code></pre>
 (function () {
-  function resolveTheme() {
+  // Mermaid's own "dark" theme draws grey clusters and grey edge-label boxes
+  // with light text, which reads poorly on slate. Under slate, use "base" with
+  // the site's slate tokens (see pipeline.css): text #eceef2 is >= 11:1 on
+  // every fill below.
+  var SLATE = {
+    darkMode: true,
+    background: "#1e2129",
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif",
+    fontSize: "15px",
+    primaryColor: "#2b2e3b",
+    primaryTextColor: "#eceef2",
+    primaryBorderColor: "#7b8296",
+    secondaryColor: "#2b2e3b",
+    tertiaryColor: "#262833",
+    lineColor: "#c4c8d2",
+    textColor: "#eceef2",
+    clusterBkg: "#23262f",
+    clusterBorder: "#4b5063",
+    titleColor: "#eceef2",
+    edgeLabelBackground: "#1e2129",
+  };
+
+  function mermaidConfig() {
     var palette = document.body ? document.body.getAttribute("data-md-color-scheme") : null;
-    return palette === "slate" ? "dark" : "default";
+    return palette === "slate"
+      ? { startOnLoad: false, theme: "base", themeVariables: SLATE }
+      : { startOnLoad: false, theme: "default" };
   }
 
   async function renderMermaidBlocks() {
@@ -28,7 +52,7 @@
       return;
     }
 
-    mermaid.initialize({ startOnLoad: false, theme: resolveTheme() });
+    mermaid.initialize(mermaidConfig());
 
     var nodes = [];
     blocks.forEach(function (block) {
