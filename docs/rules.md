@@ -59,7 +59,7 @@ named `Base/sub` (for example `OrderEvent/created`), because a subtype's
 | `CONFIG_STRUCTURED_MAP_KEYS` | `allowStructuredMapKeys` toggled | ❌ BREAK if disabled, ✅ SAFE if enabled | ✅ SAFE if disabled, ❌ BREAK if enabled | — |
 | `CONFIG_SPECIAL_FLOATS` | `allowSpecialFloatingPointValues` toggled (`NaN`/`Infinity`) | ⚠️ WARN if disabled, ✅ SAFE if enabled | ✅ SAFE if disabled, ⚠️ WARN if enabled | — |
 | `CONFIG_ENCODE_DEFAULTS` | `encodeDefaults` toggled | ✅ SAFE | ⚠️ WARN if disabled, ✅ SAFE if enabled | — |
-| `CONFIG_EXPLICIT_NULLS` | `explicitNulls` toggled | ❌ BREAK if enabled and a new field is nullable with no default, else ⚠️ WARN | ❌ BREAK if disabled and an old field (in scope or not) is nullable with no default, else ⚠️ WARN | — |
+| `CONFIG_EXPLICIT_NULLS` | `explicitNulls` toggled | ❌ BREAK if enabled and a field in the current model is nullable with no default, else ⚠️ WARN | ❌ BREAK if disabled and an old field (in scope or not) is nullable with no default, else ⚠️ WARN | — |
 | `CONFIG_COERCE_INPUT` | `coerceInputValues` toggled | ⚠️ WARN if disabled, ✅ SAFE if enabled | ✅ SAFE | — |
 | `CONFIG_CHANGED` | Any other wire-relevant `Json` setting changed (catch-all) | ⚠️ WARN | ⚠️ WARN | — |
 | `CONFIG_FORMAT` | The wire format changed (JSON ↔ CBOR). No contract is compared³ | ⚠️ WARN | ⚠️ WARN | — |
