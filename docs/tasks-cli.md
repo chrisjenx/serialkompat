@@ -9,7 +9,7 @@ This is a reference for people who already have serialkompat
 | Task | What it does | Wired into `check`? | Cacheable? |
 |---|---|---|---|
 | `serialkompatExtract` | Extracts the current schema to `build/serialkompat/current.snapshot` | Indirectly: every other task depends on it | Yes (build-cacheable, relocatable) |
-| `serialkompatCheck` | Extracts, then diffs against `baselineRef`. Fails on an active `BREAK` | Yes | No, never cached on purpose |
+| `serialkompatCheck` | Extracts, then diffs against `baselineRef` (auto-detects the default branch when unset). Fails on an active `BREAK` | Yes | No, no cacheable outputs, so it always runs |
 | `serialkompatCheckAgainst` | Same as `serialkompatCheck`, but the ref can be overridden with `-Pserialkompat.ref=<ref>` | No, run it ad hoc | No |
 | `serialkompatRecord` | Records the current schema into the published history (`-Pserialkompat.recordVersion=X.Y.Z`). See [Persisted data & history](history.md) | No, an explicit release-time step | No |
 | `serialkompatCheckHistory` | Checks the current schema against every recorded version | Yes, but skipped until a version is recorded | No |
@@ -51,8 +51,10 @@ check, where `baselineRef` is the old side and your current code is the new side
 For example, `serialkompat diff a.snapshot b.snapshot --format=sarif > report.sarif`
 writes a SARIF 2.1.0 log. `--format` only changes what is printed, never the exit code.
 
-The CLI never crashes on bad input. A missing file, an unknown flag, or an invalid
-`--direction` prints `error: <message>` and the usage line, then exits `2`.
+The CLI never crashes on bad input. Bad input exits `2`. An unknown flag prints an `error:`
+line plus the usage line. A missing or unreadable file or an invalid `--direction`
+prints just an `error:` line. Too few arguments print just the usage line.
+`--direction` and `--format` accept either `--name=value` or `--name value`.
 
 The CLI also fails closed on an empty baseline. If the baseline file has no contracts
 but the current one has some, the diff would read as "everything was added" and hide
@@ -68,6 +70,6 @@ The two tools signal results differently.
 | Outcome | Gradle (`serialkompatCheck`, `serialkompatCheckAgainst`, `serialkompatCheckHistory`) | CLI (`serialkompat diff`) |
 |---|---|---|
 | No active `BREAK` (there may be `WARN`s) | Task passes | Exit `0` |
-| At least one active `BREAK` | Task fails, so the build exits non-zero | Exit `1` (exit `0` with `--no-fail`) |
+| At least one active `BREAK` | Task fails, so the build exits non-zero (unless `failOnBreaking` is off) | Exit `1` (exit `0` with `--no-fail`) |
 | Usage error (bad arguments, unreadable snapshot) | Not applicable | Exit `2` |
 | Empty baseline, current has contracts | Pairwise checks fail unless `failOnEmptyBaseline` is off (see [Configuration](configuration.md)) | Exit `2` unless `--allow-empty-baseline` |
