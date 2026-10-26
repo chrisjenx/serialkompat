@@ -12,9 +12,6 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
     Use this for GitHub repos. The Action runs a Gradle task and posts a sticky PR
     comment with the summary and findings, so you don't parse any report yourself.
 
-    !!! note
-        Requires serialkompat 0.1.0 or later.
-
     ```yaml title=".github/workflows/serialkompat.yml"
     name: serialkompat
     on: [pull_request, push]
@@ -112,12 +109,9 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
 
     #### The exit-code contract
 
-    | Integration | Pass | Fail |
-    |---|---|---|
-    | Gradle tasks (and the Action) | `0` | Non-zero. Gradle exits `1` for an active `BREAK` and also for a misconfiguration or any other build failure |
-    | CLI (`serialkompat diff`) | `0` | `1` = at least one active `BREAK` finding; `2` = usage error (bad arguments, unreadable snapshot) or an empty baseline without `--allow-empty-baseline` |
-
-    `0` can still come with `WARN` findings.
+    Gradle exits `0` on pass and non-zero on fail: `1` for an active `BREAK`, and also for a
+    misconfiguration or any other build failure. `0` can still come with `WARN` findings. The
+    CLI's exit codes are in [Tasks & CLI](tasks-cli.md#exit-codes).
 
     As with the Action, the checkout needs full history: `fetch-depth: 0` on
     GitHub Actions, `GIT_DEPTH: 0` or `git fetch --unshallow` elsewhere.

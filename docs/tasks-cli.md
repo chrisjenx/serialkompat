@@ -22,6 +22,13 @@ The plugin supports the configuration cache, `--parallel`, and Isolated Projects
 cached, on purpose. See
 [Baseline & caching → Build cache & configuration cache](baseline-caching.md#build-cache-configuration-cache).
 
+## Gradle properties { #properties }
+
+| Property | Used by | Effect |
+|---|---|---|
+| `-Pserialkompat.ref=<ref>` | `serialkompatCheckAgainst` | Baseline ref for this run. `serialkompatCheck` ignores it |
+| `-Pserialkompat.recordVersion=X.Y.Z` | `serialkompatRecord` | Version to record; defaults to the project `version` |
+
 ## CLI { #cli }
 
 The CLI diffs two snapshot files without a Gradle build in the loop. To build and run

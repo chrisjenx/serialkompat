@@ -15,13 +15,10 @@ extracted wire schema of your models at two points in time).
 
 ## Direction
 
-- **`BACKWARD`**: new code reads old data (new reader ← old writer). Can code
-  built against the *new* schema decode a payload written by the *old* one?
-- **`FORWARD`**: old code reads new data (old reader ← new writer). Can code
-  still running the *old* schema decode a payload written by the *new* one?
-- **`FULL`** checks both. It's the default, and the safest choice unless you
-  control both ends of a rollout. See [Which direction do I
-  pick?](concepts.md#choosing-a-direction).
+Every verdict is given per direction: `BACKWARD` ([new code reads old
+data](concepts.md#backward-vs-forward)), `FORWARD` ([old code reads new
+data](concepts.md#backward-vs-forward)), or `FULL` (both, the default). See
+[Which direction do I pick?](concepts.md#choosing-a-direction).
 
 ## The matrix
 
@@ -117,8 +114,7 @@ page in sync are in [Contributing → Docs site](contributing.md#docs-site).
 Each rule below shows the change as a diff, what happens on the wire in each
 direction, and a link to the oracle test that proves the verdict against real
 kotlinx-serialization (see [The oracle](oracle.md)). Only some rules have a worked example so far; the matrix
-links the ones that do. Progress is tracked in
-[#119](https://github.com/chrisjenx/serialkompat/issues/119).
+links the ones that do.
 
 ### `PROPERTY_ADDED` { #property_added }
 

@@ -21,7 +21,7 @@ and GitHub Action, see [Installation](installation.md).
 | `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded (same matching as `include`) |
 | `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION]"`. Name a subtype `Base/sub` (that base only) or bare `sub` (any base) |
 | `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break). Keys and values accept `Base/sub` or bare `sub` |
-| `history.dir` | `DirectoryProperty` | `serialkompat/history` | Source-controlled dir of recorded per-version snapshots for the transitive check ([Recipes](recipes.md#persisted-data-horizon-multi-version-history)) |
+| `history.dir` | `DirectoryProperty` | `serialkompat/history` | Source-controlled dir of recorded per-version snapshots for the transitive check ([Persisted data & history](history.md#persisted-data-horizon-multi-version-history)) |
 | `history.sinceVersion` | `Property<String>` | unset | Retention: only check against versions `>=` this (semver) |
 | `history.depth` | `Property<Int>` | unset | Retention: only check against the newest N recorded versions (unset or `<= 0` = no limit) |
 | `history.maxAge` | `Property<Duration>` | unset | Retention: only check against versions recorded within this window. Combining bounds is most-permissive (union) |
@@ -30,13 +30,7 @@ and GitHub Action, see [Installation](installation.md).
 | `reports.sarif.required` | `Property<Boolean>` | `false` | Write the SARIF 2.1.0 report |
 | `reports.sarif.outputLocation` | `RegularFileProperty` | `build/serialkompat/report.sarif` | Where the SARIF report is written |
 
-A few terms used on this page:
-
-- **Baseline:** the "old" schema you compare against. serialkompat doesn't store it
-  in a file. It checks out `baselineRef` in a temporary git worktree and extracts the
-  schema from there on every run, so there is nothing to regenerate or let go stale.
-- **Backward compatible:** new code can read data written by old code.
-- **Forward compatible:** old code can read data written by new code.
+The baseline, backward and forward are defined in [Concepts](concepts.md).
 
 The extension works with the configuration cache.
 
@@ -47,53 +41,10 @@ The extension works with the configuration cache.
 
 ## Discovery modes
 
-`discovery` only matters when `types` is empty. It decides which of the
-discovered `@Serializable` types get checked:
-
-| Mode | Checked types | Use when |
-|---|---|---|
-| `EXPLICIT` (default) | Only `types` | You maintain an explicit list of root types |
-| `OPT_OUT` | Everything discovered, minus types annotated `@SerialkompatIgnore` | Most types are wire contracts; a few (internal-only, unstable) opt out |
-| `OPT_IN` | Only types annotated `@SerialkompatChecked` | Gradual adoption. Nothing is checked until you annotate it |
-
-Discovery scans your module's compiled classes for class-level `@Serializable`.
-The annotations live in a small multiplatform artifact:
-
-```kotlin
-dependencies {
-    implementation("com.chrisjenx:serialkompat-annotations:{{ skversion }}")
-}
-```
-
-Put `com.chrisjenx.serialkompat.annotations.SerialkompatIgnore` or
-`com.chrisjenx.serialkompat.annotations.SerialkompatChecked` on the
-`@Serializable` class itself:
-
-```kotlin
-@Serializable
-@SerialkompatChecked
-data class OrderEvent(val id: String)
-```
-
-**Precedence.** These rules apply in this order, in every mode:
-
-1. A non-empty `types` list always wins. `discovery` is only consulted when
-   `types` is empty.
-2. Annotations filter the **scanned** set only. Types listed in a classpath
-   manifest (`META-INF/serialkompat/serializable-types.txt`) skip annotation
-   filtering and are always included in `OPT_OUT` and `OPT_IN`.
-3. `include` and `exclude` prefixes apply after discovery, in all modes.
-
-```kotlin title="build.gradle.kts"
-serialkompat {
-    discovery.set(com.chrisjenx.serialkompat.extractor.DiscoveryMode.OPT_OUT)
-}
-```
-
-**Kotlin Multiplatform:** a KMP module works with discovery and extraction as long
-as it declares a `jvm()` target. Extraction reads compiled JVM serializers, so a JVM
-target is required. Annotate your models in `commonMain`. `serialkompat-annotations`
-is itself multiplatform, so the annotations are available there.
+`discovery` is `EXPLICIT` (the default: only `types`), `OPT_OUT` (everything discovered minus
+`@SerialkompatIgnore`) or `OPT_IN` (only `@SerialkompatChecked`). A non-empty `types` list
+always wins. The modes, the annotations and the precedence rules are on
+[Adopting gradually](adopting.md#discovery-modes).
 
 ## Annotated example
 
@@ -193,7 +144,8 @@ serialkompat {
 Each format also has an `outputLocation` you can set, for example
 `json { outputLocation.set(layout.buildDirectory.file("reports/serialkompat.json")) }`.
 
-The block applies to the pairwise `serialkompatCheck` and `serialkompatCheckAgainst`.
+The options (`required` and `outputLocation`, per format) are the `reports.*` rows in the
+table above. The block applies to the pairwise `serialkompatCheck` and `serialkompatCheckAgainst`.
 The history check follows the same `required` switches, but always writes to its own
 fixed paths: `build/serialkompat/report-history.json` and `report-history.sarif`.
 

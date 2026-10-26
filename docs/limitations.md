@@ -38,3 +38,33 @@ gap, so lost coverage stays loud.
     A broken *configuration* is different from a hard-to-analyse model. If you set
     `jsonInstance` and it can't be loaded, extraction fails instead of guessing with the
     default `Json` config.
+
+## What to do about an opaque type { #resolving-opaque }
+
+Each opaque type shows up as a `COVERAGE_GAP` `WARN` naming it. To close the gap, give
+serialkompat what it needs:
+
+- **`@Contextual` field:** register a serializer for it in the `SerializersModule` of the
+  `Json` (or `Cbor`) instance you point `jsonInstance` / `cborInstance` at, or use a type with
+  a builtin or `@Serializable` serializer.
+- **Open polymorphic base:** register its subtypes in that same module.
+- **Serializer that can't load:** put the missing class on the module's runtime classpath, or
+  fix the failing static initializer.
+- **Generic type with several instantiations:** check a concrete wrapper type per
+  instantiation until type arguments are part of a contract's identity.
+
+A hand-written `KSerializer` is also opaque, for JSON and CBOR alike.
+
+## Known limits { #known-limits }
+
+- **One wire format per module.** A snapshot describes JSON or CBOR, never both
+  ([CBOR → One format per module](cbor.md#one-format-per-module)). Tracked in
+  [#226](https://github.com/chrisjenx/serialkompat/issues/226).
+- **Per-class `@JsonIgnoreUnknownKeys` is not read.** Only the `Json` instance's
+  `ignoreUnknownKeys` is. Tracked in [#227](https://github.com/chrisjenx/serialkompat/issues/227).
+- **Coarse CBOR tag config.** `CONFIG_CBOR_TAGS` is coarser than `CBOR_TAGS_CHANGED`. Tracked
+  in [#225](https://github.com/chrisjenx/serialkompat/issues/225).
+- **JVM only.** Extraction reads compiled JVM serializers, so a Kotlin Multiplatform module
+  needs a `jvm()` target.
+- **No source locations.** Findings carry no file or line, so GitHub annotations attach to
+  the run rather than a diff line (see [Report formats](report-formats.md#github-annotations)).

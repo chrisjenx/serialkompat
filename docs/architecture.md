@@ -230,7 +230,10 @@ For contributors, the run above maps onto five components:
 - **Classifier**: applies the [rules](rules.md) and the recorded config to turn each
   change into a finding with a severity per direction ([the verdict](#the-verdict)).
 - **Report**: the findings plus an exit code, printed to the console and also available as
-  [JSON, SARIF and GitHub annotations](report-formats.md).
+  [JSON, SARIF and GitHub annotations](report-formats.md). The gate runs once and produces a
+  single `Report`; each format is a pure function of it in `serialkompat-core` (no I/O, no
+  kotlinx-serialization runtime), a read-only view of the same findings, so the format never
+  changes the gate's result.
 
 The differ and classifier live in `serialkompat-core`, which is plain Kotlin with **no I/O
 and no kotlinx-serialization runtime dependency**. It never touches a file, a git repo or

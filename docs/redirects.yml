@@ -15,7 +15,14 @@ setup:
 recipes:
   default: adopting.md
   anchors:
+    cross-repo-diff-with-the-cli: cross-repo.md#cross-repo-diff-with-the-cli
     first-time-adoption: quickstart.md#first-time-adoption
+    gradual-adoption-with-discovery-modes: adopting.md#gradual-adoption-with-discovery-modes
+    sanctioning-a-deliberate-break: got-a-break.md#sanctioning-a-deliberate-break
+    monorepo-scoping: monorepos.md#monorepo-scoping
+    persisted-data-horizon-multi-version-history: history.md#persisted-data-horizon-multi-version-history
+    bounding-the-horizon-retention: history.md#bounding-the-horizon-retention
+    next: adopting.md#next
 deep-dive:
   default: architecture.md
   anchors:

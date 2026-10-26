@@ -1,10 +1,10 @@
 # Report formats
 
-serialkompat runs the gate once and produces a single `Report`. It then renders
-that report in one or more formats. Every reporter is a **pure function in
-`serialkompat-core`**, with no I/O and no kotlinx-serialization runtime. Each format
-is a read-only view of the same findings, so the format you pick never changes
-the gate's result.
+Pick how a verdict reaches you: in the build log, as JSON for tooling, as SARIF for IDEs and
+dashboards, or as inline annotations on a pull request. It is for anyone wiring serialkompat
+into CI or reading its output. All formats show the same findings, so the one you pick never
+changes whether the gate passes. To turn a format on, see the `reports.*` options in
+[Configuration](configuration.md#serialkompat-reference).
 
 | Format | Surface | Enable |
 |---|---|---|
@@ -262,8 +262,8 @@ $ serialkompat diff baseline.snapshot current.snapshot --format=sarif > report.s
 ```
 
 The values are `console`, `json`, `sarif`, and `github`; the default is `console`.
-`--format` only changes what is printed. It never changes the exit code: `0` means
-OK, `1` means a breaking change, and `2` means a usage error.
+`--format` only changes what is printed. It never changes the exit code; see
+[exit codes](tasks-cli.md#exit-codes).
 
 ## Gradle: report scope
 

@@ -9,6 +9,9 @@ on:
       - "mkdocs.yml"
       - "requirements-docs.txt"
       - "main.py"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "scripts/check_docs_site.py"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
