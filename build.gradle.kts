@@ -166,11 +166,11 @@ val checkRulesProof = tasks.register("checkRulesProof") {
             "$coreTests/ClassifierConfigTest.kt",
             "$coreTests/CborRulesTest.kt",
         )
-    val proofTests = proofTestPaths.map { layout.projectDirectory.file(it) }
+    val proofTests = proofTestPaths.associateWith { layout.projectDirectory.file(it) }
     val proofTestNames = proofTestPaths.joinToString(", ") { it.substringAfterLast('/') }
     inputs.file(findingKt)
     inputs.file(rulesDoc)
-    inputs.files(proofTests)
+    inputs.files(proofTests.values)
     doLast {
         // On since the #119 sweep: every rule needs a Rule reference section with a Proof line.
         val enforceComplete = true
@@ -187,15 +187,15 @@ val checkRulesProof = tasks.register("checkRulesProof") {
 
         val docText = rulesDoc.asFile.readText()
 
-        // Test method names, e.g. fun `removing an optional field`().
-        val testNames = proofTests.flatMap { file ->
-            Regex("""fun `([^`]+)`""").findAll(file.asFile.readText()).map { it.groupValues[1] }
-        }.toSet()
+        // Test method names per proof file, e.g. fun `removing an optional field`().
+        val testNames = proofTests.mapValues { (_, file) ->
+            Regex("""fun `([^`]+)`""").findAll(file.asFile.readText()).map { it.groupValues[1] }.toSet()
+        }
 
-        // Test names the docs cite: backtick link text on any `**Proof:**` line. The
-        // citation must be backtick-wrapped so the gate can validate it — a proof line
-        // with a link but no backtick citation would silently skip the check, so fail it.
-        val citeRegex = Regex("""\[`([^`]+)`\]""")
+        // Tests the docs cite: a backtick-wrapped link `[`test name`](…/<test file>)` on a
+        // `**Proof:**` line. A proof line with a link but no such citation would silently skip
+        // the check, so fail it.
+        val citeRegex = Regex("""\[`([^`]+)`\]\(([^)\s]+)\)""")
         val proofLines = docText.lineSequence()
             .filter { it.trimStart().startsWith("**Proof:**") }
             .toList()
@@ -206,13 +206,19 @@ val checkRulesProof = tasks.register("checkRulesProof") {
                     "backtick-wrapped test citation; wrap the test name in backticks so it is checked.",
             )
         }
-        val citedTests = proofLines.flatMap { line -> citeRegex.findAll(line).map { it.groupValues[1] } }
-        val missingTests = citedTests.filter { it !in testNames }
+        // Each cited name must be a test method in the very file its link points at.
+        val citedTests = proofLines.flatMap { line ->
+            citeRegex.findAll(line).map { it.groupValues[1] to it.groupValues[2] }
+        }
+        val missingTests = citedTests.filter { (name, url) ->
+            val path = proofTests.keys.firstOrNull { url.endsWith("/$it") }
+            path == null || name !in testNames.getValue(path)
+        }
         if (missingTests.isNotEmpty()) {
             throw GradleException(
-                "docs/rules.md Proof link(s) cite tests that don't exist: " +
-                    missingTests.joinToString(", ") +
-                    ". Match the link text to a test method name in one of: $proofTestNames.",
+                "docs/rules.md Proof link(s) cite tests that don't exist in the linked file: " +
+                    missingTests.joinToString(", ") { (name, url) -> "`$name` (${url.substringAfterLast('/')})" } +
+                    ". Link each test name to the file that declares it, one of: $proofTestNames.",
             )
         }
 
@@ -233,16 +239,16 @@ val checkRulesProof = tasks.register("checkRulesProof") {
             }
             logger.lifecycle("checkRulesProof (warn, not yet enforced): missing section(s): $gaps.")
         }
-        // Every rule section must prove its verdict.
+        // Every rule section must prove its verdict: a `**Proof:**` line citing at least one test.
         val unproven = sections.filter { (_, body) ->
-            body.lineSequence().none { it.trimStart().startsWith("**Proof:**") }
+            body.lineSequence().none { it.trimStart().startsWith("**Proof:**") && citeRegex.containsMatchIn(it) }
         }.keys
         if (unproven.isNotEmpty()) {
             val gaps = unproven.joinToString(", ")
             if (enforceComplete) {
-                throw GradleException("docs/rules.md Rule reference section(s) with no **Proof:** line: $gaps.")
+                throw GradleException("docs/rules.md Rule reference section(s) with no cited test: $gaps.")
             }
-            logger.lifecycle("checkRulesProof (warn, not yet enforced): section(s) without a Proof line: $gaps.")
+            logger.lifecycle("checkRulesProof (warn, not yet enforced): section(s) with no cited test: $gaps.")
         }
         logger.lifecycle(
             "checkRulesProof: ${citedTests.size} proof link(s) valid, " +

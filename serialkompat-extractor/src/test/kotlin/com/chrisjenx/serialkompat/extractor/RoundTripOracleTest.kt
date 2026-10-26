@@ -2140,7 +2140,7 @@ class RoundTripOracleTest {
     @Test
     fun `PROPERTY_NULLABILITY - became nullable without a default breaks old readers when nulls are omitted`() {
         // New writer (explicitNulls=false) encodes NullableNoDefault(null) as `{}`; the old reader's `id` is
-        // required and non-null -> MissingFieldException. Classifier: PROPERTY_NULLABILITY forward WARN only.
+        // required and non-null -> MissingFieldException, so the classifier must report a forward BREAK.
         val omitsNulls = Json { explicitNulls = false }
         assertOracleAgrees(
             serializer<RequiredNonNull>(),
@@ -2198,7 +2198,7 @@ class RoundTripOracleTest {
     @Test
     fun `CONFIG_EXPLICIT_NULLS - omitting nulls breaks old readers of a nullable no-default field`() {
         // New writer (explicitNulls=false) encodes NullableNoDefault(null) as `{}`; the old explicitNulls=true
-        // reader requires `id` -> MissingFieldException. Classifier: CONFIG_EXPLICIT_NULLS WARN both ways only.
+        // reader requires `id` -> MissingFieldException: a forward BREAK, while backward stays a WARN.
         assertConfigOracle(
             serializer<NullableNoDefault>(),
             NullableNoDefault(null),

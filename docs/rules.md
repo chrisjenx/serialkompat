@@ -501,7 +501,7 @@ A sealed or polymorphic base was moved to a new serial name through
 !!! failure "Both directions"
     Reported as ❌ BREAK both ways, conservatively: the rule doesn't inspect the subtypes.
     When every subtype keeps its own `@SerialName`, as in the cited test, both directions
-    still decode.
+    still decode. This sound over-prediction is tracked in [#240](https://github.com/chrisjenx/serialkompat/issues/240).
 
 **Proof:** [`a sealed-base rename is DISCRIMINATOR_VALUE_CHANGED yet both round-trips decode`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
 
@@ -572,8 +572,8 @@ that inherits the key also reports [`DISCRIMINATOR_CHANGED`](#discriminator_chan
     Each side looks for its own key. ❌ BREAK both ways.
 
 For `classDiscriminatorMode`, forward really throws: an old reader can't decode data written
-without the discriminator. Backward is reported as ❌ too, conservatively; the cited test
-observes only the forward throw.
+without the discriminator. Backward is reported as ❌ too, a conservative over-prediction:
+the cited test observes only the forward throw. Tracked in [#240](https://github.com/chrisjenx/serialkompat/issues/240).
 
 **Proof:** [`CONFIG_DISCRIMINATOR - a changed classDiscriminator breaks both ways`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt) · [`CONFIG_DISCRIMINATOR - a changed classDiscriminatorMode is a BREAK both ways`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt) · [`changing the class discriminator breaks polymorphic decoding both ways`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
 
@@ -632,15 +632,22 @@ A field that changed optionality at the same time is judged by
 +val json = Json { explicitNulls = false }
 ```
 
-!!! success "When every nullable field has a default"
-    A writer with `explicitNulls = false` omits the null, and the reader fills in the
-    field's default. The data decodes but may differ, so it is ⚠️ WARN both ways.
+```kotlin
+@Serializable
+data class Account(val id: String?) // nullable, no default
+```
+
+!!! success "Fix it: give every nullable field a default"
+    Declare `val id: String? = null`. A writer with `explicitNulls = false` then omits the
+    null and the reader fills in the default, so nothing throws. The data may still differ
+    (a default replaces the null), so the change stays ⚠️ WARN both ways.
 
 !!! failure "Forward — turned off, a nullable field with no default"
     ```json
     {}
     ```
-    The new writer omits `"id":null`. The old reader, with `explicitNulls = true`, requires
+    The new writer omits `Account(null)`'s `"id":null`. The old reader, with
+    `explicitNulls = true`, requires
     the key for a nullable field with no default: `MissingFieldException`. ❌ BREAK.
 
 The ❌ applies in the direction whose writer has `explicitNulls = false` and whose reader has
@@ -988,7 +995,7 @@ under CBOR; the other settings are JSON-only.
 | Setting | Default | Moves the verdict of | Toggling it is |
 |---|---|---|---|
 | `ignoreUnknownKeys` | `false` | [`PROPERTY_ADDED`](#property_added) forward ❌ → ✅; [`PROPERTY_REMOVED`](#property_removed) backward ❌ → ⚠️; [`SUBTYPE_ADDED`](#subtype_added) forward ❌ → ⚠️ (with a default deserializer); [`PROPERTY_CBOR_LABEL`](#property_cbor_label) ❌ → ⚠️ (optional field) | [`CONFIG_READER_STRICTNESS`](#config_reader_strictness) |
-| `encodeDefaults` | `false` | [`PROPERTY_OPTIONALITY`](#property_optionality) forward ❌ → ✅ (became optional); [`CBOR_ARRAY_OMITTED_DEFAULT`](#cbor_array_omitted_default) cleared (unless `@EncodeDefault(NEVER)`) | [`CONFIG_ENCODE_DEFAULTS`](#config_encode_defaults) |
+| `encodeDefaults` | `false` | [`PROPERTY_OPTIONALITY`](#property_optionality) forward ❌ → ✅ (became optional); [`CBOR_ARRAY_OMITTED_DEFAULT`](#cbor_array_omitted_default) cleared, unless `@EncodeDefault(NEVER)` (stays ❌) or the mode is unrecorded (stays ⚠️) | [`CONFIG_ENCODE_DEFAULTS`](#config_encode_defaults) |
 | `explicitNulls` | `true` | When `false`: [`PROPERTY_ADDED`](#property_added) backward ❌ → ✅ and [`PROPERTY_REMOVED`](#property_removed) forward ❌ → ⚠️ (nullable, no default); [`PROPERTY_NULLABILITY`](#property_nullability) forward ❌ → ⚠️ (old field has a default) | [`CONFIG_EXPLICIT_NULLS`](#config_explicit_nulls) |
 | `coerceInputValues` | `false` | [`ENUM_VALUE_ADDED`](#enum_value_added) forward ❌ → ⚠️ (every reading field has a default) | [`CONFIG_COERCE_INPUT`](#config_coerce_input) |
 | `namingStrategy` | none | — | [`CONFIG_NAMING_STRATEGY`](#config_naming_strategy) |

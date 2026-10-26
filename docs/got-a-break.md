@@ -62,7 +62,7 @@ grouped by what changed. Every rule, in both directions, is in [the matrix](rule
 | A property collides with the discriminator | Rename the property, or set a different `@JsonClassDiscriminator` | [`DISCRIMINATOR_COLLISION`](rules.md#discriminator_collision) |
 | **Types and config** | | |
 | A whole type was removed | Keep it while data or peers still use it | [`CONTRACT_REMOVED`](rules.md#contract_removed) |
-| A `Json { }` or `Cbor { }` setting changed | Revert it, or accept the change if every reader moves together | [the `CONFIG_*` rules](rules.md#matrix-config), and the CBOR ones under [CBOR-only](rules.md#matrix-cbor) |
+| A `Json { }` or `Cbor { }` setting changed | Revert it, or accept the change if every reader moves together | [`CONFIG_NAMING_STRATEGY`](rules.md#config_naming_strategy), [`CONFIG_DISCRIMINATOR`](rules.md#config_discriminator), [`CONFIG_READER_STRICTNESS`](rules.md#config_reader_strictness), [`CONFIG_ENCODE_DEFAULTS`](rules.md#config_encode_defaults), [`CONFIG_EXPLICIT_NULLS`](rules.md#config_explicit_nulls), [`CONFIG_COERCE_INPUT`](rules.md#config_coerce_input), [`CONFIG_ARRAY_POLYMORPHISM`](rules.md#config_array_polymorphism), [`CONFIG_STRUCTURED_MAP_KEYS`](rules.md#config_structured_map_keys), [`CONFIG_SPECIAL_FLOATS`](rules.md#config_special_floats), [`CONFIG_FORMAT`](rules.md#config_format), [`CONFIG_CHANGED`](rules.md#config_changed), [`CONFIG_CBOR_BYTE_STRING`](rules.md#config_cbor_byte_string), [`CONFIG_CBOR_DEFINITE_LENGTH`](rules.md#config_cbor_definite_length), [`CONFIG_CBOR_TAGS`](rules.md#config_cbor_tags) (see the [config](rules.md#matrix-config) and [CBOR-only](rules.md#matrix-cbor) groups) |
 | **CBOR** | | |
 | A `@CborLabel` changed | Keep it stable once labels are preferred, or bump major | [`PROPERTY_CBOR_LABEL`](rules.md#property_cbor_label) |
 | `@ByteString` was added or removed | Keep the `ByteArray` encoding stable; introduce a new field instead | [`PROPERTY_BYTE_STRING`](rules.md#property_byte_string) |
@@ -84,7 +84,7 @@ For example, adding a field with a default keeps old payloads decodable:
     The finding disappears from the next run. Nothing was accepted, so the gate is as strict
     as before.
 
-A `COVERAGE_GAP` is not a break to fix in the model. See [Limitations](limitations.md).
+A [`COVERAGE_GAP`](rules.md#coverage_gap) is not a break to fix in the model. See [Limitations](limitations.md).
 
 ## Accept it { #accept-it }
 
