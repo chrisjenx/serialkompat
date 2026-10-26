@@ -90,6 +90,7 @@ plugins:
           - oracle.md: "Why verdicts can be trusted: every rule is checked against real kotlinx-serialization."
           - baseline-caching.md: "How the baseline is rebuilt from a git ref and cached under Gradle's caches."
           - contributing.md: "How to build, test and contribute to serialkompat."
+          - changelog.md: "Every release's changes, newest first."
 
 extra_css:
   - stylesheets/pipeline.css

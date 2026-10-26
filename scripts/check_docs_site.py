@@ -56,7 +56,8 @@ def main(argv):
         if not path.is_file() or path.stat().st_size == 0:
             problems.append(f"{name}: missing or empty")
     full = site / "llms-full.txt"
-    if full.is_file() and "{{" in full.read_text(encoding="utf-8"):
+    # An unrendered macro is `{{ ... }}`; GitHub Actions `${{ ... }}` (quoted in docs/changelog) is literal.
+    if full.is_file() and re.search(r"(?<!\$)\{\{", full.read_text(encoding="utf-8")):
         problems.append("llms-full.txt: contains unexpanded '{{'")
 
     if problems:
