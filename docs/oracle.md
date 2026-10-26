@@ -31,9 +31,12 @@ The checks are one-sided where that's the safe side to err on:
 - **A real failure must be predicted.** If the real decode throws, the classifier must
   have reported a `BREAK` in that direction. Flagging a change that turns out to decode is
   allowed; missing one that throws is not.
-- **Silent data loss must be flagged.** Where a decode succeeds but yields a different
-  value than was written (for example a field silently dropped under `ignoreUnknownKeys`),
-  the classifier must report at least a `WARN`, never `SAFE`.
+- **Silent data loss must be flagged, where it's tested for.** The config-only oracle
+  (same model, different reader and writer config) and a set of targeted tests also
+  decode a payload that succeeds but yields a different value than was written, for
+  example a field silently dropped under `ignoreUnknownKeys`. There, the classifier must
+  report at least a `WARN`, never `SAFE`. The plain schema-change check doesn't compare
+  values, only whether the decode threw.
 - **Some relaxations are tested both ways.** Where a config turns a `BREAK` into
   something milder, such as `explicitNulls = false` letting an absent nullable field
   decode as `null`, the oracle also checks that the real decode succeeds and that the

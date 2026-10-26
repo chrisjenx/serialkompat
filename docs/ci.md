@@ -157,4 +157,4 @@ means fail. The GitHub Action adds a sticky PR comment on top. On any other CI
 - [Configuration](configuration.md) — the full `serialkompat { }` DSL, direction, `acceptedBreaks`.
 - [Rules](rules.md) — every rule the classifier can raise.
 - [Report formats](report-formats.md) — JSON schema, SARIF, and the inline annotations.
-- [Baseline & caching](baseline-caching.md#build-cache-configuration-cache) — build cache, configuration cache and `--parallel`.
+- [Baseline & caching](baseline-caching.md#build-cache-configuration-cache) — build cache and configuration cache.

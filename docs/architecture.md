@@ -30,6 +30,8 @@ flowchart TD
     CLS --> REP["Report:<br/>BREAK (backward)"]
 ```
 
+### Build both schemas { #build-both-schemas }
+
 <div class="sk-steps" markdown>
 <div class="sk-step" markdown>
 <span class="sk-step-n">1</span>
@@ -41,7 +43,7 @@ flowchart TD
 </div>
 <div class="sk-step" markdown>
 <span class="sk-step-n">3</span>
-**It builds the new schema** the same way, from your PR's compiled classes.
+**It builds the new schema** by running the extractor on your PR's compiled classes, in place.
 </div>
 </div>
 
@@ -49,10 +51,10 @@ There's no baseline file to commit or forget to update: the old schema always co
 the code that's on the target branch right now. How the worktree is created, cached and
 cleaned up is in [Baseline & caching](baseline-caching.md).
 
-### 4. Extract reads the serializer's own descriptor { #extraction }
+### Extract reads the serializer's own descriptor { #extraction }
 
 serialkompat doesn't parse your source. The extractor runs in a separate JVM on your
-project's runtime classpath, loads your compiled `@Serializable` classes, and reads the
+project's own runtime classpath, ahead of its own dependencies, loads your compiled `@Serializable` classes, and reads the
 `SerialDescriptor` that kotlinx-serialization itself uses to encode and decode them,
 against the kotlinx-serialization version your project actually uses. Which classes count
 as roots (an explicit `types` list, or a scan of your class directories) is covered in
@@ -74,7 +76,8 @@ and shared types. For each field it records:
 Enum values, sealed subtypes and open polymorphism resolved through your
 `SerializersModule` go into the same snapshot. A subtype's `@SerialName` only has to be
 unique within its base, so subtypes are identified by base and name and reported as
-`Base/sub` (for example `OrderEvent/created`). In `renames`, `acceptedBreaks`, `include`
+`Base/sub` (for example `OrderEvent/created`). A subtype of two bases is recorded once
+per base. In `renames`, `acceptedBreaks`, `include`
 and `exclude` you can write `Base/sub` for one base or the bare `sub` for all of them (see
 [Configuration](configuration.md)).
 
@@ -82,7 +85,7 @@ It also records the wire config of the `Json { }` (or `Cbor { }`) instance you p
 with `jsonInstance` (or `cborInstance`): `ignoreUnknownKeys`, `explicitNulls`,
 `encodeDefaults` and the rest. With nothing set, that's the default `Json`.
 
-### 5. The two snapshots { #the-snapshots }
+### The two snapshots { #the-snapshots }
 
 The result is a plain-text snapshot, the same thing `serialkompatExtract` writes to
 `build/serialkompat/current.snapshot`. This is real extractor output for `Order` before
@@ -119,13 +122,13 @@ and after the PR, with the `@config` block cut down to three of its lines:
 is `note`, it has a default, and it can be `null`. `encodeDefault=ABSENT` means there's no
 `@EncodeDefault` on it.
 
-### 6. The diff { #the-diff }
+### The diff { #the-diff }
 
-The differ compares the two snapshots contract by contract and lists structural changes.
+The differ compares the two snapshots [contract](concepts.md#glossary) by contract and lists structural changes.
 Here there is exactly one: **field `note` removed from `com.example.Order`**. The differ
 doesn't judge anything; it only says what changed.
 
-### 7. The verdict, both ways { #the-verdict }
+### The verdict, both ways { #the-verdict }
 
 The classifier scores that one change in each direction, using the config recorded in the
 snapshots. Compatibility runs two ways:
@@ -190,16 +193,16 @@ Every setting that flips a verdict like this is listed in
 [Rules → Config awareness](rules.md#config-awareness), and this rule's full entry is
 [`PROPERTY_REMOVED`](rules.md#property_removed).
 
-### 8. Why you can trust the verdict { #why-trust }
+### Why you can trust the verdict { #why-trust }
 
 None of these verdicts come from reading kotlinx-serialization's source or spec. Each
 rule is backed by a round-trip oracle test: it encodes a payload with the old model,
 decodes it with the new one (and the reverse) using the real library under the declared
-config, and checks that the classifier predicted what actually happened. For
-`PROPERTY_REMOVED` that's the
-[`removing an optional field`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt)
-test, plus one that proves the `ignoreUnknownKeys = true` case really drops data and is
-flagged as a `WARN`. See [The oracle](oracle.md) for how this works and what it covers.
+config, and checks that every real failure was predicted as a `BREAK`. For
+`PROPERTY_REMOVED` that's the `removing an optional field` test in
+[`RoundTripOracleTest.kt`](https://github.com/chrisjenx/serialkompat/blob/main/serialkompat-extractor/src/test/kotlin/com/chrisjenx/serialkompat/extractor/RoundTripOracleTest.kt).
+A second test there, `a field rename silently loses data under a lenient reader`, proves
+the `ignoreUnknownKeys = true` case really drops data and is flagged as a `WARN`. See [The oracle](oracle.md) for how this works and what it covers.
 
 ## Under the hood { #under-the-hood }
 
@@ -220,12 +223,12 @@ For contributors, the run above maps onto five components:
 </div>
 
 - **Extractor** (`serialkompat-extractor`): walks the runtime `SerialDescriptor` graph on
-  the JVM (steps 4–5). It's the only stage that touches a descriptor or the JVM.
+  the JVM ([extract](#extraction)) and produces the [snapshots](#the-snapshots). It's the only stage that touches a descriptor or the JVM.
 - **Snapshot**: a canonical, comparable model of the wire schema plus its config. From
   here on everything is plain data.
-- **Differ**: lists the structural changes between two snapshots (step 6).
+- **Differ**: lists the structural changes between two snapshots ([the diff](#the-diff)).
 - **Classifier**: applies the [rules](rules.md) and the recorded config to turn each
-  change into a finding with a severity per direction (step 7).
+  change into a finding with a severity per direction ([the verdict](#the-verdict)).
 - **Report**: the findings plus an exit code, printed to the console and also available as
   [JSON, SARIF and GitHub annotations](report-formats.md).
 

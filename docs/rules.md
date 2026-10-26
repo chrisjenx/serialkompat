@@ -110,6 +110,10 @@ change is inert. `CBOR_ARRAY_OMITTED_DEFAULT` is, like `DISCRIMINATOR_COLLISION`
 
 ## Rule reference
 
+<a id="the-oracle-guarantee"></a><a id="keeping-this-page-in-sync"></a>
+How each verdict is proven is on [The oracle](oracle.md); the build gates that keep this
+page in sync are in [Contributing → Docs site](contributing.md#docs-site).
+
 Each rule below shows the change as a diff, what happens on the wire in each
 direction, and a link to the oracle test that proves the verdict against real
 kotlinx-serialization (see [The oracle](oracle.md)). Only some rules have a worked example so far; the matrix
