@@ -18,14 +18,14 @@ Guidance for Claude Code (and humans) working in this repo.
 ## Commands
 
 ```console
-./gradlew build            # compile + test + spotlessCheck + apiCheck + checkRulesDoc/checkRulesProof (the full local gate)
+./gradlew build            # compile + test + spotlessCheck + apiCheck + checkRulesDoc/checkRulesProof/checkDocsReference + docs-sample tests (the full local gate)
 ./gradlew test             # tests only
 ./gradlew spotlessApply    # auto-format (run before committing)
 ./gradlew apiDump          # regenerate public-API baselines after an INTENTIONAL api change
 ./gradlew koverHtmlReport  # coverage -> build/reports/kover
 ```
 
-CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport -x :serialkompat-annotations:build` on ubuntu, JDK 17 and 21, plus a `macos-latest` job for `:serialkompat-annotations:build`. `Secret Scan` (`gitleaks.yml`) runs gitleaks over the full history on PRs and pushes to `main`. `Docs` (`docs.yml`) runs `dokkaGenerate` + `mkdocs build --strict` + `check_docs_site.py` on PRs touching `docs/**`, `docs-samples/**`, `mkdocs.yml`, `requirements-docs.txt`, `main.py`, `CHANGELOG.md`, `CONTRIBUTING.md` or `scripts/check_docs_site.py` (and deploys on push to `main`).
+CI (`.github/workflows/ci.yml`) runs `./gradlew build koverXmlReport -x :serialkompat-annotations:build` on ubuntu, JDK 17 and 21, plus a `macos-latest` job for `:serialkompat-annotations:build`. `Secret Scan` (`gitleaks.yml`) runs gitleaks over the full history on PRs and pushes to `main`. `Docs` (`docs.yml`) runs `dokkaGenerate` + `mkdocs build --strict` + `check_docs_site.py` on PRs touching `docs/**`, `docs-samples/**`, `mkdocs.yml`, `requirements-docs.txt`, `main.py`, `CHANGELOG.md`, `CONTRIBUTING.md`, `scripts/check_docs_site.py` or `.github/workflows/docs.yml` (and deploys on push to `main`).
 
 ## Modules
 

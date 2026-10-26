@@ -73,6 +73,7 @@ Details: [Architecture](https://chrisjenx.github.io/serialkompat/architecture/).
 |---|---|
 | [Quick start](https://chrisjenx.github.io/serialkompat/quickstart/) | Add the plugin, merge, read the report |
 | [Installation](https://chrisjenx.github.io/serialkompat/installation/) | Multi-module, KMP, and the standalone CLI |
+| [Concepts](https://chrisjenx.github.io/serialkompat/concepts/) | Baseline, backward vs forward, BREAK vs WARN |
 | [GitHub Action](https://chrisjenx.github.io/serialkompat/ci/) | PR comments and annotations |
 | [Got a BREAK?](https://chrisjenx.github.io/serialkompat/got-a-break/) | Fix, rename or accept it |
 | [Adopting gradually](https://chrisjenx.github.io/serialkompat/adopting/) | Roll out on an existing codebase |
@@ -96,13 +97,13 @@ Details: [Architecture](https://chrisjenx.github.io/serialkompat/architecture/).
 ## Building
 
 ```console
-./gradlew build          # compile, test, format check (spotless), API check (BCV)
+./gradlew build          # compile, test, spotless, API check (BCV), docs gates, docs-sample tests
 ./gradlew spotlessApply  # auto-format
 ./gradlew apiDump        # update public-API baselines after an intended API change
 ./gradlew koverHtmlReport
 ```
 
-Requires JDK 17+. Uses the Gradle wrapper (Gradle 9.8.0), Kotlin 2.4.20, and kotlinx-serialization 1.11.0. Maintainers: see [RELEASING.md](RELEASING.md).
+Requires JDK 17+. Toolchain versions are pinned in `gradle/wrapper/gradle-wrapper.properties` and `gradle/libs.versions.toml`. Maintainers: see [RELEASING.md](RELEASING.md).
 
 ## Contributing
 

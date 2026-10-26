@@ -26,7 +26,7 @@ For the rule engine, correctness is checked against **real kotlinx-serialization
 Requires **JDK 17+**. Everything runs through the Gradle wrapper — no local Gradle needed.
 
 ```console
-./gradlew build            # compile + test + spotlessCheck + apiCheck + rules-doc gates
+./gradlew build            # compile + test + spotlessCheck + apiCheck + docs gates + docs-sample tests
 ./gradlew test             # tests only
 ./gradlew spotlessApply    # auto-format (run before committing)
 ./gradlew koverHtmlReport  # coverage report -> build/reports/kover
@@ -41,12 +41,15 @@ python3 -m venv build/docs-venv && build/docs-venv/bin/pip install -r requiremen
 build/docs-venv/bin/mkdocs serve   # live-reload at http://127.0.0.1:8000
 ```
 
-The `Docs` workflow runs `mkdocs build --strict` on any PR touching `docs/**`, `mkdocs.yml`, `requirements-docs.txt`, or `main.py` (the version macro). Broken links, broken nav, or a page missing from the nav fail the PR.
+The `Docs` workflow runs on any PR touching `docs/**`, `docs-samples/**`, `mkdocs.yml`, `requirements-docs.txt`, `main.py` (the version macro and redirect stubs), `CHANGELOG.md`, `CONTRIBUTING.md`, `scripts/check_docs_site.py` or `.github/workflows/docs.yml`. It runs `dokkaGenerate`, then `mkdocs build --strict`, then `scripts/check_docs_site.py site` (redirect stubs and anchors). Broken links, broken nav, a page missing from the nav, or a broken redirect fail the PR.
 
-The rule matrix in `docs/rules.md` is hand-written, and two build gates keep it honest:
+Where the docs come from, and the build gates that keep them in step with the code (all run by `./gradlew build`):
 
-- `checkRulesDoc` fails the build if any rule the classifier ships (a `Rules.*` constant) is missing from `docs/rules.md`.
-- `checkRulesProof` fails the build if a rule has no section under the page's [Rule reference](https://chrisjenx.github.io/serialkompat/rules/#rule-reference), if a section has no **Proof** line, or if a **Proof** link cites a test that doesn't exist. A Proof line may cite the two round-trip oracles or the few unit-test files listed in the task (root `build.gradle.kts`).
+- **`docs-samples/`** holds the Kotlin models and the `snippets/*.gradle.kts` blocks the pages embed with `--8<--`. `build` compiles and tests it, and `DocsSnippetsFunctionalTest` applies each snippet in a TestKit build (`help` only, so it checks DSL names and types, not values such as `acceptedBreaks` strings). Edit the sample, not a copy in the page.
+- **`docs/snippets/reports/*`** are rendered by the real reporters in `DocsReportSamplesTest` (`serialkompat-core`), which fails if they drift. Regenerate them with `./gradlew :serialkompat-core:test -Pserialkompat.updateDocs=true`.
+- **`checkDocsReference`** fails if a DSL property or block, a task, a `-Pserialkompat.*` property or a CLI flag is undocumented. It wants the exact backticked name: DSL members in `docs/configuration.md` (nested ones as dotted paths, such as `history.dir` or `reports.json.required`), tasks as `` `serialkompatCheck` ``, and properties and flags as `` `-Pserialkompat.ref=<ref>` `` or `` `--format` `` in `docs/tasks-cli.md`.
+- **`checkRulesDoc`** fails if any rule the classifier ships (a `Rules.*` constant) is missing from `docs/rules.md`.
+- **`checkRulesProof`** fails if a rule has no `` ### `RULE_ID` `` section under the page's [Rule reference](https://chrisjenx.github.io/serialkompat/rules/#rule-reference), if a section has no **Proof** line citing a test, or if a cited test isn't declared in the file its link points at. Wrap each test name in backticks in the link text. The allowed files are the JSON and CBOR round-trip oracles plus a short list of unit tests (`proofTestPaths` in the root `build.gradle.kts`).
 
 ## Before you push
 
@@ -58,7 +61,7 @@ Run the full local gate. CI runs the same `build`, plus the secret scan and (for
 
 - **Formatting** is enforced by Spotless + ktlint. `spotlessApply` fixes most issues.
 - **Public API stability** is enforced by [binary-compatibility-validator](https://github.com/Kotlin/binary-compatibility-validator). If you intentionally change a module's public API, run `./gradlew apiDump` and commit the updated `*.api` file. The diff is part of your PR review. Run `apiDump` and `apiCheck` as separate Gradle invocations; `./gradlew apiDump apiCheck` fails with a validation error.
-- **Rules docs** are gated too (`checkRulesDoc`, `checkRulesProof`; see [Docs site](#docs-site)). Add the docs row when you add a rule.
+- **Docs** are gated too (`checkRulesDoc`, `checkRulesProof`, `checkDocsReference`; see [Docs site](#docs-site)). Add the rule's row and section when you add a rule, and document a new option, task or flag.
 - **`serialkompat-annotations`** is Kotlin Multiplatform with Apple targets, which only build on macOS. On Linux they are skipped silently, so a green Linux build doesn't prove that module; CI builds it on a separate macOS job.
 - **Coverage** is reported by Kover.
 - **Secrets** are scanned by [gitleaks](https://github.com/gitleaks/gitleaks). CI runs it over the full history (`Secret Scan` workflow). To catch a secret before it is ever committed, enable the pre-commit hook once: `pip install pre-commit && pre-commit install`. Never commit credentials or signing keys; publishing secrets live only in CI secrets.
