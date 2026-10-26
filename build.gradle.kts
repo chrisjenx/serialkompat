@@ -247,16 +247,28 @@ val checkDocsReference = tasks.register("checkDocsReference") {
     inputs.file(configDoc)
     inputs.file(tasksDoc)
     doLast {
-        val dsl = dslFiles.flatMap { f ->
-            Regex("""public abstract val (\w+):|public fun (\w+)\(action""").findAll(f.asFile.readText())
-                .map { it.groupValues[1].ifEmpty { it.groupValues[2] } }
-        }.distinct()
+        // Documented as bare names (extension members, the `history`/`reports` block funs) or as
+        // dotted table paths (`history.dir`, `reports.json.required`): history members get a
+        // `history.` prefix; report members get `reports.<format>.` for each format sub-block fun.
+        val valRe = Regex("""public abstract val (\w+):""")
+        val funRe = Regex("""public fun (\w+)\(action""")
+        val extText = dslFiles[0].asFile.readText()
+        val histText = dslFiles[1].asFile.readText()
+        val repText = dslFiles[2].asFile.readText()
+        val formats = funRe.findAll(repText).map { it.groupValues[1] }.toList()
+        val repMembers = valRe.findAll(repText).map { it.groupValues[1] }.toList()
+        val dsl = (
+            valRe.findAll(extText).map { it.groupValues[1] } +
+                funRe.findAll(extText).map { it.groupValues[1] } +
+                valRe.findAll(histText).map { "history.${it.groupValues[1]}" } +
+                formats.flatMap { f -> repMembers.map { m -> "reports.$f.$m" } }
+            ).distinct().toList()
         require(dsl.isNotEmpty()) { "checkDocsReference: found no DSL members — regex/paths wrong?" }
 
         val pluginText = pluginKt.asFile.readText()
-        val tasks = Regex("""TASK_NAME: String = "(\w+)"""").findAll(pluginText)
+        val taskNames = Regex("""TASK_NAME: String = "(\w+)"""").findAll(pluginText)
             .map { it.groupValues[1] }.distinct().toList()
-        require(tasks.isNotEmpty()) { "checkDocsReference: found no task names — regex/paths wrong?" }
+        require(taskNames.isNotEmpty()) { "checkDocsReference: found no task names — regex/paths wrong?" }
 
         // `private`/`internal`/`public` const forms all match; the .internal. test-only hook is excluded.
         val props = Regex("""_PROPERTY: String = "(serialkompat\.[\w.]+)"""").findAll(pluginText)
@@ -278,11 +290,11 @@ val checkDocsReference = tasks.register("checkDocsReference") {
         val misses = mutableListOf<String>()
         dsl.filter { "`$it`" !in configText }
             .forEach { misses += "DSL $it (add it to docs/configuration.md)" }
-        tasks.filter { "`$it`" !in tasksText }
+        taskNames.filter { "`$it`" !in tasksText }
             .forEach { misses += "task $it (add it to docs/tasks-cli.md)" }
         props.filter { !Regex("""`-P${Regex.escape(it)}[=`]""").containsMatchIn(tasksText) }
             .forEach { misses += "property $it (add it to docs/tasks-cli.md)" }
-        flags.filter { "`$it`" !in tasksText }
+        flags.filter { !Regex("""`${Regex.escape(it)}[=`]""").containsMatchIn(tasksText) }
             .forEach { misses += "CLI flag $it (add it to docs/tasks-cli.md)" }
         if (misses.isNotEmpty()) {
             throw GradleException(
@@ -290,7 +302,7 @@ val checkDocsReference = tasks.register("checkDocsReference") {
             )
         }
         logger.lifecycle(
-            "checkDocsReference: ${dsl.size} DSL, ${tasks.size} tasks, ${props.size} properties, " +
+            "checkDocsReference: ${dsl.size} DSL, ${taskNames.size} tasks, ${props.size} properties, " +
                 "${flags.size} CLI flags documented",
         )
     }
