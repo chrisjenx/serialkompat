@@ -14,6 +14,7 @@ import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -288,6 +289,24 @@ class SerialkompatCheckFunctionalTest {
 
         // The break is acknowledged, so the gate passes instead of failing.
         assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheck")?.outcome)
+    }
+
+    @Test
+    fun `a member-scoped accepted break sanctions only the member it names`() {
+        settings()
+        // Both fields change type; the acceptance names only 'id', so 'code' still fails the gate (#120).
+        buildFile(baselineRef = "HEAD", acceptedBreaks = listOf("com.example.Order PROPERTY_TYPE_CHANGED FULL id"))
+        orderModel("val id: Int, val code: Int")
+        val sha = initCommit()
+        seedBaseline(sha, orderSnapshot(Element("id", "kotlin.String"), Element("code", "kotlin.String")))
+
+        val result = runner("serialkompatCheck").buildAndFail()
+
+        assertEquals(TaskOutcome.FAILED, result.task(":serialkompatCheck")?.outcome)
+        // Both directions of 'code' stay active; both directions of 'id' are acknowledged.
+        assertTrue(result.output.contains("field 'code' type changed"), result.output)
+        assertFalse(result.output.contains("field 'id' type changed"), result.output)
+        assertTrue(result.output.contains("2 active finding(s) (2 breaking, 0 warning), 2 acknowledged"), result.output)
     }
 
     @Test

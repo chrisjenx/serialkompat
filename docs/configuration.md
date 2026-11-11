@@ -19,7 +19,7 @@ and GitHub Action, see [Installation](installation.md).
 | `failOnEmptyBaseline` | `Property<Boolean>` | `true` | Empty baseline fails the build (prevents silently masking removed types); set `false` for first adoption |
 | `include` | `ListProperty<String>` | `[""]` | Serial-name prefixes in scope (`""` = all). A sealed subtype also matches by its base or by `Base/sub` |
 | `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded (same matching as `include`) |
-| `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION]"`. Name a subtype `Base/sub` (that base only) or bare `sub` (any base) |
+| `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION [MEMBER]]"`. A member limits it to one field, enum value or subtype. Name a subtype `Base/sub` (that base only) or bare `sub` (any base) |
 | `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break). Keys and values accept `Base/sub` or bare `sub` |
 | `history.dir` | `DirectoryProperty` | `serialkompat/history` | Source-controlled dir of recorded per-version snapshots for the transitive check ([Persisted data & history](history.md#persisted-data-horizon-multi-version-history)) |
 | `history.sinceVersion` | `Property<String>` | unset | Retention: only check against versions `>=` this (semver) |
@@ -99,10 +99,14 @@ plugins {
 9. Declares that the serial name `LegacyOrder` became `OrderEvent`. serialkompat
    then compares the two types' contents. Without this, the differ sees the old
    type removed (`CONTRACT_REMOVED`, a `BREAK`) and an unrelated new type added.
-10. The format is `"<serialName> <RULE> [DIRECTION]"`. `DIRECTION` is optional.
-    Omit it to accept the break in every direction you check, or give `BACKWARD`
-    or `FORWARD` to accept it in only one. Each entry matches only findings with
+10. The format is `"<serialName> <RULE> [DIRECTION [MEMBER]]"`. `DIRECTION` is optional.
+    Omit it (or write `FULL`) to accept the break in every direction you check, or give
+    `BACKWARD` or `FORWARD` to accept it in only one. Each entry matches only findings with
     that serial name and rule. Other findings on the same type still fail.
+    `MEMBER` narrows the entry to one field, enum value or subtype: the name the finding
+    quotes, matched exactly. It comes after the direction, so
+    `"com.example.Booking PROPERTY_REMOVED FULL note"` accepts removing `note` and nothing
+    else. Without a member, the entry covers that rule for every member of the type.
     A sealed or polymorphic subtype is reported as `Base/sub`, because its serial
     name only has to be unique within its base. Write `Base/sub` to accept the
     break under that base only, or the bare `sub` to accept it under every base.
