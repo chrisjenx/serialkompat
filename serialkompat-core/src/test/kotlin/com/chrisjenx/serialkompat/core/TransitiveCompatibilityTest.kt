@@ -134,4 +134,24 @@ class TransitiveCompatibilityTest {
         assertTrue(report.active.isEmpty())
         assertTrue(report.acknowledged.isNotEmpty())
     }
+
+    @Test
+    fun `a declared rename applies against every recorded version (#248)`() {
+        fun event(zoneType: String) =
+            Snapshot(
+                listOf(Contract("com.example.Event", ContractKind.CLASS, elements = listOf(Element("zone", zoneType)))),
+            )
+        val beforeTheFix = event("com.example.CachedTimeZone")
+        val afterTheFix = event("kotlinx.datetime.TimeZone")
+        val history = listOf(beforeTheFix, afterTheFix)
+
+        assertTrue(TransitiveCompatibility.checkAgainstHistory(afterTheFix, history).shouldFail(Severity.BREAK))
+        val report =
+            TransitiveCompatibility.checkAgainstHistory(
+                afterTheFix,
+                history,
+                renames = mapOf("com.example.CachedTimeZone" to "kotlinx.datetime.TimeZone"),
+            )
+        assertTrue(report.findings.isEmpty(), report.findings.toString())
+    }
 }

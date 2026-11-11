@@ -164,6 +164,25 @@ class CheckExecutorTest {
     }
 
     @Test
+    fun `history check applies declared renames to every published version (#248)`() {
+        val v1 = orderSnapshot(Element("zone", "com.example.CachedTimeZone"))
+        val current = snapshot(Element("zone", "kotlinx.datetime.TimeZone"))
+
+        fun run(renames: Map<String, String>) =
+            CheckExecutor.executeHistory(
+                currentText = current,
+                history = listOf(v1),
+                direction = CompatibilityDirection.FULL,
+                include = listOf(""),
+                exclude = emptyList(),
+                failOnBreaking = true,
+                renames = renames,
+            )
+        assertTrue(run(emptyMap()).failed)
+        assertFalse(run(mapOf("com.example.CachedTimeZone" to "kotlinx.datetime.TimeZone")).failed)
+    }
+
+    @Test
     fun `history check with no published versions is a no-op pass`() {
         val outcome =
             CheckExecutor.executeHistory(

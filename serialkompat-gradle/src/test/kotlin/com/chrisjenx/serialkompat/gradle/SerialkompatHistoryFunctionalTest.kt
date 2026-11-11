@@ -222,6 +222,18 @@ class SerialkompatHistoryFunctionalTest {
     }
 
     @Test
+    fun `serialkompatCheckHistory applies declared renames to recorded versions (#248)`() {
+        settings()
+        // A custom serializer's descriptor name was fixed after 1.0.0 shipped; the wire is unchanged.
+        buildFile(historyBlock = """renames.put("com.example.CachedTimeZone", "kotlinx.datetime.TimeZone")""")
+        seedHistory("1.0.0", order(Element("zone", "com.example.CachedTimeZone")))
+        seedCurrent(order(Element("zone", "kotlinx.datetime.TimeZone")))
+
+        val result = runner("serialkompatCheckHistory", "-x", "serialkompatExtract").build()
+        assertEquals(TaskOutcome.SUCCESS, result.task(":serialkompatCheckHistory")?.outcome)
+    }
+
+    @Test
     fun `serialkompatCheckHistory passes when the current schema is compatible with all versions`() {
         settings()
         buildFile(direction = "BACKWARD")

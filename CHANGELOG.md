@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Declared `renames` now clear the whole break, not just the moved type. A field that references a renamed type used to report `PROPERTY_TYPE_CHANGED` (BREAK) both ways, so a correctly declared move still failed. The differ now follows renames into field types, including inside `List`, `Map` and nullable types (#248).
+- `serialkompatCheckHistory` applies `renames`. It ignored them before, so a declared move kept failing against every version recorded before it (#248).
+- Chained renames are followed: with `A`→`B` and `B`→`C`, a version that still has `A` is compared with `C` (#248).
+
+### Added
+- `renames` can name a custom primitive serializer's descriptor name, for example `renames.put("com.example.CachedTimeZone", "kotlinx.datetime.TimeZone")`, when only the name changed and the encoded value didn't. serialkompat can't verify that, because two serializers of the same primitive kind can still write different text, so a rename is required: a same-kind change stays a BREAK. Renames between built-in `kotlin.*` types, or between a class and a primitive, are never followed. Public API: `TransitiveCompatibility.checkAgainstHistory` gains `renames` (#248).
+
 ## [0.4.0] - 2026-11-11
 
 ### Added

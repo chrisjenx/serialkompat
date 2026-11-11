@@ -20,7 +20,7 @@ and GitHub Action, see [Installation](installation.md).
 | `include` | `ListProperty<String>` | `[""]` | Serial-name prefixes in scope (`""` = all). A sealed subtype also matches by its base or by `Base/sub` |
 | `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded (same matching as `include`) |
 | `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION [MEMBER]]"`. A member limits it to one field, enum value or subtype. Name a subtype `Base/sub` (that base only) or bare `sub` (any base) |
-| `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break). Keys and values accept `Base/sub` or bare `sub` |
+| `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break). Fields that reference the old name follow it too, and chains (`A`→`B`, `B`→`C`) are followed. Keys and values accept `Base/sub` or bare `sub` |
 | `history.dir` | `DirectoryProperty` | `serialkompat/history` | Source-controlled dir of recorded per-version snapshots for the transitive check ([Persisted data & history](history.md#persisted-data-horizon-multi-version-history)) |
 | `history.sinceVersion` | `Property<String>` | unset | Retention: only check against versions `>=` this (semver) |
 | `history.depth` | `Property<Int>` | unset | Retention: only check against the newest N recorded versions (unset or `<= 0` = no limit) |
@@ -38,9 +38,10 @@ The baseline, backward and forward are defined in [Concepts](concepts.md).
 The extension works with the configuration cache.
 
 !!! note "Which tasks use which options"
-    `renames` and `failOnEmptyBaseline` apply only to the pairwise check
+    `failOnEmptyBaseline` applies only to the pairwise check
     (`serialkompatCheck` / `serialkompatCheckAgainst`). The transitive history
-    check (`serialkompatCheckHistory`) ignores both.
+    check (`serialkompatCheckHistory`) ignores it. `renames` applies to both: a
+    rename declared now maps the old name in every recorded version.
 
 ## Discovery modes
 

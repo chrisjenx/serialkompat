@@ -77,9 +77,10 @@ public object SnapshotDiffer {
             val newById = new.contracts.associateBy { it.id }
 
             val activeRenames = activeRenames(renames, old, new, oldById, newById)
+            val refs = referenceRenames(renames, activeRenames, old, new)
             for ((before, after) in activeRenames) {
                 add(Change.ContractMoved(before.qualifiedName, after.qualifiedName, after.kind))
-                addAll(diffContract(before, after, oldCoercibleEnums))
+                addAll(diffContract(before, after, oldCoercibleEnums, refs))
             }
 
             val moved = activeRenames.flatMap { (before, after) -> listOf(before.id, after.id) }.toSet()
@@ -104,7 +105,7 @@ public object SnapshotDiffer {
                     }
 
                     before != null && after != null -> {
-                        addAll(diffContract(before, after, oldCoercibleEnums))
+                        addAll(diffContract(before, after, oldCoercibleEnums, refs))
                     }
                 }
             }
@@ -157,15 +158,19 @@ public object SnapshotDiffer {
     ): List<Pair<Contract, Contract>> {
         val moves = mutableListOf<Pair<Contract, Contract>>()
         val used = mutableSetOf<ContractId>()
-        for ((from, to) in renames.entries.sortedBy { it.key }) {
+        for (from in renames.keys.sorted()) {
             for (before in old.contracts) {
                 if (!namesContract(from, before.serialName, before.base)) continue
                 if (before.id in newById || before.id in used) continue
+                // A chain (A→B in one release, B→C in a later one) is followed to the first name that
+                // is a genuine move target, so a recorded version that still has A pairs with C (#248).
                 val after =
-                    new.contracts.firstOrNull { it.qualifiedName == to && it.base != null }
-                        ?: newById[ContractId(to, before.base)]
-                        ?: continue
-                if (after.id in oldById || after.id in used) continue
+                    renameChain(renames, from).firstNotNullOfOrNull { to ->
+                        (
+                            new.contracts.firstOrNull { it.qualifiedName == to && it.base != null }
+                                ?: newById[ContractId(to, before.base)]
+                        )?.takeIf { it.id !in oldById && it.id !in used }
+                    } ?: continue
                 moves += before to after
                 used += before.id
                 used += after.id
@@ -173,6 +178,66 @@ public object SnapshotDiffer {
         }
         return moves.sortedWith(compareBy(CONTRACT_ORDER) { it.first })
     }
+
+    /** The names [name] is renamed to, in order, following chained entries; stops at a cycle. */
+    private fun renameChain(
+        renames: Map<String, String>,
+        name: String,
+    ): List<String> {
+        val chain = mutableListOf<String>()
+        val seen = mutableSetOf(name)
+        var next = renames[name]
+        while (next != null && seen.add(next)) {
+            chain += next
+            next = renames[next]
+        }
+        return chain
+    }
+
+    /**
+     * How declared renames rewrite the names inside a field's type reference before two fields' types
+     * are compared (#248), so a field that references a renamed type is not misread as a type change.
+     *
+     * - A contract name is rewritten only for an *active* move ([activeRenames]): its contents are
+     *   diffed under the new name, so the reference is checked. A stale rename (both still present)
+     *   rewrites nothing.
+     * - A name that is a contract in neither snapshot — e.g. a custom primitive `KSerializer`'s
+     *   descriptor name, which is only ever a type reference — is rewritten to the end of its rename
+     *   chain. That is the user's explicit, reviewed assertion that the two serialize identically.
+     *
+     * A rename that would turn a contract into a non-contract name (or back) is never followed: that
+     * changes the wire shape. Built-in `kotlin.*` names are fixed by the library and never renamed.
+     */
+    private fun referenceRenames(
+        renames: Map<String, String>,
+        moves: List<Pair<Contract, Contract>>,
+        old: Snapshot,
+        new: Snapshot,
+    ): Map<String, String> {
+        if (renames.isEmpty()) return emptyMap()
+        val contractNames = (old.contracts + new.contracts).mapTo(mutableSetOf()) { it.serialName }
+
+        fun isLeaf(name: String) = name !in contractNames && !name.startsWith(BUILTIN_PREFIX) && '/' !in name
+        val leaves =
+            renames.keys
+                .filter(::isLeaf)
+                .mapNotNull { from -> renameChain(renames, from).lastOrNull()?.takeIf(::isLeaf)?.let { from to it } }
+        val contracts =
+            moves
+                .filter { (before, _) ->
+                    before.base == null
+                }.map { (b, a) -> b.serialName to a.serialName }
+        return (leaves + contracts).toMap()
+    }
+
+    /** [type] with every name in it rewritten by [renames], keeping `List<…>`, `Map<…>` and `?` intact. */
+    private fun canonicalType(
+        type: String,
+        renames: Map<String, String>,
+    ): String = if (renames.isEmpty()) type else TYPE_NAME.replace(type) { renames[it.value] ?: it.value }
+
+    private const val BUILTIN_PREFIX = "kotlin."
+    private val TYPE_NAME = Regex("[^<>,?\\s]+")
 
     /**
      * Pairs baseline and current contracts (#200): by exact `(serialName, base)` identity first;
@@ -344,6 +409,7 @@ public object SnapshotDiffer {
         before: Contract,
         after: Contract,
         oldCoercibleEnums: Set<String>,
+        refs: Map<String, String>,
     ): List<Change> {
         // A baseline coverage gap that is now analysable (a newer extractor, or a code change) is a
         // coverage gain, not a different type: the old wire shape was never seen, so there is nothing
@@ -362,7 +428,7 @@ public object SnapshotDiffer {
             )
         }
         return when (after.kind) {
-            ContractKind.CLASS, ContractKind.OBJECT -> diffElements(after.qualifiedName, before, after)
+            ContractKind.CLASS, ContractKind.OBJECT -> diffElements(after.qualifiedName, before, after, refs)
             ContractKind.ENUM -> diffEnumValues(after.qualifiedName, before, after, oldCoercibleEnums)
             ContractKind.SEALED, ContractKind.POLYMORPHIC -> diffPolymorphic(after.qualifiedName, before, after)
             ContractKind.OPAQUE -> emptyList() // unanalyzable — no internals to diff
@@ -373,6 +439,7 @@ public object SnapshotDiffer {
         contract: String,
         before: Contract,
         after: Contract,
+        refs: Map<String, String>,
     ): List<Change> =
         buildList {
             val oldByName = before.elements.associateBy { it.name }
@@ -406,7 +473,7 @@ public object SnapshotDiffer {
                     }
 
                     old != null && new != null -> {
-                        if (old.type != new.type) {
+                        if (canonicalType(old.type, refs) != canonicalType(new.type, refs)) {
                             add(Change.ElementTypeChanged(contract, name, old.type, new.type))
                         }
                         if (old.optional != new.optional) {

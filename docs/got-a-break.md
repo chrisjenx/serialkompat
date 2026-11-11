@@ -139,11 +139,22 @@ A type rename reads as a removal plus an addition unless you declare it. A prope
 can't be declared: serialkompat doesn't pair a removed property with an added one.
 
 - **A type's serial name changed:** declare it in `renames`. serialkompat then compares the
-  two types' contents instead of reporting `CONTRACT_REMOVED`.
+  two types' contents instead of reporting `CONTRACT_REMOVED`, and a field that references
+  the type isn't reported as `PROPERTY_TYPE_CHANGED`. The history check applies it too, so
+  versions recorded before the move pass. If it moved again later, add the next step
+  (`A`→`B`, then `B`→`C`); the chain is followed.
 
     ```kotlin title="build.gradle.kts"
     --8<-- "docs-samples/snippets/got-a-break-renames.gradle.kts"
     ```
+
+- **A custom serializer's descriptor name changed:** a `KSerializer` for a primitive (for
+  example a time zone written as a string) is only a field type, so a new descriptor name
+  reads as `PROPERTY_TYPE_CHANGED` on every field that uses it. If the encoded value is
+  unchanged, declare the old and new descriptor names in `renames`. That is your statement
+  that the two serialize identically: serialkompat can't check it, because two serializers
+  of the same primitive kind can still use different text. A rename between built-in
+  `kotlin.*` types, or between a class and a primitive, is never followed.
 
 - **A property was renamed (JSON):** `renames` is for types only. Keep the old name readable
   with `@JsonNames`, so new code still decodes old payloads.

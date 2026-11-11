@@ -84,6 +84,7 @@ internal object CheckExecutor {
         exclude: List<String>,
         failOnBreaking: Boolean,
         accepted: List<AcceptedBreak> = emptyList(),
+        renames: Map<String, String> = emptyMap(),
     ): Outcome {
         val current = SnapshotFormat.parse(currentText)
         val report =
@@ -93,6 +94,7 @@ internal object CheckExecutor {
                 profile = CompatibilityProfile(direction = direction),
                 scope = Scope(include = include, exclude = exclude),
                 accepted = accepted,
+                renames = renames,
             )
         val failed = failOnBreaking && report.shouldFail(Severity.BREAK)
         val console =
