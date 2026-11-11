@@ -56,16 +56,27 @@ private fun refExists(
     ref: String,
 ): Boolean = runCatching { git.run("rev-parse", "--verify", "--quiet", "$ref^{commit}") }.isSuccess
 
+private const val ACCEPTED_BREAK_FORMAT = "<type> <RULE> [BACKWARD|FORWARD|FULL [member]]"
+
 /**
  * Parses an accepted-break spec from the `serialkompat { acceptedBreaks }` extension.
- * Format: `"<serialName> <RULE> [DIRECTION]"` — e.g. `"com.example.Order PROPERTY_REMOVED"`
- * or `"com.example.Order PROPERTY_REMOVED FORWARD"`. An omitted direction accepts both.
+ * Format: `"<type> <RULE> [BACKWARD|FORWARD|FULL [member]]"` — e.g. `"com.example.Order PROPERTY_REMOVED"`,
+ * `"com.example.Order PROPERTY_REMOVED FORWARD"` or `"com.example.Order PROPERTY_REMOVED FULL note"`.
+ * An omitted direction (or `FULL`) accepts both. The direction is always the third token, so a member
+ * needs one; the member is the rest of the spec, matched exactly against the name the finding quotes
+ * (#120). Omit it to accept the rule for every member of the type.
  */
 internal fun parseAcceptedBreak(spec: String): AcceptedBreak {
-    val parts = spec.trim().split(Regex("\\s+"))
-    require(parts.size >= 2) {
-        "serialkompat: acceptedBreak '$spec' must be '<serialName> <RULE> [BACKWARD|FORWARD]'"
+    val parts = spec.trim().split(Regex("\\s+"), limit = 4)
+    require(parts.size >= 2 && parts[1].isNotEmpty()) {
+        "serialkompat: acceptedBreak '$spec' must be '$ACCEPTED_BREAK_FORMAT'"
     }
-    val direction = parts.getOrNull(2)?.let { CompatibilityDirection.valueOf(it.uppercase()) }
-    return AcceptedBreak(type = parts[0], rule = parts[1], direction = direction)
+    val direction =
+        parts.getOrNull(2)?.let { token ->
+            requireNotNull(CompatibilityDirection.entries.firstOrNull { it.name == token.uppercase() }) {
+                "serialkompat: acceptedBreak '$spec': '$token' is not a direction. The format is " +
+                    "'$ACCEPTED_BREAK_FORMAT'; a member goes after the direction."
+            }
+        }
+    return AcceptedBreak(type = parts[0], rule = parts[1], direction = direction, member = parts.getOrNull(3))
 }

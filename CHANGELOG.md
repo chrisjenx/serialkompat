@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `acceptedBreaks` entries can name the one member they sanction: `"<serialName> <RULE> [DIRECTION [MEMBER]]"`, e.g. `"com.example.wire.RefundOutcome SUBTYPE_REMOVED BACKWARD FIXED"` or `"com.example.Booking PROPERTY_REMOVED FULL note"`. The member is the field, enum value or subtype the finding quotes, matched exactly. Before this, an entry for `PROPERTY_REMOVED`, `SUBTYPE_REMOVED` or `ENUM_VALUE_ADDED` also waived the same rule for every other member of the type, in both the pairwise and the history check. An entry without a member behaves as before. Public API: `AcceptedBreak` gains `member` (#120).
+
 ### Changed
+- An `acceptedBreaks` entry with more than three tokens used to drop the extra ones silently, leaving an entry that waived the rule for every member. The fourth token is now the member. An unrecognised direction (e.g. a member written where the direction goes) is rejected with the expected format instead of an enum error (#120).
 - Docs: redesigned site — new theme and home page, five-tab structure, new Concepts, Got a BREAK?, Tasks & CLI, Limitations and Troubleshooting pages, every rule documented with its proof, compiled and generated samples, and llms.txt (#234, #235, #236, #237, #241, #242).
 
 ### Fixed
+- An accepted break with direction `FULL` (in `acceptedBreaks` or a hand-built `AcceptedBreak`) now accepts both directions. It used to accept nothing, because a finding is always backward or forward (#120).
 - Two missed breaks under `explicitNulls = false` are now caught. A writer with that setting omits a null instead of writing it, and a reader whose field is required then throws `MissingFieldException`. Making a field nullable while the new writer omits nulls is now a forward `PROPERTY_NULLABILITY` BREAK when the old field has no default. It stays a WARN when the old field has a default, which the old reader takes silently. Toggling `explicitNulls` (`CONFIG_EXPLICIT_NULLS`) is now a BREAK in the direction where the writer omits nulls and the reader (`explicitNulls = true`) has a nullable field with no default: forward when it is disabled, backward when it is enabled. Old readers outside the checked scope count too; new readers outside it don't yet (#238). Otherwise it is still a WARN both ways. Both cases are backed by round-trip oracle tests. Public API: `Change.ElementNullabilityChanged` gains `wasOptional`, and `Change.ConfigChanged` gains `baselineOmittedNullsDecode`/`currentOmittedNullsDecode`. All three default to the conservative value, so a hand-built `ConfigChanged("explicitNulls", …)` without them now classifies as BREAK in the null-omitting direction (it was WARN).
 
 ## [0.3.1] - 2026-10-20

@@ -90,7 +90,8 @@ A [`COVERAGE_GAP`](rules.md#coverage_gap) is not a break to fix in the model. Se
 
 If the break is deliberate, for example every consumer has stopped using a field, add the
 finding to `acceptedBreaks`. It stops failing the build but still appears in the report, so
-the break stays visible. Copy the type, rule and direction from the finding.
+the break stays visible. Copy the type, rule and direction from the finding, and the member
+it quotes.
 
 ```kotlin title="build.gradle.kts"
 --8<-- "docs-samples/snippets/got-a-break-accepted.gradle.kts"
@@ -98,15 +99,26 @@ the break stays visible. Copy the type, rule and direction from the finding.
 
 ### Sanctioning a deliberate break { #sanctioning-a-deliberate-break }
 
-The format is `"<serialName> <RULE> [DIRECTION]"`:
+The format is `"<serialName> <RULE> [DIRECTION [MEMBER]]"`:
 
 - the type's serial name,
 - the exact rule ID (see [Rules](rules.md)),
-- an optional direction. Omit it to accept the finding in every direction you check, or give
-  `BACKWARD` or `FORWARD` to accept it in only one.
+- an optional direction. Omit it (or write `FULL`) to accept the finding in every direction
+  you check, or give `BACKWARD` or `FORWARD` to accept it in only one.
+- an optional member, after the direction: the field, enum value or subtype the finding
+  quotes (`field 'note'`, `value 'PENDING'`, `subtype 'FIXED'`), matched exactly.
 
 An entry only covers findings with that serial name and rule. Every other finding on the
-type, or under that rule elsewhere, still fails. A sealed or polymorphic subtype is reported
+type, or under that rule elsewhere, still fails.
+
+Name the member whenever the finding quotes one. `PROPERTY_REMOVED`, `SUBTYPE_REMOVED` and
+`ENUM_VALUE_ADDED` report the type, not the member, so an entry without a member also
+accepts the next field, subtype or enum value that breaks the same way:
+
+```kotlin
+"com.example.wire.RefundOutcome SUBTYPE_REMOVED BACKWARD FIXED" // removing FIXED only
+"com.example.wire.RefundOutcome SUBTYPE_REMOVED BACKWARD"       // any subtype, now or later
+``` A sealed or polymorphic subtype is reported
 as `Base/sub`. Write `Base/sub` to accept the break under that base only, or the bare `sub`
 to accept it under every base.
 
@@ -141,7 +153,7 @@ can't be declared: serialkompat doesn't pair a removed property with an added on
   The gate still reports the old name as `PROPERTY_REMOVED` and the new one as
   `PROPERTY_ADDED`, because it doesn't pair them. Once you've confirmed the alias covers
   your data, [accept](#accept-it) whichever of those the report fails, for example
-  `"com.example.wire.Order PROPERTY_REMOVED BACKWARD"`.
+  `"com.example.wire.Order PROPERTY_REMOVED BACKWARD note"`.
 
   CBOR has no such bridge: `@JsonNames` is ignored, and a renamed field is a remove plus an
   add. See [CBOR](cbor.md).

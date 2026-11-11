@@ -76,9 +76,11 @@ public abstract class SerialkompatExtension
 
         /**
          * Breaks the team has explicitly sanctioned — each downgraded from failing to
-         * *acknowledged*. Each entry is `"<serialName> <RULE> [DIRECTION]"`, e.g.
-         * `"com.example.Order PROPERTY_REMOVED"` or
-         * `"com.example.Order PROPERTY_REMOVED FORWARD"` (omit the direction to accept both).
+         * *acknowledged*. Each entry is `"<type> <RULE> [BACKWARD|FORWARD|FULL [member]]"`, e.g.
+         * `"com.example.Order PROPERTY_REMOVED"`, `"com.example.Order PROPERTY_REMOVED FORWARD"` or
+         * `"com.example.Order PROPERTY_REMOVED FULL note"`. Omit the direction (or write `FULL`) to
+         * accept both. A member — the field, enum value or subtype the finding quotes — limits the
+         * entry to that one member; without it the entry covers the rule for every member of the type.
          */
         public abstract val acceptedBreaks: ListProperty<String>
 

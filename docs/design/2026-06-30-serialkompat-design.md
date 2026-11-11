@@ -664,6 +664,22 @@ never failing. An unlisted break fails, but the console report does not print a
 ready-to-paste stanza. The review property still holds: the build-script diff is
 the precise breakage the PR sanctions.
 
+**Updated (#120): member scoping.** The format is now
+`"<serialName> <RULE> [DIRECTION [MEMBER]]"`. `PROPERTY_REMOVED`, `SUBTYPE_REMOVED`,
+`ENUM_VALUE_ADDED` and the other per-member rules report the *type* as the contract, so an
+entry without a member also waived every later break of that rule on any other member of
+the type, in both the pairwise and the history check. `MEMBER` limits an entry to the name
+the finding's detail quotes: a field's wire key, an enum value, or a subtype's serial name.
+It is matched exactly against `Change.member()`, an exhaustive internal mapping, so a new
+`Change` must decide whether it has a member. A scoped entry never matches a whole-type
+or config finding; a mistyped member matches nothing and the gate stays failing
+(fail-closed). The direction stays positional, so a member needs one: `FULL` now means
+both directions (it previously parsed but matched nothing, because a finding is always
+one direction). Unrecognised direction tokens are rejected with the format, not dropped.
+Previously any token after the direction was silently ignored, so the scoped spelling
+parsed as an unscoped waiver. An entry without a member keeps the old behaviour.
+Lifecycle (expiry, version scoping, an acceptance file) is still open in #120.
+
 - **`@JsonNames` understood as mitigation** — a rename bridged by an alias is
   auto-downgraded (backward), rewarding the right fix.
 - **Accepted breaks in a committed exceptions file** `serialkompat-exceptions.yaml`,
@@ -799,7 +815,7 @@ serialkompat {
   include.set(listOf(""))                                 // default: everything
   exclude.set(listOf("com.mercury.internal."))
   // Escape hatches:
-  acceptedBreaks.set(listOf("com.mercury.wire.OrderEvent PROPERTY_REMOVED"))  // "<serialName> <RULE> [DIRECTION]"
+  acceptedBreaks.set(listOf("com.mercury.wire.OrderEvent PROPERTY_REMOVED"))  // "<serialName> <RULE> [DIRECTION [MEMBER]]"
   renames.set(mapOf("com.mercury.old.Name" to "com.mercury.new.Name"))        // old → new serial name
   history { dir.set(layout.projectDirectory.dir("serialkompat/history")) }   // + sinceVersion / depth / maxAge (§5)
   reports { sarif { required.set(true) } }                                   // json on, sarif off by default (§7)

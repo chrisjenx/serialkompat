@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * `serialkompatCheckAgainst` lets you compare against an ad-hoc ref without
@@ -118,5 +119,43 @@ class RefResolverTest {
     @Test
     fun `an accepted break spec missing the rule is rejected`() {
         assertFailsWith<IllegalArgumentException> { parseAcceptedBreak("com.example.Order") }
+    }
+
+    @Test
+    fun `an accepted break without a member is unscoped`() {
+        assertNull(parseAcceptedBreak("com.example.Order PROPERTY_REMOVED BACKWARD").member)
+    }
+
+    @Test
+    fun `an accepted break can name the one member it sanctions after the direction`() {
+        val accepted = parseAcceptedBreak("com.example.wire.RefundOutcome SUBTYPE_REMOVED BACKWARD FIXED")
+        assertEquals("com.example.wire.RefundOutcome", accepted.type)
+        assertEquals(CompatibilityDirection.BACKWARD, accepted.direction)
+        assertEquals("FIXED", accepted.member)
+    }
+
+    @Test
+    fun `the member keeps its case`() {
+        assertEquals("noteText", parseAcceptedBreak("Booking PROPERTY_REMOVED forward noteText").member)
+    }
+
+    @Test
+    fun `FULL names both directions so a member can be scoped without pinning one`() {
+        val accepted = parseAcceptedBreak("Booking PROPERTY_TYPE_CHANGED FULL note")
+        assertEquals(CompatibilityDirection.FULL, accepted.direction)
+        assertEquals("note", accepted.member)
+    }
+
+    @Test
+    fun `a member containing whitespace is the rest of the spec`() {
+        assertEquals("my key", parseAcceptedBreak("Booking PROPERTY_REMOVED BACKWARD my key").member)
+    }
+
+    @Test
+    fun `a member in the direction slot is rejected with the expected format`() {
+        val error = assertFailsWith<IllegalArgumentException> { parseAcceptedBreak("Booking PROPERTY_REMOVED note") }
+        val message = error.message.orEmpty()
+        assertTrue("'note'" in message, message)
+        assertTrue("<type> <RULE> [BACKWARD|FORWARD|FULL [member]]" in message, message)
     }
 }

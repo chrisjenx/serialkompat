@@ -9,9 +9,12 @@ package com.chrisjenx.serialkompat.core
  * @property type the affected contract: its qualified name `Base/sub` (exactly that subtype) or
  *   its bare serial name (every contract with that serial name, under any base — #200).
  * @property rule the named rule being accepted (see [Rules]).
- * @property direction the direction accepted, or `null` to accept both.
+ * @property direction the direction accepted; `null` or [CompatibilityDirection.FULL] accepts both.
  * @property reason why the break is acceptable (for the audit trail).
  * @property acceptedBy who signed off.
+ * @property member the one member the break is about, exactly as the finding's detail quotes it: a
+ *   field's wire key, an enum value, or a subtype's serial name (#120). `null` accepts the rule for
+ *   every member of [type]. A scoped entry never matches a finding about the whole type or config.
  */
 public data class AcceptedBreak(
     val type: String,
@@ -19,6 +22,7 @@ public data class AcceptedBreak(
     val direction: CompatibilityDirection? = null,
     val reason: String = "",
     val acceptedBy: String = "",
+    val member: String? = null,
 )
 
 /** The first entry in [accepted] that sanctions this finding, or `null` if none does. */
@@ -26,8 +30,15 @@ public fun Finding.findAcceptedBy(accepted: List<AcceptedBreak>): AcceptedBreak?
     accepted.firstOrNull { break_ ->
         namesFindingContract(break_.type, contract) &&
             break_.rule == rule &&
-            (break_.direction == null || break_.direction == direction)
+            acceptsDirection(break_.direction, direction) &&
+            (break_.member == null || break_.member == change.member())
     }
+
+/** A finding is always one direction, so an accepted `FULL` (or `null`) covers both. */
+private fun acceptsDirection(
+    accepted: CompatibilityDirection?,
+    finding: CompatibilityDirection,
+): Boolean = accepted == null || accepted == CompatibilityDirection.FULL || accepted == finding
 
 /** Whether this finding is sanctioned by any entry in [accepted]. */
 public fun Finding.isAcceptedBy(accepted: List<AcceptedBreak>): Boolean = findAcceptedBy(accepted) != null

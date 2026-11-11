@@ -17,7 +17,7 @@ serialkompat {
     exclude.set(listOf("com.example.wire.internal")) // (8)!
     renames.put("com.example.wire.LegacyOrder", "com.example.wire.OrderEvent") // (9)!
     acceptedBreaks.set(listOf( // (10)!
-        "com.example.wire.Payment PROPERTY_REMOVED BACKWARD",
+        "com.example.wire.Payment PROPERTY_REMOVED BACKWARD legacyRef",
     ))
 }
 // --8<-- [end:config]
