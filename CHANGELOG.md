@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-11
+
 ### Added
 - `acceptedBreaks` entries can name the one member they sanction: `"<serialName> <RULE> [DIRECTION [MEMBER]]"`, e.g. `"com.example.wire.RefundOutcome SUBTYPE_REMOVED BACKWARD FIXED"` or `"com.example.Booking PROPERTY_REMOVED FULL note"`. The member is the field, enum value or subtype the finding quotes, matched exactly. Before this, an entry for `PROPERTY_REMOVED`, `SUBTYPE_REMOVED` or `ENUM_VALUE_ADDED` also waived the same rule for every other member of the type, in both the pairwise and the history check. An entry without a member behaves as before. Public API: `AcceptedBreak` gains `member` (#120).
 
@@ -132,6 +134,9 @@ This is a minor bump: the public API (`Element`, `Contract`, `SnapshotConfig`, n
 - Nullable fields under `explicitNulls=false` (#118). Adding a nullable field without a default is now backward SAFE, because the new reader decodes it as `null`. Removing one is forward WARN, because old readers silently see `null`. The default `explicitNulls=true` is unchanged (BREAK).
 - `SnapshotFormat` rebuilt on a document tree that drives both writing and parsing (#56). Output is byte-identical for every extractor-produced snapshot. Parsing is now stricter: a line that is invalid for its contract's kind is rejected instead of silently mis-read. A `classDiscriminatorMode` containing whitespace now round-trips; list values with whitespace were fixed separately (#146).
 
-[Unreleased]: https://github.com/chrisjenx/serialkompat/compare/v0.2.0...main
+[Unreleased]: https://github.com/chrisjenx/serialkompat/compare/v0.4.0...main
+[0.4.0]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.4.0
+[0.3.1]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.3.1
+[0.3.0]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.3.0
 [0.2.0]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.2.0
 [0.1.0]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.1.0
