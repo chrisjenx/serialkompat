@@ -68,7 +68,7 @@ private const val ACCEPTED_BREAK_FORMAT = "<type> <RULE> [BACKWARD|FORWARD|FULL 
  */
 internal fun parseAcceptedBreak(spec: String): AcceptedBreak {
     val parts = spec.trim().split(Regex("\\s+"), limit = 4)
-    require(parts.size >= 2 && parts[1].isNotEmpty()) {
+    require(parts.size >= 2) {
         "serialkompat: acceptedBreak '$spec' must be '$ACCEPTED_BREAK_FORMAT'"
     }
     val direction =

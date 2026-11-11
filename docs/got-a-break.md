@@ -106,7 +106,8 @@ The format is `"<serialName> <RULE> [DIRECTION [MEMBER]]"`:
 - an optional direction. Omit it (or write `FULL`) to accept the finding in every direction
   you check, or give `BACKWARD` or `FORWARD` to accept it in only one.
 - an optional member, after the direction: the field, enum value or subtype the finding
-  quotes (`field 'note'`, `value 'PENDING'`, `subtype 'FIXED'`), matched exactly.
+  quotes (`field 'note'`, `value 'PENDING'`, `subtype 'FIXED'`), matched exactly. A field is
+  named as the finding quotes it: its `@SerialName`, before any `namingStrategy`.
 
 An entry only covers findings with that serial name and rule. Every other finding on the
 type, or under that rule elsewhere, still fails.
@@ -118,8 +119,9 @@ accepts the next field, subtype or enum value that breaks the same way:
 ```kotlin
 "com.example.wire.RefundOutcome SUBTYPE_REMOVED BACKWARD FIXED" // removing FIXED only
 "com.example.wire.RefundOutcome SUBTYPE_REMOVED BACKWARD"       // any subtype, now or later
-``` A sealed or polymorphic subtype is reported
-as `Base/sub`. Write `Base/sub` to accept the break under that base only, or the bare `sub`
+```
+
+A sealed or polymorphic subtype is reported as `Base/sub`. Write `Base/sub` to accept the break under that base only, or the bare `sub`
 to accept it under every base.
 
 These are **accepted breaks** in these docs. The console report calls them "acknowledged"

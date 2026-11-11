@@ -13,7 +13,8 @@ package com.chrisjenx.serialkompat.core
  * @property reason why the break is acceptable (for the audit trail).
  * @property acceptedBy who signed off.
  * @property member the one member the break is about, exactly as the finding's detail quotes it: a
- *   field's wire key, an enum value, or a subtype's serial name (#120). `null` accepts the rule for
+ *   field's name (post-`@SerialName`, before any `namingStrategy`), an enum value, or a subtype's
+ *   serial name (#120). `null` accepts the rule for
  *   every member of [type]. A scoped entry never matches a finding about the whole type or config.
  */
 public data class AcceptedBreak(
