@@ -120,6 +120,9 @@ public object SchemaExtractionMain {
         val descriptors = mutableListOf<SerialDescriptor>()
         val genericRoots = mutableListOf<SerialDescriptor>()
         val opaque = mutableListOf<Contract>()
+        // Each resolved root's serial name → its Kotlin class name, so scope can match a package
+        // even when the type's @SerialName doesn't start with it (#249).
+        val rootClasses = mutableListOf<Pair<String, String>>()
         for (name in effectiveTypes) {
             val kClass = runCatching { Class.forName(name).kotlin }.getOrNull()
             // Reading @Metadata (typeParameters) can throw on version-skewed classes (target compiled
@@ -160,10 +163,12 @@ public object SchemaExtractionMain {
 
                 generic -> {
                     genericRoots += descriptor
+                    rootClasses += descriptor.serialName to (kClass?.qualifiedName ?: name)
                 }
 
                 else -> {
                     descriptors += descriptor
+                    rootClasses += descriptor.serialName to (kClass?.qualifiedName ?: name)
                 }
             }
         }
@@ -178,7 +183,7 @@ public object SchemaExtractionMain {
 
         val extracted =
             DescriptorSnapshotExtractor.extract(descriptors, module, config, genericRoots)
-        val snapshot = Snapshot(extracted.contracts + opaque, config)
+        val snapshot = Snapshot(withClassNames(extracted.contracts, rootClasses) + opaque, config)
         output.absoluteFile.parentFile?.mkdirs()
         output.writeText(SnapshotFormat.serialize(snapshot))
     }
@@ -220,6 +225,41 @@ public object SchemaExtractionMain {
                 requireNotNull(WireFormat.fromId(id)) { "serialkompat: unknown --format '$id' (json or cbor)" }
             } ?: WireFormat.JSON
         run(types, options["json"], File(output), scanDirs, discovery, format, options["cbor"])
+    }
+
+    /**
+     * [contracts] with [Contract.className] set from [rootClasses] (serial name → Kotlin class name)
+     * on every unqualified contract whose serial name belongs to exactly one root class. A name two
+     * classes share is left unset rather than guessed (#249). A `Base/sub` subtype is never stamped:
+     * a different, non-root class may share its serial name, so it is scoped through its base's
+     * class instead.
+     */
+    private fun withClassNames(
+        contracts: List<Contract>,
+        rootClasses: List<Pair<String, String>>,
+    ): List<Contract> {
+        val unique =
+            rootClasses
+                .groupBy({ it.first }, { it.second })
+                .mapNotNull { (name, classes) -> classes.distinct().singleOrNull()?.let { name to it } }
+                .toMap()
+        return contracts.map { c ->
+            if (c.base != null) return@map c
+            val className = unique[c.serialName] ?: return@map c
+            Contract(
+                serialName = c.serialName,
+                kind = c.kind,
+                elements = c.elements,
+                enumValues = c.enumValues,
+                discriminator = c.discriminator,
+                subtypes = c.subtypes,
+                hasPolymorphicDefault = c.hasPolymorphicDefault,
+                base = c.base,
+                cborArray = c.cborArray,
+                objectTags = c.objectTags,
+                className = className,
+            )
+        }
     }
 
     /**

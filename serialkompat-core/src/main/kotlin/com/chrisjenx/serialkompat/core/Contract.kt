@@ -42,6 +42,12 @@ public class Contract(
     public val cborArray: List<String>? = null,
     /** CBOR: the class's `@ObjectTags`, in order. */
     public val objectTags: List<ULong> = emptyList(),
+    /**
+     * The Kotlin class's qualified name (e.g. `com.example.api.v2.Method.Card`) when the extractor
+     * knows it, else `null`. Not a wire fact and never diffed: it lets [Scope] match a type by its
+     * package when its serial name is a custom or short `@SerialName` (#249).
+     */
+    public val className: String? = null,
 ) {
     /**
      * The contract's display identity: `Base/sub` for a subtype, else the bare [serialName].
@@ -70,7 +76,8 @@ public class Contract(
             hasPolymorphicDefault == other.hasPolymorphicDefault &&
             base == other.base &&
             cborArray == other.cborArray &&
-            objectTags == other.objectTags
+            objectTags == other.objectTags &&
+            className == other.className
     }
 
     override fun hashCode(): Int {
@@ -84,6 +91,7 @@ public class Contract(
         result = 31 * result + (base?.hashCode() ?: 0)
         result = 31 * result + (cborArray?.hashCode() ?: 0)
         result = 31 * result + objectTags.hashCode()
+        result = 31 * result + (className?.hashCode() ?: 0)
         return result
     }
 
@@ -91,7 +99,7 @@ public class Contract(
         "Contract(serialName=$serialName, kind=$kind, elements=$elements, " +
             "enumValues=$enumValues, discriminator=$discriminator, subtypes=$subtypes, " +
             "hasPolymorphicDefault=$hasPolymorphicDefault, base=$base, cborArray=$cborArray, " +
-            "objectTags=$objectTags)"
+            "objectTags=$objectTags, className=$className)"
 }
 
 /** The display form of a `(serialName, base)` identity: `base/serialName`, or the bare name. */

@@ -68,10 +68,16 @@ public abstract class SerialkompatExtension
          */
         public abstract val failOnEmptyBaseline: Property<Boolean>
 
-        /** Serial-name prefixes to include in the check (default: everything). */
+        /**
+         * Serial-name or Kotlin class-name prefixes to include in the check (default: everything).
+         * A class name is known for every discovered or listed type.
+         */
         public abstract val include: ListProperty<String>
 
-        /** Serial-name prefixes to exclude from the check. */
+        /**
+         * Serial-name or Kotlin class-name prefixes to exclude from the check, e.g. a package that
+         * uses custom `@SerialName`s. Applied when checking, so it also covers recorded history.
+         */
         public abstract val exclude: ListProperty<String>
 
         /**

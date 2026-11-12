@@ -804,7 +804,19 @@ Base contracts' `subtypes:` lines and `Element.type` references stay bare.
   accepted-break `type`, and `Scope` include/exclude accept `Base/sub` (exactly
   that contract) or the bare `sub` (every contract with that serial name; a bare
   rename keeps each subtype's base). Scope prefixes match the bare name, the
-  base, or the qualified name. Known limitation: an accepted break matches the
+  base, or the qualified name. **Updated (#249):** they also match the Kotlin class
+  name, recorded per contract as an optional `class=` header key for every unqualified
+  root the extractor resolved (a serial name two root classes share is left unset,
+  never guessed; a `Base/sub` subtype is never stamped, since a different non-root
+  class may share its serial name). A subtype matches through its base's class name.
+  A contract's own `class=` always wins; the other snapshot's class names (qualified
+  `Base/sub` first, a bare name only when one class uses it) only fill in a contract
+  recorded without one, so a version recorded before `class=` existed is scoped like
+  the current one, while a type that really moved packages keeps its own class on each
+  side and a move into an excluded package still surfaces as a removal. Without this, `exclude` by package missed types with
+  custom or short `@SerialName`s and nested sealed hierarchies (`card/visa`). Scope is
+  still applied at check time only: excluded types are recorded, and the unscoped
+  baseline still decides enum coercibility and omitted-null decoding. Known limitation: an accepted break matches the
   bare form as a `/`-suffix of the display name, so a `@SerialName` that itself
   contains `/` can be matched by its trailing segment.
 - **Out of scope:** generic instantiations sharing a serial name (`Page<Item>`
