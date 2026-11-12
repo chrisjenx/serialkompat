@@ -17,8 +17,8 @@ and GitHub Action, see [Installation](installation.md).
 | `direction` | `Property<CompatibilityDirection>` | `FULL` | `BACKWARD`, `FORWARD`, or `FULL` |
 | `failOnBreaking` | `Property<Boolean>` | `true` | A `BREAK` finding fails the build |
 | `failOnEmptyBaseline` | `Property<Boolean>` | `true` | Empty baseline fails the build (prevents silently masking removed types); set `false` for first adoption |
-| `include` | `ListProperty<String>` | `[""]` | Serial-name prefixes in scope (`""` = all). A sealed subtype also matches by its base or by `Base/sub` |
-| `exclude` | `ListProperty<String>` | `[]` | Serial-name prefixes excluded (same matching as `include`) |
+| `include` | `ListProperty<String>` | `[""]` | Serial-name or Kotlin class-name prefixes in scope (`""` = all). A sealed subtype also matches by its base or by `Base/sub` |
+| `exclude` | `ListProperty<String>` | `[]` | Serial-name or Kotlin class-name prefixes excluded (same matching as `include`) |
 | `acceptedBreaks` | `ListProperty<String>` | `[]` | Sanctioned breaks, format `"<serialName> <RULE> [DIRECTION [MEMBER]]"`. A member limits it to one field, enum value or subtype. Name a subtype `Base/sub` (that base only) or bare `sub` (any base) |
 | `renames` | `MapProperty<String,String>` | `{}` | Declared serial-name moves old→new (avoids a remove+add pair reading as a break). Fields that reference the old name follow it too, and chains (`A`→`B`, `B`→`C`) are followed. Keys and values accept `Base/sub` or bare `sub` |
 | `history.dir` | `DirectoryProperty` | `serialkompat/history` | Source-controlled dir of recorded per-version snapshots for the transitive check ([Persisted data & history](history.md#persisted-data-horizon-multi-version-history)) |
@@ -92,11 +92,18 @@ plugins {
    ref, types not on that ref yet), that is almost always a misconfiguration, not
    "everything is compatible". Set `false` only while adopting serialkompat, when
    the baseline ref really predates these types.
-7. Limits the check to serial names that start with this prefix. The default,
-   `[""]` (an empty string), matches everything. A sealed or polymorphic subtype
-   matches by its own serial name, its base's, or the qualified `Base/sub` form.
+7. Limits the check to types whose serial name or Kotlin class name starts with
+   this prefix. The default, `[""]` (an empty string), matches everything. A sealed
+   or polymorphic subtype also matches by its base's serial or class name, or by the
+   qualified `Base/sub` form. The class name is known for every type discovery finds
+   or `types` lists; a type reached only through another type's field matches by
+   serial name.
 8. Prefixes to drop even when they match `include`. `exclude` wins. Use it for
-   intentionally unstable types (internal-only, no cross-version contract).
+   intentionally unstable types (internal-only, no cross-version contract). A
+   package prefix such as `com.example.api.v2` covers that package's types even when
+   their `@SerialName`s don't start with it. Excluded types are still recorded in
+   snapshots and history; they are dropped when checking, so changing `exclude`
+   later also applies to versions recorded before.
 9. Declares that the serial name `LegacyOrder` became `OrderEvent`. serialkompat
    then compares the two types' contents. Without this, the differ sees the old
    type removed (`CONTRACT_REMOVED`, a `BREAK`) and an unrelated new type added.

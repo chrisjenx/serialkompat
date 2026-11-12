@@ -9,6 +9,9 @@ internal object FormatGrammar {
     const val ARROW = " -> "
     const val KEY_KIND = "kind"
     const val KEY_BASE = "base"
+
+    /** The Kotlin class name, when the extractor knew it (#249); absent in older snapshots. */
+    const val KEY_CLASS = "class"
     const val KEY_DISCRIMINATOR = "discriminator"
     const val KEY_POLYMORPHIC_DEFAULT = "polymorphicDefault"
     const val KEY_ENCODE_DEFAULT = "encodeDefault"

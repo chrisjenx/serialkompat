@@ -11,8 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Declared `renames` now clear the whole break, not just the moved type. A field that references a renamed type used to report `PROPERTY_TYPE_CHANGED` (BREAK) both ways, so a correctly declared move still failed. The differ now follows renames into field types, including inside `List`, `Map` and nullable types (#248).
 - `serialkompatCheckHistory` applies `renames`. It ignored them before, so a declared move kept failing against every version recorded before it (#248).
 - Chained renames are followed: with `A`→`B` and `B`→`C`, a version that still has `A` is compared with `C` (#248).
+- `exclude` (and `include`) now match a type's Kotlin class name as well as its serial name. Excluding a package used to miss its types whose `@SerialName` doesn't start with the package, such as `@SerialName("PaymentV2")`, and nested sealed classes (`card/visa`), so their changes still failed the gate. A subtype also matches through its base's class. Versions recorded before this are scoped by the current snapshot's class names, so existing history needs no re-recording. `include` by package can now bring in types it used to skip silently (#249).
 
 ### Added
+- Snapshots record each type's Kotlin class name as an optional `class=` key when the extractor knows it, i.e. for every type discovery finds or `types` lists. Older versions of serialkompat ignore the key. Public API: `Contract` gains `className` (#249).
 - `renames` can name a custom primitive serializer's descriptor name, for example `renames.put("com.example.CachedTimeZone", "kotlinx.datetime.TimeZone")`, when only the name changed and the encoded value didn't. serialkompat can't verify that, because two serializers of the same primitive kind can still write different text, so a rename is required: a same-kind change stays a BREAK. Renames between built-in `kotlin.*` types, or between a class and a primitive, are never followed. Public API: `TransitiveCompatibility.checkAgainstHistory` gains `renames` (#248).
 
 ## [0.4.0] - 2026-11-11

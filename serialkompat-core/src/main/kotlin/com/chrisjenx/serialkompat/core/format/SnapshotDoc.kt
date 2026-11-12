@@ -28,6 +28,8 @@ private fun contractBlock(contract: Contract): Block {
             add(Token.KeyValue(FormatGrammar.KEY_KIND, contract.kind.name))
             // Emitted only for a subtype (#200); a pre-#200 header has no base= and parses to null.
             contract.base?.let { add(Token.KeyValue(FormatGrammar.KEY_BASE, it)) }
+            // Emitted only when known (#249); older readers tolerate the unknown key.
+            contract.className?.let { add(Token.KeyValue(FormatGrammar.KEY_CLASS, it)) }
             contract.discriminator?.let { add(Token.KeyValue(FormatGrammar.KEY_DISCRIMINATOR, it)) }
             // Emitted only when set, so every existing snapshot round-trips
             // unchanged and old readers never see the token (#128).
@@ -212,6 +214,7 @@ private fun contractOf(block: Block): Contract {
         base = kvs[FormatGrammar.KEY_BASE],
         cborArray = lists[FormatGrammar.KEY_CBOR_ARRAY],
         objectTags = lists[FormatGrammar.KEY_OBJECT_TAGS].orEmpty().map(String::toULong),
+        className = kvs[FormatGrammar.KEY_CLASS],
     )
 }
 

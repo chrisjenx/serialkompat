@@ -24,8 +24,11 @@ public object CompatibilityEngine {
         accepted: List<AcceptedBreak> = emptyList(),
         renames: Map<String, String> = emptyMap(),
     ): Report {
-        val baselineInScope = baseline.applyScope(scope).inScope
-        val currentInScope = current.applyScope(scope).inScope
+        // Class names from both sides (current wins), so a baseline recorded before class names were
+        // is scoped by the current snapshot's (#249): the same type is in or out on both sides.
+        val classNames = baseline.classNames() + current.classNames()
+        val baselineInScope = baseline.applyScope(scope, classNames).inScope
+        val currentInScope = current.applyScope(scope, classNames).inScope
         // Enum coercibility is judged over the full baseline: an out-of-scope reader is still on the wire.
         val changes =
             SnapshotDiffer.diff(baselineInScope, currentInScope, renames, enumReaders = baseline, unscopedNew = current)

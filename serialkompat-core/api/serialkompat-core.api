@@ -446,11 +446,12 @@ public final class com/chrisjenx/serialkompat/core/ConsoleReporter {
 }
 
 public final class com/chrisjenx/serialkompat/core/Contract {
-	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Ljava/util/List;Ljava/util/List;)V
-	public synthetic fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Lcom/chrisjenx/serialkompat/core/ContractKind;Ljava/util/List;Ljava/util/List;Ljava/lang/String;Ljava/util/List;ZLjava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBase ()Ljava/lang/String;
 	public final fun getCborArray ()Ljava/util/List;
+	public final fun getClassName ()Ljava/lang/String;
 	public final fun getDiscriminator ()Ljava/lang/String;
 	public final fun getElements ()Ljava/util/List;
 	public final fun getEnumValues ()Ljava/util/List;
