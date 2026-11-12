@@ -261,6 +261,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                         exclude = extension.exclude.get(),
                         failOnBreaking = extension.failOnBreaking.get(),
                         accepted = extension.acceptedBreaks.get().map { parseAcceptedBreak(it) },
+                        renames = extension.renames.get(),
                         sinceVersion = extension.history.sinceVersion.orNull,
                         depth = extension.history.depth.orNull,
                         maxAge = extension.history.maxAge.orNull,
@@ -376,6 +377,7 @@ public class SerialkompatPlugin : Plugin<Project> {
         exclude: List<String>,
         failOnBreaking: Boolean,
         accepted: List<AcceptedBreak>,
+        renames: Map<String, String>,
         sinceVersion: String?,
         depth: Int?,
         maxAge: java.time.Duration?,
@@ -397,6 +399,7 @@ public class SerialkompatPlugin : Plugin<Project> {
                 exclude = exclude,
                 failOnBreaking = failOnBreaking,
                 accepted = accepted,
+                renames = renames,
             )
         logger.lifecycle(outcome.console)
         writeReports(reports, outcome)

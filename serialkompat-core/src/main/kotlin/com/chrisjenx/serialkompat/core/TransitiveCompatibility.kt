@@ -14,7 +14,8 @@ public object TransitiveCompatibility {
     /**
      * Checks [current] against each snapshot in [history] (published versions)
      * under [profile]/[scope], returning the combined [Report]. [accepted] breaks
-     * apply across all versions.
+     * and declared [renames] (old → new serial name) apply across all versions, so a
+     * move declared now maps the old name in any version recorded before it (#248).
      */
     public fun checkAgainstHistory(
         current: Snapshot,
@@ -22,6 +23,7 @@ public object TransitiveCompatibility {
         profile: CompatibilityProfile = CompatibilityProfile(),
         scope: Scope = Scope(),
         accepted: List<AcceptedBreak> = emptyList(),
+        renames: Map<String, String> = emptyMap(),
     ): Report {
         // Aggregate across versions, keeping the *worst-case* severity per finding key:
         // the same change can classify differently against different published configs, so
@@ -29,7 +31,7 @@ public object TransitiveCompatibility {
         val findings =
             history
                 .flatMap { published ->
-                    CompatibilityEngine.check(published, current, profile, scope, accepted).findings
+                    CompatibilityEngine.check(published, current, profile, scope, accepted, renames).findings
                 }.groupBy { listOf(it.rule, it.direction, it.contract, it.detail) }
                 .map { (_, group) -> group.maxBy { it.severity.ordinal } }
         return Report(findings, accepted)

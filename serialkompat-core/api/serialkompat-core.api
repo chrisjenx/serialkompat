@@ -757,8 +757,8 @@ public final class com/chrisjenx/serialkompat/core/Subtype {
 
 public final class com/chrisjenx/serialkompat/core/TransitiveCompatibility {
 	public static final field INSTANCE Lcom/chrisjenx/serialkompat/core/TransitiveCompatibility;
-	public final fun checkAgainstHistory (Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;)Lcom/chrisjenx/serialkompat/core/Report;
-	public static synthetic fun checkAgainstHistory$default (Lcom/chrisjenx/serialkompat/core/TransitiveCompatibility;Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Report;
+	public final fun checkAgainstHistory (Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/Map;)Lcom/chrisjenx/serialkompat/core/Report;
+	public static synthetic fun checkAgainstHistory$default (Lcom/chrisjenx/serialkompat/core/TransitiveCompatibility;Lcom/chrisjenx/serialkompat/core/Snapshot;Ljava/util/List;Lcom/chrisjenx/serialkompat/core/CompatibilityProfile;Lcom/chrisjenx/serialkompat/core/Scope;Ljava/util/List;Ljava/util/Map;ILjava/lang/Object;)Lcom/chrisjenx/serialkompat/core/Report;
 }
 
 public final class com/chrisjenx/serialkompat/core/WireFormat : java/lang/Enum {

@@ -40,12 +40,15 @@ public object SnapshotDiffer {
      * rather than [old]. Coercibility is a fact about every reader on the wire: a required reference
      * from a contract outside the checked scope (e.g. one owned by another module) still throws on an
      * added value, so it must disqualify the coerce-rescued WARN even though that contract isn't checked.
+     * [unscopedNew] is the unscoped current snapshot: with [enumReaders] it decides which names are
+     * contracts at all, so an out-of-scope class is never mistaken for a primitive name (#248).
      */
     internal fun diff(
         old: Snapshot,
         new: Snapshot,
         renames: Map<String, String>,
         enumReaders: Snapshot,
+        unscopedNew: Snapshot = new,
     ): List<Change> =
         buildList {
             // Contracts of different formats are judged by different rules, so comparing them would
@@ -77,9 +80,10 @@ public object SnapshotDiffer {
             val newById = new.contracts.associateBy { it.id }
 
             val activeRenames = activeRenames(renames, old, new, oldById, newById)
+            val refs = referenceRenames(renames, activeRenames, listOf(old, new, enumReaders, unscopedNew))
             for ((before, after) in activeRenames) {
                 add(Change.ContractMoved(before.qualifiedName, after.qualifiedName, after.kind))
-                addAll(diffContract(before, after, oldCoercibleEnums))
+                addAll(diffContract(before, after, oldCoercibleEnums, refs))
             }
 
             val moved = activeRenames.flatMap { (before, after) -> listOf(before.id, after.id) }.toSet()
@@ -104,7 +108,7 @@ public object SnapshotDiffer {
                     }
 
                     before != null && after != null -> {
-                        addAll(diffContract(before, after, oldCoercibleEnums))
+                        addAll(diffContract(before, after, oldCoercibleEnums, refs))
                     }
                 }
             }
@@ -157,22 +161,93 @@ public object SnapshotDiffer {
     ): List<Pair<Contract, Contract>> {
         val moves = mutableListOf<Pair<Contract, Contract>>()
         val used = mutableSetOf<ContractId>()
-        for ((from, to) in renames.entries.sortedBy { it.key }) {
-            for (before in old.contracts) {
-                if (!namesContract(from, before.serialName, before.base)) continue
-                if (before.id in newById || before.id in used) continue
-                val after =
-                    new.contracts.firstOrNull { it.qualifiedName == to && it.base != null }
-                        ?: newById[ContractId(to, before.base)]
-                        ?: continue
-                if (after.id in oldById || after.id in used) continue
-                moves += before to after
-                used += before.id
-                used += after.id
+        // Direct (one-step) renames first, then chains for what is left (A→B in one release, B→C in a
+        // later one, so a recorded version that still has A pairs with C — #248). Direct first keeps a
+        // chain from claiming a target that a still-present intermediate (B) is the real source of.
+        for (chained in listOf(false, true)) {
+            for (from in renames.keys.sorted()) {
+                val targets = if (chained) renameChain(renames, from).drop(1) else listOfNotNull(renames[from])
+                for (before in old.contracts) {
+                    if (!namesContract(from, before.serialName, before.base)) continue
+                    if (before.id in newById || before.id in used) continue
+                    val after =
+                        targets.firstNotNullOfOrNull { to ->
+                            (
+                                new.contracts.firstOrNull { it.qualifiedName == to && it.base != null }
+                                    ?: newById[ContractId(to, before.base)]
+                            )?.takeIf { it.id !in oldById && it.id !in used }
+                        } ?: continue
+                    moves += before to after
+                    used += before.id
+                    used += after.id
+                }
             }
         }
         return moves.sortedWith(compareBy(CONTRACT_ORDER) { it.first })
     }
+
+    /** The names [name] is renamed to, in order, following chained entries; stops at a cycle. */
+    private fun renameChain(
+        renames: Map<String, String>,
+        name: String,
+    ): List<String> {
+        val chain = mutableListOf<String>()
+        val seen = mutableSetOf(name)
+        var next = renames[name]
+        while (next != null && seen.add(next)) {
+            chain += next
+            next = renames[next]
+        }
+        return chain
+    }
+
+    /**
+     * How declared renames rewrite the names inside a field's type reference before two fields' types
+     * are compared (#248), so a field that references a renamed type is not misread as a type change.
+     *
+     * - A contract name is rewritten only for an *active* move ([activeRenames]): its contents are
+     *   diffed under the new name, so the reference is checked. A stale rename (both still present)
+     *   rewrites nothing.
+     * - A name that is a contract in neither snapshot — e.g. a custom primitive `KSerializer`'s
+     *   descriptor name, which is only ever a type reference — is rewritten to the end of its rename
+     *   chain. That is the user's explicit, reviewed assertion that the two serialize identically.
+     *
+     * A rename that would turn a contract into a non-contract name (or back) is never followed: that
+     * changes the wire shape. Built-in `kotlin.*` names are fixed by the library and never renamed.
+     * Contract-ness is judged over every snapshot in [snapshots], including the unscoped ones, so an
+     * out-of-scope class is never taken for a non-contract name; every step of a chain must qualify.
+     */
+    private fun referenceRenames(
+        renames: Map<String, String>,
+        moves: List<Pair<Contract, Contract>>,
+        snapshots: List<Snapshot>,
+    ): Map<String, String> {
+        if (renames.isEmpty()) return emptyMap()
+        val contractNames = snapshots.flatMap { it.contracts }.mapTo(mutableSetOf()) { it.serialName }
+
+        fun isLeaf(name: String) = name !in contractNames && !name.startsWith(BUILTIN_PREFIX) && '/' !in name
+        val leaves =
+            renames.keys
+                .filter(::isLeaf)
+                .mapNotNull { from ->
+                    renameChain(renames, from).takeIf { it.isNotEmpty() && it.all(::isLeaf) }?.let { from to it.last() }
+                }
+        val contracts =
+            moves
+                .filter { (before, _) ->
+                    before.base == null
+                }.map { (b, a) -> b.serialName to a.serialName }
+        return (leaves + contracts).toMap()
+    }
+
+    /** [type] with every name in it rewritten by [renames], keeping `List<…>`, `Map<…>` and `?` intact. */
+    private fun canonicalType(
+        type: String,
+        renames: Map<String, String>,
+    ): String = if (renames.isEmpty()) type else TYPE_NAME.replace(type) { renames[it.value] ?: it.value }
+
+    private const val BUILTIN_PREFIX = "kotlin."
+    private val TYPE_NAME = Regex("[^<>,?\\s]+")
 
     /**
      * Pairs baseline and current contracts (#200): by exact `(serialName, base)` identity first;
@@ -344,6 +419,7 @@ public object SnapshotDiffer {
         before: Contract,
         after: Contract,
         oldCoercibleEnums: Set<String>,
+        refs: Map<String, String>,
     ): List<Change> {
         // A baseline coverage gap that is now analysable (a newer extractor, or a code change) is a
         // coverage gain, not a different type: the old wire shape was never seen, so there is nothing
@@ -362,7 +438,7 @@ public object SnapshotDiffer {
             )
         }
         return when (after.kind) {
-            ContractKind.CLASS, ContractKind.OBJECT -> diffElements(after.qualifiedName, before, after)
+            ContractKind.CLASS, ContractKind.OBJECT -> diffElements(after.qualifiedName, before, after, refs)
             ContractKind.ENUM -> diffEnumValues(after.qualifiedName, before, after, oldCoercibleEnums)
             ContractKind.SEALED, ContractKind.POLYMORPHIC -> diffPolymorphic(after.qualifiedName, before, after)
             ContractKind.OPAQUE -> emptyList() // unanalyzable — no internals to diff
@@ -373,6 +449,7 @@ public object SnapshotDiffer {
         contract: String,
         before: Contract,
         after: Contract,
+        refs: Map<String, String>,
     ): List<Change> =
         buildList {
             val oldByName = before.elements.associateBy { it.name }
@@ -406,7 +483,7 @@ public object SnapshotDiffer {
                     }
 
                     old != null && new != null -> {
-                        if (old.type != new.type) {
+                        if (canonicalType(old.type, refs) != canonicalType(new.type, refs)) {
                             add(Change.ElementTypeChanged(contract, name, old.type, new.type))
                         }
                         if (old.optional != new.optional) {
@@ -481,7 +558,8 @@ public object SnapshotDiffer {
             // An added value is forward-coercible only if every baseline field reading this enum can
             // fall back to a default (recorded per enum); the classifier pairs it with the reader's
             // coerceInputValues setting to decide WARN vs BREAK (#129).
-            val coercible = contract in oldCoercibleEnums
+            // Keyed by the baseline name: a moved enum's baseline readers reference its old name.
+            val coercible = before.qualifiedName in oldCoercibleEnums
             (new - old).sorted().forEach {
                 add(
                     Change.EnumValueAdded(contract, it, baselineFieldsCoercible = coercible),

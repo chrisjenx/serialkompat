@@ -758,6 +758,27 @@ move produces **no finding** (SAFE findings are never emitted), only the diff of
 its contents. An undeclared rename of a contract type surfaces as
 `CONTRACT_REMOVED` (BREAK) for the old name; the new name is a SAFE add.
 
+**Updated (#248): renames reach references, history and chains.** Until #248 a declared
+move paired the contract but every field *referencing* it still differed by type-ref string
+(`com.old.Order` vs `com.new.Order`) and read as `PROPERTY_TYPE_CHANGED` BREAK, so a declared
+plain move still failed the gate. The differ now compares field types after rewriting the
+names inside them (also within `List<…>`, `Map<…>`, `?`):
+
+- a contract name is rewritten only for an **active** move (its contents are diffed under the
+  new name), never for a stale entry whose endpoints both still exist;
+- a name that is a contract in **neither** snapshot — notably a custom primitive
+  `KSerializer`'s descriptor name, which the extractor records only as a type ref — is
+  rewritten to the end of its chain. The snapshot doesn't record a primitive's kind, and two
+  serializers of the same `PrimitiveKind` can still write different text (oracle:
+  `RenamedReferenceOracleTest`), so same-kind is *not* inferred as compatible; the rename is
+  the user's explicit, reviewed assertion;
+- contract ↔ non-contract renames and built-in `kotlin.*` names are never followed (fail closed).
+
+Chains (`A`→`B`, `B`→`C`) are followed for both moves and references, so a recorded version
+that still has `A` pairs with `C`. `serialkompatCheckHistory` now passes `renames` too
+(`TransitiveCompatibility.checkAgainstHistory(renames = …)`); previously it ignored them, so a
+correctly declared move kept failing against every version recorded before it.
+
 **Base-qualified subtype identity (#200).** A subtype's `serialName` only has to
 be unique within its base, so two sealed bases may each have a `created`
 subtype. Contract identity is therefore `(serialName, base?)`: `base` is the

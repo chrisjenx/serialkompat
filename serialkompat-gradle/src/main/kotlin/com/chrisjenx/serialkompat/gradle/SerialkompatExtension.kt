@@ -86,7 +86,10 @@ public abstract class SerialkompatExtension
 
         /**
          * Declared serial-name moves, old → new, so a rename is diffed as a moved
-         * contract (its contents compared) rather than a spurious remove + add.
+         * contract (its contents compared) rather than a spurious remove + add. Fields referencing
+         * the old name follow it, chains (`A`→`B`, `B`→`C`) are followed, and both the pairwise and
+         * history checks apply it. A non-contract name (a custom primitive serializer's descriptor
+         * name) can be renamed too, as an assertion that both serialize identically.
          */
         public abstract val renames: MapProperty<String, String>
 
