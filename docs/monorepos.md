@@ -5,8 +5,8 @@ builds where several modules apply the plugin.
 
 ## Monorepo scoping { #monorepo-scoping }
 
-Restrict each module's check to serial-name prefixes with `include` and `exclude`. Where both
-match, `exclude` wins:
+Restrict each module's check to serial-name or Kotlin class-name (package) prefixes with
+`include` and `exclude`. Where both match, `exclude` wins:
 
 ```kotlin title="modules/orders/build.gradle.kts"
 --8<-- "docs-samples/snippets/monorepos-module.gradle.kts"

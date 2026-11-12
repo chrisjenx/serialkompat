@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
 ### Fixed
 - Declared `renames` now clear the whole break, not just the moved type. A field that references a renamed type used to report `PROPERTY_TYPE_CHANGED` (BREAK) both ways, so a correctly declared move still failed. The differ now follows renames into field types, including inside `List`, `Map` and nullable types (#248).
 - `serialkompatCheckHistory` applies `renames`. It ignored them before, so a declared move kept failing against every version recorded before it (#248).
@@ -144,7 +146,8 @@ This is a minor bump: the public API (`Element`, `Contract`, `SnapshotConfig`, n
 - Nullable fields under `explicitNulls=false` (#118). Adding a nullable field without a default is now backward SAFE, because the new reader decodes it as `null`. Removing one is forward WARN, because old readers silently see `null`. The default `explicitNulls=true` is unchanged (BREAK).
 - `SnapshotFormat` rebuilt on a document tree that drives both writing and parsing (#56). Output is byte-identical for every extractor-produced snapshot. Parsing is now stricter: a line that is invalid for its contract's kind is rejected instead of silently mis-read. A `classDiscriminatorMode` containing whitespace now round-trips; list values with whitespace were fixed separately (#146).
 
-[Unreleased]: https://github.com/chrisjenx/serialkompat/compare/v0.4.0...main
+[Unreleased]: https://github.com/chrisjenx/serialkompat/compare/v0.5.0...main
+[0.5.0]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.5.0
 [0.4.0]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.4.0
 [0.3.1]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.3.1
 [0.3.0]: https://github.com/chrisjenx/serialkompat/releases/tag/v0.3.0
