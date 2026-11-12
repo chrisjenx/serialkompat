@@ -46,7 +46,7 @@ The plugin is on the [Gradle Plugin Portal](https://plugins.gradle.org/plugin/co
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
-    id("com.chrisjenx.serialkompat") version "0.4.0"
+    id("com.chrisjenx.serialkompat") version "0.5.0"
 }
 
 serialkompat {
