@@ -188,6 +188,71 @@ class SnapshotDifferRenameTest {
     }
 
     @Test
+    fun `an out-of-scope class renamed to a primitive name is still a type change`() {
+        // Review of #253: scope removes the excluded class before the differ runs, so it must not
+        // then look like a non-contract name whose rename is the user's assertion.
+        val old =
+            Snapshot(
+                listOf(
+                    clazz("com.app.Order", Element("m", "com.lib.Money")),
+                    clazz("com.lib.Money", Element("cents", "kotlin.Long")),
+                ),
+            )
+        val new = Snapshot(listOf(clazz("com.app.Order", Element("m", "com.lib.MoneyStr"))))
+        val report =
+            CompatibilityEngine.check(
+                old,
+                new,
+                scope = Scope(exclude = listOf("com.lib.")),
+                renames = mapOf("com.lib.Money" to "com.lib.MoneyStr"),
+            )
+        assertTrue(report.findings.any { it.rule == Rules.PROPERTY_TYPE_CHANGED }, report.findings.toString())
+    }
+
+    @Test
+    fun `a chain is not followed through a class or built-in name`() {
+        val old = Snapshot(listOf(clazz("Event", Element("v", "com.example.A")), clazz("com.example.B")))
+        val new = Snapshot(listOf(clazz("Event", Element("v", "com.example.C")), clazz("com.example.B")))
+        val viaClass = mapOf("com.example.A" to "com.example.B", "com.example.B" to "com.example.C")
+        assertEquals(1, typeChanges(diff(old, new, viaClass)).size)
+        val viaBuiltin = mapOf("com.example.A" to "kotlin.String", "kotlin.String" to "com.example.C")
+        assertEquals(1, typeChanges(diff(old, new, viaBuiltin)).size)
+    }
+
+    @Test
+    fun `a direct rename wins over a chain through a type that still exists`() {
+        // A and B are both in the baseline; B became C. A was removed; it is not "A became C".
+        val old = Snapshot(listOf(clazz("A", Element("a", "kotlin.String")), clazz("B", Element("b", "kotlin.String"))))
+        val new = Snapshot(listOf(clazz("C", Element("b", "kotlin.String"))))
+        val changes = diff(old, new, renames = mapOf("A" to "B", "B" to "C"))
+        assertTrue(Change.ContractMoved("B", "C", ContractKind.CLASS) in changes, changes.toString())
+        assertTrue(Change.ContractRemoved("A", ContractKind.CLASS) in changes, changes.toString())
+    }
+
+    @Test
+    fun `a moved enum keeps its coerce rescue for a value added after the move`() {
+        val holder = { enumName: String -> clazz("Holder", Element("tier", enumName, optional = true)) }
+        val old =
+            Snapshot(
+                listOf(holder("com.old.Tier"), Contract("com.old.Tier", ContractKind.ENUM, enumValues = listOf("A"))),
+            )
+        val new =
+            Snapshot(
+                listOf(
+                    holder("com.new.Tier"),
+                    Contract("com.new.Tier", ContractKind.ENUM, enumValues = listOf("A", "B")),
+                ),
+            )
+        val added =
+            diff(
+                old,
+                new,
+                renames = mapOf("com.old.Tier" to "com.new.Tier"),
+            ).filterIsInstance<Change.EnumValueAdded>()
+        assertEquals(listOf(true), added.map { it.baselineFieldsCoercible })
+    }
+
+    @Test
     fun `a moved type still has its contents diffed under the new name`() {
         val changes =
             diff(

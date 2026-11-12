@@ -154,7 +154,9 @@ can't be declared: serialkompat doesn't pair a removed property with an added on
   unchanged, declare the old and new descriptor names in `renames`. That is your statement
   that the two serialize identically: serialkompat can't check it, because two serializers
   of the same primitive kind can still use different text. A rename between built-in
-  `kotlin.*` types, or between a class and a primitive, is never followed.
+  `kotlin.*` types, or between a class and a primitive, is never followed. The rename stays
+  in effect while it's declared, so remove it if either name is later reused for a different
+  serializer.
 
 - **A property was renamed (JSON):** `renames` is for types only. Keep the old name readable
   with `@JsonNames`, so new code still decodes old payloads.
