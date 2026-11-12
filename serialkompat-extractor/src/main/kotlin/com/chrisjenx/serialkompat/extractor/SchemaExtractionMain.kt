@@ -229,8 +229,10 @@ public object SchemaExtractionMain {
 
     /**
      * [contracts] with [Contract.className] set from [rootClasses] (serial name → Kotlin class name)
-     * wherever a serial name belongs to exactly one root class. A name two classes share (e.g. a
-     * `@SerialName` reused across sealed bases) is left unset rather than guessed (#249).
+     * on every unqualified contract whose serial name belongs to exactly one root class. A name two
+     * classes share is left unset rather than guessed (#249). A `Base/sub` subtype is never stamped:
+     * a different, non-root class may share its serial name, so it is scoped through its base's
+     * class instead.
      */
     private fun withClassNames(
         contracts: List<Contract>,
@@ -242,6 +244,7 @@ public object SchemaExtractionMain {
                 .mapNotNull { (name, classes) -> classes.distinct().singleOrNull()?.let { name to it } }
                 .toMap()
         return contracts.map { c ->
+            if (c.base != null) return@map c
             val className = unique[c.serialName] ?: return@map c
             Contract(
                 serialName = c.serialName,

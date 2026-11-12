@@ -42,10 +42,29 @@ object V2 {
     }
 }
 
+object V2Shared {
+    /** A v2 root sharing `@SerialName("created")` with the unrelated v1 subtype [V1.OrderEvent.Created]. */
+    @Serializable
+    @SerialName("created")
+    data class Created(
+        val at: Long,
+    )
+}
+
 object V1 {
     @Serializable
     @SerialName("Refund")
     data class Refund(
         val id: String,
     )
+
+    @Serializable
+    sealed class OrderEvent {
+        /** Not a root of its own: reached only through [OrderEvent]. */
+        @Serializable
+        @SerialName("created")
+        data class Created(
+            val id: String,
+        ) : OrderEvent()
+    }
 }

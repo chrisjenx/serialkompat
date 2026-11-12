@@ -24,11 +24,13 @@ public object CompatibilityEngine {
         accepted: List<AcceptedBreak> = emptyList(),
         renames: Map<String, String> = emptyMap(),
     ): Report {
-        // Class names from both sides (current wins), so a baseline recorded before class names were
-        // is scoped by the current snapshot's (#249): the same type is in or out on both sides.
-        val classNames = baseline.classNames() + current.classNames()
-        val baselineInScope = baseline.applyScope(scope, classNames).inScope
-        val currentInScope = current.applyScope(scope, classNames).inScope
+        // Class names (#249): each side's own win for that side; the other side's only fill in names it
+        // never recorded (a baseline from before class names were). A type that really moved packages
+        // keeps its own class on each side, so a move into an excluded package still surfaces.
+        val baselineClasses = baseline.classNames()
+        val currentClasses = current.classNames()
+        val baselineInScope = baseline.applyScope(scope, currentClasses + baselineClasses).inScope
+        val currentInScope = current.applyScope(scope, baselineClasses + currentClasses).inScope
         // Enum coercibility is judged over the full baseline: an out-of-scope reader is still on the wire.
         val changes =
             SnapshotDiffer.diff(baselineInScope, currentInScope, renames, enumReaders = baseline, unscopedNew = current)

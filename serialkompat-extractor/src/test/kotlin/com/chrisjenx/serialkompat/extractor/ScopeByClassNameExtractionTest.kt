@@ -57,6 +57,26 @@ class ScopeByClassNameExtractionTest {
     }
 
     @Test
+    fun `a root's class name is never stamped on an unrelated subtype sharing its serial name`() {
+        // Review of #254: v2 `Created` and v1 `OrderEvent.Created` both use @SerialName("created").
+        val snapshot =
+            extract(
+                com.chrisjenx.serialkompat.extractor.scopefixtures.V2Shared.Created::class.java,
+                V1.OrderEvent::class.java,
+            )
+        val v1Subtype = snapshot.contracts.single { it.serialName == "created" && it.base != null }
+        assertEquals(null, v1Subtype.className)
+        val excludeShared = Scope(exclude = listOf("com.chrisjenx.serialkompat.extractor.scopefixtures.V2Shared"))
+        assertTrue(
+            v1Subtype.qualifiedName in
+                snapshot
+                    .applyScope(excludeShared)
+                    .inScope.contracts
+                    .map { it.qualifiedName },
+        )
+    }
+
+    @Test
     fun `a nested sealed class and its subtypes are excluded by package`() {
         val snapshot = extract(V2.Method::class.java, V2.Method.Card::class.java, V1.Refund::class.java)
         val coverage = snapshot.applyScope(excludeV2)

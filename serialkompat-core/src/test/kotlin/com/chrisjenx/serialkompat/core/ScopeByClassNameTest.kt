@@ -80,6 +80,17 @@ class ScopeByClassNameTest {
     }
 
     @Test
+    fun `a type that moved into an excluded package still surfaces its removal`() {
+        // Review of #254: the baseline records its own class (v1); the current one's (v2) must not
+        // override it, or both sides drop out of scope and the move hides every change.
+        val baseline =
+            Snapshot(listOf(clazz("Payment", "com.example.api.v1.Payment", Element("amount", "kotlin.Long"))))
+        val current = Snapshot(listOf(clazz("Payment", "$v2.Payment", Element("amount", "kotlin.String"))))
+        val report = CompatibilityEngine.check(baseline, current, scope = excludeV2)
+        assertTrue(report.findings.any { it.rule == Rules.CONTRACT_REMOVED }, report.findings.toString())
+    }
+
+    @Test
     fun `a serial name shared by two classes is told apart by its base, never guessed`() {
         // Two bases reuse @SerialName("created"); only one class is in v2. A recorded version without
         // class names must exclude exactly that one, matched by its qualified Base/sub name.

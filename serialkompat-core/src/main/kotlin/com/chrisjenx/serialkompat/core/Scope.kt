@@ -42,13 +42,13 @@ public data class Scope(
     ): List<String> =
         buildList {
             add(contract.serialName)
-            contract.className?.let(::add)
-            classNames[contract.qualifiedName]?.let(::add)
-            if (contract.base != null) {
-                add(contract.qualifiedName)
-                classNames[contract.base]?.let(::add)
+            // A contract's own recorded class wins; [classNames] only fills in one recorded without.
+            add(contract.className ?: classNames[contract.qualifiedName] ?: return@buildList)
+        }.let { names ->
+            if (contract.base == null) {
+                names
             } else {
-                classNames[contract.serialName]?.let(::add)
+                names + listOfNotNull(contract.qualifiedName, classNames[contract.base])
             }
         }
 }

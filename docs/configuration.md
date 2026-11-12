@@ -97,7 +97,9 @@ plugins {
    or polymorphic subtype also matches by its base's serial or class name, or by the
    qualified `Base/sub` form. The class name is known for every type discovery finds
    or `types` lists; a type reached only through another type's field matches by
-   serial name.
+   serial name, and a sealed subtype matches through its base. A prefix is a plain
+   string prefix, so `com.example.api` also matches `com.example.apiclient`; end it
+   with `.` to mean a package.
 8. Prefixes to drop even when they match `include`. `exclude` wins. Use it for
    intentionally unstable types (internal-only, no cross-version contract). A
    package prefix such as `com.example.api.v2` covers that package's types even when
