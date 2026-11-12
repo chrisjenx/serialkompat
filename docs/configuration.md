@@ -105,7 +105,8 @@ plugins {
    package prefix such as `com.example.api.v2` covers that package's types even when
    their `@SerialName`s don't start with it. Excluded types are still recorded in
    snapshots and history; they are dropped when checking, so changing `exclude`
-   later also applies to versions recorded before.
+   later also applies to versions recorded before. A version recorded before
+   serialkompat stored class names is scoped by the current class names.
 9. Declares that the serial name `LegacyOrder` became `OrderEvent`. serialkompat
    then compares the two types' contents. Without this, the differ sees the old
    type removed (`CONTRACT_REMOVED`, a `BREAK`) and an unrelated new type added.
